@@ -13,8 +13,13 @@ import os
 import re
 import sys
 import time
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
+    tomllib = None
 
 HOME = os.path.expanduser("~")
+IS_CODEX = any(os.environ.get(k) for k in ("CODEX_THREAD_ID", "CODEX_SESSION_ID", "CODEX_CI", "CODEX_SANDBOX"))
 PATTERNS = [
     # Claude Code user/plugin scopes.
     os.path.join(HOME, ".claude/skills/*/SKILL.md"),
@@ -37,14 +42,65 @@ NAME_RE = re.compile(r'^name:\s*["\']?(.+?)["\']?\s*$', re.M)
 DESC_RE = re.compile(r'^description:\s*["\']?(.+?)["\']?\s*$', re.M)
 
 
+def disabled_codex_plugins() -> set[str]:
+    """Return explicit disabled Codex plugin ids like superpowers@marketplace."""
+    if tomllib is None:
+        return set()
+
+    config_path = os.path.join(HOME, ".codex/config.toml")
+    try:
+        with open(config_path, "rb") as f:
+            config = tomllib.load(f)
+    except OSError:
+        return set()
+
+    disabled: set[str] = set()
+    for key, value in config.get("plugins", {}).items():
+        if isinstance(value, dict) and value.get("enabled") is False:
+            disabled.add(key)
+    return disabled
+
+
+def codex_plugin_id(path: str) -> str:
+    """Map cache/temp skill paths back to plugin@marketplace ids."""
+    abs_path = os.path.abspath(path)
+
+    cache_roots = [os.path.join(HOME, ".codex/plugins/cache")]
+    if IS_CODEX:
+        cache_roots.append(os.path.join(HOME, ".claude/plugins/cache"))
+    for cache_root in cache_roots:
+        cache_prefix = cache_root + os.sep
+        if abs_path.startswith(cache_prefix):
+            rel = abs_path[len(cache_prefix):].split(os.sep)
+            if len(rel) >= 2:
+                marketplace, plugin = rel[0], rel[1]
+                return f"{plugin}@{marketplace}"
+
+    tmp_roots = [os.path.join(HOME, ".codex/.tmp/marketplaces")]
+    if IS_CODEX:
+        tmp_roots.append(os.path.join(HOME, ".claude/plugins/marketplaces"))
+    for tmp_root in tmp_roots:
+        tmp_prefix = tmp_root + os.sep
+        if abs_path.startswith(tmp_prefix):
+            rel = abs_path[len(tmp_prefix):].split(os.sep)
+            if len(rel) >= 3 and rel[1] == "plugins":
+                marketplace, plugin = rel[0], rel[2]
+                return f"{plugin}@{marketplace}"
+
+    return ""
+
+
 def discover() -> list[str]:
     skills: list[str] = []
     seen: set[str] = set()
+    disabled_plugins = disabled_codex_plugins()
     for pat in PATTERNS:
         for path in glob.glob(pat):
             if path in seen:
                 continue
             seen.add(path)
+            if codex_plugin_id(path) in disabled_plugins:
+                continue
             try:
                 with open(path) as f:
                     head = f.read(600)
