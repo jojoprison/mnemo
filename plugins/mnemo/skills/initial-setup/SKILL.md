@@ -15,7 +15,7 @@ First-time setup for mnemo. Creates config.json with all settings.
 ### Step 1: Welcome
 
 ```
-🧠 Welcome to mnemo — persistent memory for Claude Code.
+🧠 Welcome to mnemo — persistent memory for Codex and Claude Code.
 
 Let's set up your configuration. This takes about 30 seconds.
 ```
@@ -79,7 +79,13 @@ Write `~/.mnemo/config.json`:
     "inbox": { "prefix": "Inbox — ", "tag": "inbox" }
   },
   "links_section": "## Связи",
-  "handoff_note": "Meta — Session Handoff"
+  "handoff_note": "Meta — Session Handoff",
+  "cascade": {
+    "obsidian": { "enabled": true },
+    "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
+    "memory_dir": { "enabled": true },
+    "claude_md": { "enabled": false }
+  }
 }
 ```
 

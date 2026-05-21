@@ -23,11 +23,11 @@ You are performing a thorough end-of-session review. Analyze everything: what wa
 
 ### Tools & Skills Used This Session
 
-!`CLAUDE_SESSION_ID='${CLAUDE_SESSION_ID}' bash -c 'for p in "${CLAUDE_PLUGIN_ROOT}/scripts/session-scan.py" "${CLAUDE_PLUGIN_ROOT}/plugins/mnemo/scripts/session-scan.py" "$HOME/.claude/plugins/cache/jojoprison/claude-mnemo/"*"/plugins/mnemo/scripts/session-scan.py" "./plugins/mnemo/scripts/session-scan.py"; do [ -f "$p" ] && exec python3 "$p"; done; echo "SESSION_ID: script unavailable"'`
+!`CLAUDE_SESSION_ID='${CLAUDE_SESSION_ID}' CODEX_SESSION_ID='${CODEX_SESSION_ID}' bash -c 'for p in "${CLAUDE_PLUGIN_ROOT}/scripts/session-scan.py" "${CLAUDE_PLUGIN_ROOT}/plugins/mnemo/scripts/session-scan.py" "$HOME/.claude/plugins/cache/jojoprison/mnemo/"*"/plugins/mnemo/scripts/session-scan.py" "$HOME/.claude/plugins/cache/jojoprison/claude-mnemo/"*"/plugins/mnemo/scripts/session-scan.py" "$HOME/.codex/plugins/cache/mnemo/mnemo/"*"/scripts/session-scan.py" "$HOME/.codex/plugins/cache/claude-mnemo/mnemo/"*"/scripts/session-scan.py" "./plugins/mnemo/scripts/session-scan.py"; do [ -f "$p" ] && exec python3 "$p"; done; echo "SESSION_ID: script unavailable"'`
 
 ### All Available Skills (Auto-Discovered)
 
-!`bash -c 'for p in "${CLAUDE_PLUGIN_ROOT}/scripts/skills-discover.py" "${CLAUDE_PLUGIN_ROOT}/plugins/mnemo/scripts/skills-discover.py" "$HOME/.claude/plugins/cache/jojoprison/claude-mnemo/"*"/plugins/mnemo/scripts/skills-discover.py" "./plugins/mnemo/scripts/skills-discover.py"; do [ -f "$p" ] && exec python3 "$p"; done; echo "TOTAL_SKILLS: discover unavailable"'`
+!`bash -c 'for p in "${CLAUDE_PLUGIN_ROOT}/scripts/skills-discover.py" "${CLAUDE_PLUGIN_ROOT}/plugins/mnemo/scripts/skills-discover.py" "$HOME/.claude/plugins/cache/jojoprison/mnemo/"*"/plugins/mnemo/scripts/skills-discover.py" "$HOME/.claude/plugins/cache/jojoprison/claude-mnemo/"*"/plugins/mnemo/scripts/skills-discover.py" "$HOME/.codex/plugins/cache/mnemo/mnemo/"*"/scripts/skills-discover.py" "$HOME/.codex/plugins/cache/claude-mnemo/mnemo/"*"/scripts/skills-discover.py" "./plugins/mnemo/scripts/skills-discover.py"; do [ -f "$p" ] && exec python3 "$p"; done; echo "TOTAL_SKILLS: discover unavailable"'`
 
 $ARGUMENTS
 

@@ -1,4 +1,4 @@
-# Contributing to claude-mnemo
+# Contributing to mnemo
 
 ## Adding a New Skill
 
@@ -23,7 +23,7 @@ model: opus      # or omit for default
 
 4. Config fields: use `{vault}`, `{links_section}`, `{taxonomy.*}` placeholders — never hardcode values.
 
-5. Update README.md with the new skill in both English and Russian sections.
+5. Update README.md with the new skill in English, Russian, and Codex installation sections.
 
 6. Open a PR.
 

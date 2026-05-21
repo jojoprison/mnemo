@@ -67,7 +67,7 @@ Options:
 ```
 ## Session Review
 
-Project: claude-mnemo
+Project: mnemo
 Branch: main
 Type: Implementation
 Task: Plugin refactoring — naming, review rewrite

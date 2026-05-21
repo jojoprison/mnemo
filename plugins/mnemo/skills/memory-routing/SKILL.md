@@ -1,6 +1,6 @@
 ---
 name: memory-routing
-description: "Use whenever the user says 'remember this', 'save to memory', 'запомни', 'в память', 'сохрани', 'в мнемо', solved a bug worth remembering, made a non-obvious decision, or learned a gotcha. Routes each item to the right combination of Obsidian + claude-mem + memory/ + CLAUDE.md with graceful degradation if a backend is unavailable."
+description: "Use whenever the user says 'remember this', 'save to memory', 'запомни', 'в память', 'сохрани', 'в мнемо', solved a bug worth remembering, made a non-obvious decision, or learned a gotcha. Routes each item to Obsidian + optional claude-mem + memory/ + CLAUDE.md with graceful degradation if a backend is unavailable."
 user-invocable: false
 model: inherit
 ---
@@ -21,11 +21,11 @@ Determine what type of information is being saved:
 
 | Type | Goes to | Example |
 |------|---------|---------|
-| **fact** | Obsidian Atom + claude-mem | "Heroku standard-0 has 25 auto-backups" |
-| **insight** | Obsidian Molecule + claude-mem | "CLI-first is 70,000x cheaper because of token savings" |
-| **decision** | Obsidian Atom + claude-mem + memory/ | "We chose SCOPE over TextGrad for self-correction" |
+| **fact** | Obsidian Atom + optional claude-mem | "Heroku standard-0 has 25 auto-backups" |
+| **insight** | Obsidian Molecule + optional claude-mem | "CLI-first is 70,000x cheaper because of token savings" |
+| **decision** | Obsidian Atom + optional claude-mem + memory/ | "We chose SCOPE over TextGrad for self-correction" |
 | **gotcha** | Obsidian Atom + memory/ + possibly CLAUDE.md | "execSync with shell=true is banned in antomate" |
-| **source** | Obsidian Source + claude-mem | External article, tool, research finding |
+| **source** | Obsidian Source + optional claude-mem | External article, tool, research finding |
 | **rule** | CLAUDE.md (if error-preventing) + memory/ | "Never mark Gmail as read without explicit request" |
 | **quick thought** | Create Obsidian inbox note | Unstructured ideas |
 
@@ -82,9 +82,9 @@ obsidian append file="{MOC}" vault="{vault}" content="- [[{note name}]]"
 
 **On error:** Log `⚠️ Obsidian: skipped (not connected)`, continue to next backend.
 
-### Step 2: claude-mem (Semantic Search — cross-session recall)
+### Step 2: claude-mem (Optional Semantic Search — cross-session recall)
 
-**Skip if:** `cascade.claude_mem.enabled` is false
+**Skip if:** `cascade.claude_mem.enabled` is false. This is the default in new installs because many users intentionally disable claude-mem for CPU/RAM reasons.
 
 Auto-detect the installed claude-mem version so observations carry provenance (useful when filtering pre-v12 data from post-v12 data):
 
@@ -119,17 +119,21 @@ curl -s -X POST http://{claude_mem_url}/api/memory/save \
 
 **Why `claude_mem_version`:** v11.0.1 disabled semantic-inject by default, v12.0.0 introduced the file-read gate. Tagging observations by version lets retrieval logic filter legacy entries when needed.
 
-**On error:** Log `⚠️ claude-mem: skipped (port {port} not responding)`, continue.
+**On error:** Log `⚠️ claude-mem: skipped (port {port} not responding)`, continue. Do not start ChromaDB or the claude-mem worker automatically.
 
 ### Step 3: memory/ (For Claude — error prevention)
 
 **Skip if:** `cascade.memory_dir.enabled` is false
 
-Only write here if the information **prevents Claude from making errors** in future sessions:
+Only write here if the information **prevents the coding agent from making errors** in future sessions:
 - Gotchas, commands, conventions
 - NOT business context (that's Obsidian's job)
 
-**Path resolution:** memory/ is Claude Code's auto-memory directory at `~/.claude/projects/-{slugified-cwd}/memory/`, **not** `./memory/` in the project root. Find the correct path by reading the `MEMORY.md` already loaded in your conversation context — its path shows the right slug. Use `~/.claude/memory/` only for cross-project info. See `references/gotchas.md` for why this matters.
+**Path resolution:**
+- Claude Code: `~/.claude/projects/-{slugified-cwd}/memory/`, **not** `./memory/` in the project root.
+- Codex: `~/.codex/memories/`.
+
+Find the correct Claude path by reading the `MEMORY.md` already loaded in the conversation context when available. Use `~/.claude/memory/` only for cross-project Claude rules. See `references/gotchas.md` for why this matters.
 
 **On error:** Log `⚠️ memory/: skipped (directory not found)`, continue.
 
@@ -154,7 +158,7 @@ Type: {atom/molecule/source/decision/gotcha}
 
 Backends:
   1. Obsidian  ✅ → "Atom — {title}" in MOC — {name}
-  2. claude-mem ✅ → semantic search indexed
+  2. claude-mem ⏭  skipped (disabled)
   3. memory/   ⏭  skipped (not error-preventing)
   4. CLAUDE.md ⏭  skipped (not critical rule)
 ```
@@ -165,7 +169,7 @@ Or with failures:
 💾 Memory saved (partial):
 
   1. Obsidian  ⚠️ skipped (not connected — restart Obsidian)
-  2. claude-mem ✅ → indexed
+  2. claude-mem ⏭  skipped (disabled)
   3. memory/   ✅ → ~/.claude/memory/topic.md updated
 
 ⚠️ Run /mnemo:save again after restarting Obsidian to complete sync.
@@ -175,10 +179,10 @@ Or with failures:
 
 | Information type | Obsidian | claude-mem | memory/ | CLAUDE.md |
 |-----------------|----------|-----------|---------|-----------|
-| Fact (atomic) | ✅ Atom | ✅ | ❌ | ❌ |
-| Insight (synthesized) | ✅ Molecule | ✅ | ❌ | ❌ |
-| External source | ✅ Source | ✅ | ❌ | ❌ |
-| Decision | ✅ Atom | ✅ | ✅ if prevents errors | ❌ |
+| Fact (atomic) | ✅ Atom | Optional | ❌ | ❌ |
+| Insight (synthesized) | ✅ Molecule | Optional | ❌ | ❌ |
+| External source | ✅ Source | Optional | ❌ | ❌ |
+| Decision | ✅ Atom | Optional | ✅ if prevents errors | ❌ |
 | Gotcha | ✅ Atom | ✅ | ✅ | ✅ if critical |
 | Command/convention | ✅ Atom | ✅ | ✅ | ❌ |
 | Error-preventing rule | ❌ | ❌ | ✅ | ✅ |
@@ -188,7 +192,7 @@ Or with failures:
 
 Common failures in `references/gotchas.md`. Tool-routing rationale in `references/tool-routing.md`. Skill-specific rules:
 
-- **Graceful degradation is the point** — never fail completely. If Obsidian IPC is hung, skip it and save to claude-mem + memory/. The user can retry when Obsidian recovers.
+- **Graceful degradation is the point** — never fail completely. If Obsidian IPC is hung, skip it and save to enabled fallback backends. The user can retry when Obsidian recovers.
 - **Don't duplicate Obsidian content in memory/** — different audiences. Obsidian is for the user (cite-able, searchable in vault); memory/ is for Claude (error prevention across sessions).
 - **claude-mem is optional** — many users won't have it running on :37777. Skip silently, don't warn.
 - **CLAUDE.md is almost never written to** — only 1-2 line rules that prevent actual errors. Target: <120 lines total to preserve prompt budget.

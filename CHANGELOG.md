@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.8.0] - 2026-05-21
+
+### Added — Codex support without breaking Claude Code
+
+- Added native Codex plugin metadata: `.agents/plugins/marketplace.json` and `plugins/mnemo/.codex-plugin/plugin.json`.
+- Added `AGENTS.md` with Codex-facing project rules and compatibility constraints.
+- Added `docs/codex.md` with install, invocation, runtime differences, and verification.
+- Extended `skills-discover.py` to scan Codex skill/plugin paths alongside existing Claude Code paths.
+- Extended `session-scan.py` to parse Codex rollout JSONL from `~/.codex/sessions/**/*.jsonl` while preserving Claude Code JSONL parsing.
+
+### Changed — project renamed to `mnemo`
+
+- Public branding, manifests, and docs now use `mnemo` and `https://github.com/jojoprison/mnemo`.
+- Legacy `jojoprison/claude-mnemo` install/cache paths remain documented as compatibility fallbacks so existing Claude Code installs keep working through repository redirects.
+
+### Changed — claude-mem is optional by default
+
+- New config examples default `cascade.claude_mem.enabled` to `false`.
+- Skills now treat disabled claude-mem as a normal state, not a repair target. mnemo will not start ChromaDB or the claude-mem worker automatically.
+
+### Tooling
+
+- `scripts/lint-skills.py` now validates Claude and Codex plugin manifests plus marketplace files, not only `SKILL.md`.
+
 ## [0.7.4] - 2026-04-24
 
 ### Fixed — `/mn:save` POST body matches claude-mem v12.3.9 API
@@ -13,7 +37,7 @@ All notable changes to this project will be documented in this file.
 
 ### Documented — v12.3.9 drops custom `metadata.*` fields silently
 
-During the same smoke test we discovered that v12.3.9 accepts the `metadata: {...}` block on the save endpoint and returns `success: true`, but then **does not persist** the custom keys. Stored observation #65272 came back as `text: null, facts: [], concepts: [], project: "claude-mem"` — our `obsidian_note`, `obsidian_vault`, `claude_mem_version`, and `project: "claude-mnemo"` were dropped without error. The `project` column is forced to the calling plugin's project (`claude-mem`) rather than `metadata.project`.
+During the same smoke test we discovered that v12.3.9 accepts the `metadata: {...}` block on the save endpoint and returns `success: true`, but then **does not persist** the custom keys. Stored observation #65272 came back as `text: null, facts: [], concepts: [], project: "claude-mem"` — our `obsidian_note`, `obsidian_vault`, `claude_mem_version`, and `project: "mnemo"` were dropped without error. The `project` column is forced to the calling plugin's project (`claude-mem`) rather than `metadata.project`.
 
 Until upstream (`thedotmack/claude-mem`) restores custom metadata persistence:
 

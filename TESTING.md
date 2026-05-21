@@ -1,6 +1,6 @@
-# Testing — claude-mnemo v0.7.4 smoke test
+# Testing — mnemo v0.8.0 smoke test
 
-Smoke tests for the v0.7.x line. Run once after `/plugin update mnemo` to verify all 8 skills behave as intended after the v0.6.0 → v0.7.4 refactor arc.
+Smoke tests for the v0.8.x line. Run once after `/plugin update mnemo` or `codex plugin install mnemo@mnemo` to verify all 8 skills behave as intended after the v0.6.0 → v0.8.0 refactor arc.
 
 ## Status — v0.7.3 passed 7/7 on 2026-04-24
 
@@ -21,16 +21,16 @@ Model routing was rewritten to prevent mid-session model switches from triggerin
 ## Prerequisites
 
 - **Obsidian running**, vault `main` (or whatever is in `~/.mnemo/config.json`)
-- **Plugin updated to v0.7.4** in the current session:
+- **Plugin updated to v0.8.0** in the current session:
   ```
   /plugin update mnemo
   ```
   Verify:
   ```bash
-  ls ~/.claude/plugins/cache/claude-mnemo/mnemo/
-  # expected: 0.7.4 (older 0.7.x dirs can be deleted once confirmed working)
+  ls ~/.claude/plugins/cache/mnemo/mnemo/ ~/.claude/plugins/cache/claude-mnemo/mnemo/ 2>/dev/null
+  # expected: 0.8.0 (older 0.7.x dirs can be deleted once confirmed working)
   ```
-- **claude-mem plugin installed** (for Step 0 of `/mn:health` — the sanity check)
+- **claude-mem plugin optional**. If `cascade.claude_mem.enabled=false`, `/mn:health` Step 0 and `/mn:save` claude-mem POST should skip silently.
 
 ## Test plan — 7 checks, ~10 minutes total
 
@@ -41,7 +41,7 @@ Model routing was rewritten to prevent mid-session model switches from triggerin
 ```
 
 **Expect:**
-- **Step 0 surfaces claude-mem state** — either "claude-mem v12.3.9, clean" (good) or a warning about stale cache / major-version skew.
+- **Step 0 respects claude-mem config** — if `cascade.claude_mem.enabled=false`, it skips silently; if enabled, it surfaces version/stale-cache state.
 - **Steps 1-4 execute in parallel** (you'll see 4 Bash tool calls in a single assistant message).
 - **Step 5 is instant** (~50ms) — uses `grep -rL` against vault filesystem, not per-file `obsidian read`.
 - Final report shows: vault size, note counts by type, orphans, missing `## Связи`, stale notes, top hubs.
@@ -84,7 +84,7 @@ Try a recall-style query you know is in your vault:
 ### 4. `/mn:save` — claude-mem metadata enrichment
 
 ```
-/mn:save "Тестовая заметка: smoke test mnemo v0.7.4. Facade ping."
+/mn:save "Тестовая заметка: smoke test mnemo v0.8.0. Facade ping."
 ```
 
 **Expect:**
@@ -144,14 +144,25 @@ Try saying **"применить все"** / **"accept all"** when prompted.
 
 **Red flag:** handoff gets overwritten → idempotency fix didn't land.
 
+## Codex smoke check
+
+After installing through Codex:
+
+```bash
+python3 plugins/mnemo/scripts/session-scan.py
+python3 plugins/mnemo/scripts/skills-discover.py | tail -5
+```
+
+Expected: both commands exit 0. `session-scan.py` should find the current Codex rollout JSONL when run inside an active Codex session, or print a graceful fallback if none exists.
+
 ## CI verification (Optional — in browser)
 
-Open <https://github.com/jojoprison/claude-mnemo/actions>. Last run (on commit `5ddfb0c`) should show **Skill lint ✅ passed** on `plugins/**` files. No workflow should be red.
+Open <https://github.com/jojoprison/mnemo/actions>. Last run should show **Skill lint passed** on `plugins/**` files. No workflow should be red.
 
 ## If something breaks
 
 1. Note **which skill** and **what output differed** from "Expect" above.
-2. Check cache: `ls ~/.claude/plugins/cache/claude-mnemo/mnemo/` — if only `0.6.1` is there, the update didn't take effect. Try `/plugin update mnemo` again or restart Claude Code.
+2. Check cache: `ls ~/.claude/plugins/cache/mnemo/mnemo/ ~/.claude/plugins/cache/claude-mnemo/mnemo/ 2>/dev/null` — if only `0.6.1` is there, the update didn't take effect. Try `/plugin update mnemo` again or restart Claude Code.
 3. Check CI: if GitHub Actions is red, the linter found an issue.
 4. Open a fresh session with the same failure, tag Claude: "smoke test failed on `/mn:X`, expected Y, got Z" — we'll debug from there.
 

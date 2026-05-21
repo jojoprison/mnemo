@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Auto-discover installed skills across ~/.claude and current project.
+"""Auto-discover installed skills across Claude Code, Codex, and this project.
 
 Used by session-review to build the "don't hallucinate skills" allowlist.
 Cached to /tmp/mnemo-skills-discover-{cwd_hash}.txt for 300s — skill inventory
@@ -16,10 +16,19 @@ import time
 
 HOME = os.path.expanduser("~")
 PATTERNS = [
+    # Claude Code user/plugin scopes.
     os.path.join(HOME, ".claude/skills/*/SKILL.md"),
     os.path.join(HOME, ".claude/plugins/*/skills/*/SKILL.md"),
     os.path.join(HOME, ".claude/plugins/cache/*/*/*/skills/*/SKILL.md"),
     os.path.join(HOME, ".claude/plugins/marketplaces/*/plugins/*/skills/*/SKILL.md"),
+    # Codex documented scopes.
+    ".agents/skills/*/SKILL.md",
+    os.path.join(HOME, ".agents/skills/*/SKILL.md"),
+    "/etc/codex/skills/*/SKILL.md",
+    # Codex plugin/cache compatibility scopes used by current Codex builds.
+    os.path.join(HOME, ".codex/skills/*/SKILL.md"),
+    os.path.join(HOME, ".codex/plugins/cache/*/*/*/skills/*/SKILL.md"),
+    os.path.join(HOME, ".codex/.tmp/marketplaces/*/plugins/*/skills/*/SKILL.md"),
     ".claude/skills/*/SKILL.md",
     "plugins/*/skills/*/SKILL.md",
 ]
@@ -57,6 +66,8 @@ def discover() -> list[str]:
                     plugin = parts[idx + 3]
                 else:
                     plugin = candidate
+            elif ".agents" in parts or ".codex" in parts:
+                plugin = "user"
 
             qualified = f"{plugin}:{name}" if plugin else name
             if qualified not in seen:

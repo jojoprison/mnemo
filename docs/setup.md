@@ -70,7 +70,7 @@ Add `cascade` to config for multi-backend saves via `/mn:save`:
 {
   "cascade": {
     "obsidian": { "enabled": true },
-    "claude_mem": { "enabled": true, "url": "http://127.0.0.1:37777" },
+    "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
     "memory_dir": { "enabled": true }
   }
 }

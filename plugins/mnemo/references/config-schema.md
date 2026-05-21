@@ -40,7 +40,7 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
 
   "cascade": {
     "obsidian":   { "enabled": true },
-    "claude_mem": { "enabled": true, "url": "http://127.0.0.1:37777" },
+    "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
     "memory_dir": { "enabled": true },
     "claude_md":  { "enabled": false }
   }
@@ -57,14 +57,14 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
 | `links_section` | Heading used for cross-references (`## Связи` / `## Links`) | All skills |
 | `handoff_note` | Cross-session continuity file name | session, setup |
 | `cascade.obsidian.enabled` | Skip Obsidian writes if false | memory-routing |
-| `cascade.claude_mem.enabled` | Skip claude-mem POST if false | memory-routing |
+| `cascade.claude_mem.enabled` | Enable optional claude-mem POSTs; keep false if claude-mem is disabled for CPU/RAM reasons | memory-routing |
 | `cascade.claude_mem.url` | claude-mem worker URL (default port 37777) | memory-routing |
 | `cascade.memory_dir.enabled` | Skip memory/ writes if false | memory-routing |
 | `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md (default false) | memory-routing |
 
 ## Defaults when fields are missing
 
-If the whole `cascade` section is absent, defaults are: obsidian=true, claude_mem=true, memory_dir=true, claude_md=false.
+If the whole `cascade` section is absent, defaults are: obsidian=true, claude_mem=false, memory_dir=true, claude_md=false.
 
 If `vault` or `taxonomy` is missing, the skill that needs them asks the user and offers to run `/mnemo:setup`.
 

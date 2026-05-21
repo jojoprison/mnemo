@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate every SKILL.md in plugins/*/skills/*/SKILL.md.
+"""Validate mnemo skill and plugin metadata.
 
 Checks:
 1. Frontmatter parses (YAML between --- markers).
@@ -11,6 +11,7 @@ Checks:
 7. Any `references/*.md` path mentioned in the body actually exists.
 8. Any `scripts/*.{sh,py}` path mentioned resolves to an existing file.
 9. Any `assets/*` path mentioned resolves.
+10. Claude and Codex plugin manifests parse and point to existing skills.
 
 Exit codes:
   0 — all SKILL.md valid
@@ -19,6 +20,7 @@ Exit codes:
 from __future__ import annotations
 
 import glob
+import json
 import os
 import re
 import sys
@@ -105,6 +107,68 @@ def check_skill(path: str) -> list[str]:
     return issues
 
 
+def check_plugin_manifest(path: str) -> list[str]:
+    issues: list[str] = []
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        return [f"manifest parse failed: {e}"]
+
+    for required in ("name", "version", "description"):
+        if not data.get(required):
+            issues.append(f"manifest missing required field: {required}")
+
+    skills_path = data.get("skills")
+    if skills_path:
+        manifest_dir = os.path.dirname(path)
+        plugin_dir = os.path.dirname(manifest_dir)
+        candidates = [
+            os.path.abspath(os.path.join(manifest_dir, skills_path)),
+            os.path.abspath(os.path.join(plugin_dir, skills_path)),
+        ]
+        resolved = next((candidate for candidate in candidates if os.path.isdir(candidate)), candidates[0])
+        if not os.path.isdir(resolved):
+            issues.append(f"skills path does not exist: {skills_path}")
+
+    return issues
+
+
+def check_marketplace(path: str) -> list[str]:
+    issues: list[str] = []
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except (OSError, json.JSONDecodeError) as e:
+        return [f"marketplace parse failed: {e}"]
+
+    if not data.get("name"):
+        issues.append("marketplace missing name")
+    plugins = data.get("plugins", [])
+    if not isinstance(plugins, list) or not plugins:
+        issues.append("marketplace plugins must be a non-empty list")
+        return issues
+
+    for idx, plugin in enumerate(plugins):
+        if not plugin.get("name"):
+            issues.append(f"plugin {idx} missing name")
+        source = plugin.get("source")
+        if isinstance(source, dict):
+            path_value = source.get("path")
+        else:
+            path_value = plugin.get("source")
+        if path_value and isinstance(path_value, str) and path_value.startswith("."):
+            candidates = [
+                os.path.abspath(os.path.join(os.path.dirname(path), path_value)),
+                os.path.abspath(os.path.join(REPO_ROOT, path_value)),
+            ]
+            resolved = next((candidate for candidate in candidates if os.path.isdir(candidate)), candidates[0])
+            if not os.path.isdir(resolved):
+                issues.append(f"plugin {idx} source path missing: {path_value}")
+
+    return issues
+
+
 def main() -> int:
     pattern = os.path.join(REPO_ROOT, "plugins", "*", "skills", "*", "SKILL.md")
     skills = sorted(glob.glob(pattern))
@@ -116,6 +180,36 @@ def main() -> int:
     for path in skills:
         rel = os.path.relpath(path, REPO_ROOT)
         issues = check_skill(path)
+        if issues:
+            had_issues = True
+            print(f"\n❌ {rel}")
+            for issue in issues:
+                print(f"   • {issue}")
+        else:
+            print(f"✅ {rel}")
+
+    metadata_files = [
+        os.path.join(REPO_ROOT, "plugins", "mnemo", ".claude-plugin", "plugin.json"),
+        os.path.join(REPO_ROOT, "plugins", "mnemo", ".codex-plugin", "plugin.json"),
+    ]
+    for path in metadata_files:
+        rel = os.path.relpath(path, REPO_ROOT)
+        issues = check_plugin_manifest(path)
+        if issues:
+            had_issues = True
+            print(f"\n❌ {rel}")
+            for issue in issues:
+                print(f"   • {issue}")
+        else:
+            print(f"✅ {rel}")
+
+    marketplace_files = [
+        os.path.join(REPO_ROOT, ".claude-plugin", "marketplace.json"),
+        os.path.join(REPO_ROOT, ".agents", "plugins", "marketplace.json"),
+    ]
+    for path in marketplace_files:
+        rel = os.path.relpath(path, REPO_ROOT)
+        issues = check_marketplace(path)
         if issues:
             had_issues = True
             print(f"\n❌ {rel}")

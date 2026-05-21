@@ -1,0 +1,20 @@
+{
+  "name": "mnemo",
+  "interface": {
+    "displayName": "mnemo"
+  },
+  "plugins": [
+    {
+      "name": "mnemo",
+      "source": {
+        "source": "local",
+        "path": "./plugins/mnemo"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

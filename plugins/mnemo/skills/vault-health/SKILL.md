@@ -20,7 +20,7 @@ Obsidian must be open; `obsidian` CLI on PATH. Config at `~/.mnemo/config.json` 
 
 ### Step 0: claude-mem Sanity Check (optional, ~20ms)
 
-Surface two common gotchas if claude-mem plugin is installed — users often miss them silently:
+Surface two common gotchas if claude-mem plugin is installed and enabled. If `cascade.claude_mem.enabled` is false, skip this section silently — many users intentionally disable claude-mem for CPU/RAM reasons.
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/check-cm-version.sh"

@@ -55,7 +55,7 @@ In `~/.mnemo/config.json`:
 {
   "cascade": {
     "obsidian": { "enabled": true },
-    "claude_mem": { "enabled": true, "url": "http://127.0.0.1:37777" },
+    "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
     "memory_dir": { "enabled": true },
     "claude_md": { "enabled": false }
   }

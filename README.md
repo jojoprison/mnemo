@@ -1,7 +1,8 @@
-# claude-mnemo
+# mnemo
 
-> Persistent memory layer for Claude Code — your Obsidian vault on autopilot.
+> Persistent memory layer for Codex and Claude Code — your Obsidian vault on autopilot.
 
+[![Codex](https://img.shields.io/badge/Codex-skills-black?style=flat-square)](https://developers.openai.com/codex/skills)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-plugin-blueviolet?style=flat-square)](https://claude.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![Skills](https://img.shields.io/badge/Skills-8-blue?style=flat-square)](plugins/mnemo/skills/)
@@ -13,7 +14,7 @@
 
 ## What It Does
 
-**mnemo** gives Claude Code a persistent memory through your Obsidian vault. Eight skills that handle the boring parts of knowledge management so you can focus on thinking.
+**mnemo** gives Codex and Claude Code a persistent memory through your Obsidian vault. Eight skills handle the boring parts of knowledge management so you can focus on thinking.
 
 Most "second brain" tools assume you have time to organize. mnemo assumes you don't.
 
@@ -36,7 +37,7 @@ You work → mnemo remembers → Your vault grows → You find things later
 
 ### Why Not Just Use Obsidian Plugins?
 
-Obsidian plugins run inside Obsidian. mnemo runs inside **Claude Code** — it has access to your entire development context, conversation history, and codebase. When you finish a 3-hour debugging session, `/mn:session` knows what you did because it was there.
+Obsidian plugins run inside Obsidian. mnemo runs inside your coding agent — **Codex or Claude Code** — so it has access to your development context, conversation history, and codebase. When you finish a 3-hour debugging session, `mnemo:session-notes` knows what you did because it was there.
 
 ### What's New in v0.7.3
 
@@ -128,9 +129,9 @@ Plus: parallel CLI calls documented in `/mn:ask`, `/mn:session`, `/mn:connect`. 
 
 ```
 ┌──────────────┐     ┌───────────────┐     ┌───────────────┐
-│  Claude Code  │────▶│    commands    │────▶│    skills      │
-│  (you type    │     │  /mn:save     │     │  memory-routing │
-│   /mn:save)   │     │  /mn:review   │     │  session-review │
+│ Codex/Claude │────▶│ commands/     │────▶│    skills      │
+│ coding agent │     │ skill invoke  │     │  memory-routing │
+│              │     │ /mn or $skill │     │  session-review │
 └──────────────┘     └───────────────┘     └───────────────┘
                             │                      │
                             │                ┌─────▼─────┐
@@ -140,7 +141,7 @@ Plus: parallel CLI calls documented in `/mn:ask`, `/mn:session`, `/mn:connect`. 
                       ~/.mnemo/config.json
 ```
 
-**Commands** are thin wrappers that route to **skills** via the Skill tool. This separation follows the [compound-engineering pattern](https://github.com/anthropics/claude-plugins-official): short command names (`/mn:*`) with a descriptive plugin label `(mnemo)`.
+**Commands** are thin wrappers for Claude Code that route to **skills** via the Skill tool. Codex invokes the same skills directly with `$skill-name` or implicit skill selection. This keeps the skill body shared while each host gets its native UX.
 
 **Key design decisions:**
 - **CLI-first** — uses `obsidian` CLI commands, not MCP ([70,000x cheaper](https://x.com/kepano))
@@ -150,15 +151,26 @@ Plus: parallel CLI calls documented in `/mn:ask`, `/mn:session`, `/mn:connect`. 
 
 ## Quick Start
 
-### Install
+### Install: Claude Code
 
 ```bash
 # Add marketplace (one time)
-claude plugin marketplace add jojoprison/claude-mnemo
+claude plugin marketplace add jojoprison/mnemo
 
 # Install plugin
-claude plugin install mnemo@claude-mnemo
+claude plugin install mnemo@mnemo
 ```
+
+Legacy installs through `jojoprison/claude-mnemo` continue to work through the GitHub repository redirect, but new installs should use `jojoprison/mnemo`.
+
+### Install: Codex
+
+```bash
+codex plugin marketplace add jojoprison/mnemo
+codex plugin install mnemo@mnemo
+```
+
+Codex discovers the shared skills from `plugins/mnemo/skills/`. Use `$mnemo:vault-search`, `$mnemo:memory-routing`, or let Codex invoke the relevant skill from its description.
 
 ### First Run
 
@@ -252,7 +264,7 @@ cp config.example.json ~/.mnemo/config.json
   "handoff_note": "Meta — Session Handoff",
   "cascade": {
     "obsidian": { "enabled": true },
-    "claude_mem": { "enabled": true },
+    "claude_mem": { "enabled": false },
     "memory_dir": { "enabled": true }
   }
 }
@@ -298,9 +310,10 @@ Next session reads this and picks up where you left off.
 ## Project Structure
 
 ```
-claude-mnemo/
+mnemo/
 ├── plugins/mnemo/
 │   ├── .claude-plugin/plugin.json
+│   ├── .codex-plugin/plugin.json
 │   ├── commands/mn/                 # User-facing /mn:* commands (thin routers)
 │   │   ├── save.md                  # /mn:save      → mnemo:memory-routing
 │   │   ├── session.md               # /mn:session   → mnemo:session-notes
@@ -331,7 +344,7 @@ claude-mnemo/
 │   │   └── session-template.md
 │   ├── scripts/                     # Shell & Python helpers
 │   │   ├── session-scan.py          # JSONL parser with incremental read cache
-│   │   ├── skills-discover.py       # Auto-discovery across ~/.claude
+│   │   ├── skills-discover.py       # Auto-discovery across Claude/Codex skill paths
 │   │   ├── get-vault-path.sh        # obsidian vault → filesystem path
 │   │   └── check-cm-version.sh      # claude-mem cache inspector
 │   └── hooks/                       # Harness hooks
@@ -339,6 +352,8 @@ claude-mnemo/
 │       └── prewarm.sh               # Warms /mn:review caches non-blocking
 ├── .github/workflows/
 │   └── skill-lint.yml               # CI: validates SKILL.md frontmatter + refs
+├── .agents/plugins/
+│   └── marketplace.json             # Codex marketplace entry
 ├── scripts/
 │   └── lint-skills.py               # Linter used by CI and locally
 ├── config.example.json
@@ -476,13 +491,26 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 
 ## Установка
 
+### Claude Code
+
 ```bash
 # Добавить marketplace (один раз)
-claude plugin marketplace add jojoprison/claude-mnemo
+claude plugin marketplace add jojoprison/mnemo
 
 # Установить плагин
-claude plugin install mnemo@claude-mnemo
+claude plugin install mnemo@mnemo
 ```
+
+Старый путь `jojoprison/claude-mnemo` остаётся совместимым через GitHub redirect, но новые установки должны использовать `jojoprison/mnemo`.
+
+### Codex
+
+```bash
+codex plugin marketplace add jojoprison/mnemo
+codex plugin install mnemo@mnemo
+```
+
+В Codex вызывай skills напрямую (`$mnemo:vault-search`, `$mnemo:memory-routing`) или полагайся на auto-invocation по описанию.
 
 ### Первый запуск
 
@@ -691,13 +719,26 @@ Obsidian 插件在 Obsidian 内部运行。mnemo 在 **Claude Code** 内部运�
 
 ## 安装
 
+### Claude Code
+
 ```bash
 # 添加市场（一次性）
-claude plugin marketplace add jojoprison/claude-mnemo
+claude plugin marketplace add jojoprison/mnemo
 
 # 安装插件
-claude plugin install mnemo@claude-mnemo
+claude plugin install mnemo@mnemo
 ```
+
+旧路径 `jojoprison/claude-mnemo` 仍可通过 GitHub redirect 工作；新安装请使用 `jojoprison/mnemo`。
+
+### Codex
+
+```bash
+codex plugin marketplace add jojoprison/mnemo
+codex plugin install mnemo@mnemo
+```
+
+Codex 可以直接调用 skills（如 `$mnemo:vault-search`、`$mnemo:memory-routing`），也可以按 description 自动触发。
 
 ### 首次运行
 

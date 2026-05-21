@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Scan Claude Code session JSONL for tool usage, skills, files modified, commits.
+"""Scan Claude Code or Codex session JSONL for tool usage and modified files.
 
-Reads CLAUDE_SESSION_ID from env, locates the matching .jsonl in
-~/.claude/projects/*/SESSION_ID.jsonl, prints a compact summary.
+Reads CLAUDE_SESSION_ID or CODEX_SESSION_ID from env. If neither is present,
+falls back to the newest Codex rollout JSONL for the current cwd.
 
 Two-layer caching:
 - Fresh cache (<60s old) → reuse as-is, no re-read.
@@ -25,13 +25,39 @@ import time
 FRESH_TTL = 60  # seconds
 
 
-def find_jsonl(session_id: str) -> str | None:
+def find_claude_jsonl(session_id: str) -> str | None:
     home = os.path.expanduser("~")
     for d in glob.glob(os.path.join(home, ".claude/projects/*/")):
         candidate = os.path.join(d, session_id + ".jsonl")
         if os.path.exists(candidate):
             return candidate
     return None
+
+
+def find_codex_jsonl(session_id: str = "") -> str | None:
+    home = os.path.expanduser("~")
+    candidates = sorted(
+        glob.glob(os.path.join(home, ".codex/sessions/**/*.jsonl"), recursive=True),
+        key=os.path.getmtime,
+        reverse=True,
+    )
+    cwd = os.getcwd()
+    for path in candidates:
+        if session_id and session_id not in os.path.basename(path):
+            continue
+        try:
+            with open(path) as f:
+                for _ in range(20):
+                    line = f.readline()
+                    if not line:
+                        break
+                    msg = json.loads(line)
+                    payload = msg.get("payload", {})
+                    if msg.get("type") == "session_meta" and payload.get("cwd") == cwd:
+                        return path
+        except (OSError, json.JSONDecodeError):
+            continue
+    return candidates[0] if candidates else None
 
 
 def empty_acc() -> dict:
@@ -44,12 +70,69 @@ def empty_acc() -> dict:
     }
 
 
-def parse_lines(handle, acc: dict) -> None:
-    """Accumulate counts from each JSONL line. Modifies acc in place."""
+def parse_claude_message(msg: dict, acc: dict) -> None:
     tools = acc["tools"]
     skills = acc["skills"]
     files_written = set(acc["files_written"])
+    content = msg.get("message", {}).get("content", [])
+    if not isinstance(content, list):
+        return
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        btype = block.get("type")
+        if btype == "tool_use":
+            name = block.get("name", "")
+            tools[name] = tools.get(name, 0) + 1
+            inp = block.get("input", {})
+            if name == "Skill":
+                s = inp.get("skill", "")
+                if s:
+                    skills.append(s)
+            elif name in ("Write", "Edit"):
+                fp = inp.get("file_path", "")
+                if fp:
+                    files_written.add(fp)
+            elif name == "Bash":
+                cmd = inp.get("command", "")
+                if "git commit" in cmd:
+                    acc["commits"] = acc.get("commits", 0) + 1
+        elif btype == "tool_result" and block.get("is_error"):
+            acc["errors"] = acc.get("errors", 0) + 1
+    acc["files_written"] = sorted(files_written)
 
+
+def parse_codex_message(msg: dict, acc: dict) -> None:
+    if msg.get("type") != "response_item":
+        return
+    payload = msg.get("payload", {})
+    if payload.get("type") == "function_call":
+        name = payload.get("name", "")
+        if not name:
+            return
+        tools = acc["tools"]
+        tools[name] = tools.get(name, 0) + 1
+        try:
+            args = json.loads(payload.get("arguments") or "{}")
+        except json.JSONDecodeError:
+            args = {}
+        if name == "apply_patch":
+            acc["files_written"] = sorted(set(acc["files_written"]) | {"patch"})
+        elif name == "exec_command":
+            cmd = args.get("cmd", "")
+            if "git commit" in cmd:
+                acc["commits"] = acc.get("commits", 0) + 1
+        elif name == "spawn_agent":
+            agent_type = args.get("agent_type", "default")
+            acc["skills"].append(f"subagent:{agent_type}")
+    elif payload.get("type") == "function_call_output":
+        output = payload.get("output", "")
+        if "Process exited with code 1" in output or "Error:" in output:
+            acc["errors"] = acc.get("errors", 0) + 1
+
+
+def parse_lines(handle, acc: dict) -> None:
+    """Accumulate counts from each JSONL line. Modifies acc in place."""
     for line in handle:
         line = line.strip()
         if not line:
@@ -58,33 +141,10 @@ def parse_lines(handle, acc: dict) -> None:
             msg = json.loads(line)
         except json.JSONDecodeError:
             continue
-        content = msg.get("message", {}).get("content", [])
-        if not isinstance(content, list):
-            continue
-        for block in content:
-            if not isinstance(block, dict):
-                continue
-            btype = block.get("type")
-            if btype == "tool_use":
-                name = block.get("name", "")
-                tools[name] = tools.get(name, 0) + 1
-                inp = block.get("input", {})
-                if name == "Skill":
-                    s = inp.get("skill", "")
-                    if s:
-                        skills.append(s)
-                elif name in ("Write", "Edit"):
-                    fp = inp.get("file_path", "")
-                    if fp:
-                        files_written.add(fp)
-                elif name == "Bash":
-                    cmd = inp.get("command", "")
-                    if "git commit" in cmd:
-                        acc["commits"] = acc.get("commits", 0) + 1
-            elif btype == "tool_result" and block.get("is_error"):
-                acc["errors"] = acc.get("errors", 0) + 1
-
-    acc["files_written"] = sorted(files_written)
+        if "message" in msg:
+            parse_claude_message(msg, acc)
+        else:
+            parse_codex_message(msg, acc)
 
 
 def scan_incremental(jsonl_path: str, session_id: str) -> dict:
@@ -155,10 +215,15 @@ def render(result: dict) -> None:
 
 
 def main() -> int:
-    session_id = os.environ.get("CLAUDE_SESSION_ID", "")
+    session_id = os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("CODEX_SESSION_ID", "")
     if not session_id:
-        print("SESSION_ID: not available")
-        return 0
+        jsonl_path = find_codex_jsonl()
+        if not jsonl_path:
+            print("SESSION_ID: not available")
+            return 0
+        session_id = os.path.splitext(os.path.basename(jsonl_path))[0]
+    else:
+        jsonl_path = find_claude_jsonl(session_id) or find_codex_jsonl(session_id)
 
     cache_path = f"/tmp/mnemo-session-scan-{session_id}.json"
     if os.path.exists(cache_path) and (time.time() - os.path.getmtime(cache_path)) < FRESH_TTL:
@@ -169,7 +234,6 @@ def main() -> int:
         except (OSError, json.JSONDecodeError):
             pass  # fall through to re-scan
 
-    jsonl_path = find_jsonl(session_id)
     if not jsonl_path:
         print("JSONL: not found — use conversation context for analysis")
         return 0

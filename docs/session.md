@@ -26,7 +26,7 @@ No arguments. Summarizes the current conversation automatically.
 ```
 ✅ Session saved
 
-Note: "Session — 2026-03-24 Tech Research + claude-mnemo plugin"
+Note: "Session — 2026-03-24 Tech Research + mnemo plugin"
 MOC: [[MOC — Claude Code Tools]] — link added ✅
 Handoff: Updated with 2 pending items
 Orphans: 0 new
@@ -37,7 +37,7 @@ Handoff contents:
 - [ ] Update docs for new skill names
 
 ## Context
-- Refactored claude-mnemo plugin, 8 skills, CE-pattern naming
+- Refactored mnemo plugin, 8 skills, CE-pattern naming
 ```
 
 ## Cross-Session Continuity

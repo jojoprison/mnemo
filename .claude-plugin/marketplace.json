@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "claude-mnemo",
-  "description": "Persistent memory layer for Claude Code — Obsidian vault health, knowledge search, hidden link discovery, brain dump, session continuity, inbox triage, Gmail bridge",
+  "name": "mnemo",
+  "description": "Persistent memory layer for Claude Code and Codex — Obsidian vault health, knowledge search, hidden link discovery, session continuity, inbox triage, and memory routing",
   "owner": {
     "name": "jojoprison",
     "url": "https://github.com/jojoprison"
@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "mnemo",
-      "description": "9 memory skills for Claude Code via Obsidian CLI — vault audit, knowledge search, connection discovery, quick capture, inbox triage, session notes with cross-session handoff, email-to-vault bridge, interactive setup",
-      "version": "0.7.4",
+      "description": "8 memory skills for Claude Code and Codex via Obsidian CLI — vault audit, knowledge search, connection discovery, inbox triage, session notes with cross-session handoff, memory routing, review orchestration, interactive setup",
+      "version": "0.8.0",
       "source": "./plugins/mnemo",
       "category": "productivity",
       "keywords": [
