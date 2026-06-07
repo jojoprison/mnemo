@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.1] - 2026-06-07
+
+### Changed — vault-health memory-index check: configurable threshold + accurate truncation framing
+
+- **`vault-health` Step 10** now reads the warn threshold from `config.json` → **`memory.indexWarnKB`** (default **22**) instead of a hardcoded 60 KB. Claude Code auto-memory **hard-truncates `memory/MEMORY.md` at ~24.4 KiB on load** (25 000 bytes) — beyond that, trailing rows silently vanish from Claude's context. The check now warns *early* (before the cliff) and recommends target <20 KB, with the precise mechanism in the message + the Step 9 report line.
+- **`references/config-schema.md`**: documented the new `memory.indexWarnKB` field (config block example + table row).
+
 ## [0.10.0] - 2026-06-07
 
 ### Added — autodream-aware memory skills (lean-index discipline)

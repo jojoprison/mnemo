@@ -169,13 +169,14 @@ Skip the `⚠️ claude-mem` line entirely if Step 0 found nothing to warn about
 
 ### Step 10: Claude memory/ index health (autodream check)
 
-Separate from the Obsidian vault, Claude Code keeps an **always-loaded** index at `memory/MEMORY.md`. It must stay lean — a bloated index gets **truncated on load**, so old entries silently vanish from Claude's context. Flag oversized indexes:
+Separate from the Obsidian vault, Claude Code keeps an **always-loaded** index at `memory/MEMORY.md`. Claude Code auto-memory **hard-truncates this index at ~24.4 KB on load** — beyond that, trailing rows silently vanish from Claude's context. So warn *early* (before the cliff), not at some lax size. Threshold is configurable via `config.json` → `memory.indexWarnKB` (default **22**):
 
 ```bash
+WARN=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.mnemo/config.json'))).get('memory',{}).get('indexWarnKB',22))" 2>/dev/null || echo 22)
 for f in "$HOME"/.claude/projects/-*/memory/MEMORY.md; do
   [ -f "$f" ] || continue
   kb=$(( $(wc -c < "$f") / 1024 )); ln=$(wc -l < "$f")
-  [ "$kb" -gt 60 ] && echo "⚠️ $(basename "$(dirname "$(dirname "$f")")"): ${kb}KB / ${ln} lines — run autodream (target <40KB / <200 lines)"
+  [ "$kb" -gt "$WARN" ] && echo "⚠️ $(basename "$(dirname "$(dirname "$f")")"): ${kb}KB / ${ln} lines — >${WARN}KB warn (auto-memory truncates ~24.4KB) → run autodream (move sessions → MEMORY-archive-index.md, target <20KB)"
 done
 ```
 

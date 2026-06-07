@@ -41,6 +41,10 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
     "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
     "memory_dir": { "enabled": true },
     "claude_md":  { "enabled": false }
+  },
+
+  "memory": {
+    "indexWarnKB": 22
   }
 }
 ```
@@ -59,6 +63,7 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
 | `cascade.claude_mem.url` | claude-mem worker URL (default port 37777) | memory-routing |
 | `cascade.memory_dir.enabled` | Skip memory/ writes if false | memory-routing |
 | `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md (default false) | memory-routing |
+| `memory.indexWarnKB` | Warn threshold (KB) for `memory/MEMORY.md` size. Claude Code auto-memory **hard-truncates the index ~24.4KB on load** → warn earlier. Default **22** | vault-health |
 
 ## Defaults when fields are missing
 
