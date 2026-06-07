@@ -39,6 +39,10 @@ obsidian search query="{term4}" vault="{vault}"
 
 Collect all unique matching notes. Deduplicate.
 
+### Step 3b: Also check Claude's memory/ index (not just Obsidian)
+
+Obsidian = user-facing knowledge; **`memory/`** (MEMORY.md + topic files) = Claude-facing technical context (gotchas, decisions, sessions) in a separate store. For recall queries ("what did we decide / how did we do X"), also scan the project's memory index — the `MEMORY.md` already loaded in context — for the search terms. If the topic looks older and the index links a **`MEMORY-archive-index.md`**, read that too. Each matching row links a topic file (`{name}.md` in the same `memory/` dir) — read it for detail and cite as `[memory/{file}]`. Why two layers + how memory is arranged: `~/.claude/memory/autodream-principles.md`.
+
 ### Step 4: Read Top Results (parallel)
 
 Read the most relevant notes (max 7) **in parallel — single message with multiple Bash tool uses.** ~185ms vs ~1.3s sequential for 7 notes.

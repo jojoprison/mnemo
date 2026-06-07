@@ -161,9 +161,25 @@ Total: {N} notes
   ...
 
 💤 Stale (30d+ no backlinks): {N}
+
+🧠 Claude memory/ index: {KB}KB / {lines} lines {✅ lean | ⚠️ bloated → autodream}
 ```
 
 Skip the `⚠️ claude-mem` line entirely if Step 0 found nothing to warn about.
+
+### Step 10: Claude memory/ index health (autodream check)
+
+Separate from the Obsidian vault, Claude Code keeps an **always-loaded** index at `memory/MEMORY.md`. It must stay lean — a bloated index gets **truncated on load**, so old entries silently vanish from Claude's context. Flag oversized indexes:
+
+```bash
+for f in "$HOME"/.claude/projects/-*/memory/MEMORY.md; do
+  [ -f "$f" ] || continue
+  kb=$(( $(wc -c < "$f") / 1024 )); ln=$(wc -l < "$f")
+  [ "$kb" -gt 60 ] && echo "⚠️ $(basename "$(dirname "$(dirname "$f")")"): ${kb}KB / ${ln} lines — run autodream (target <40KB / <200 lines)"
+done
+```
+
+If flagged → recommend **autodream** (memory consolidation): slim the index into topic files + `MEMORY-archive-index.md`, **no loss**. Procedure: `~/.claude/memory/autodream-principles.md`. This is the only `memory/` check here — vault-health otherwise audits Obsidian, not Claude's memory/.
 
 ## Gotchas
 

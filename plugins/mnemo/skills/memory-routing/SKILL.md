@@ -141,6 +141,16 @@ Only write here if the information **prevents the coding agent from making error
 
 Find the correct Claude path by reading the `MEMORY.md` already loaded in the conversation context when available. Use `~/.claude/memory/` only for cross-project Claude rules. See `references/gotchas.md` for why this matters.
 
+**How to write — keep the index lean (autodream discipline):**
+
+`memory/` is two layers: **topic files** (the detail) + **`MEMORY.md`** (a lean index — a table `| File | Read when… |`, one short "Read when…" row of recall triggers per topic, ≤~200 chars). Never dump prose into `MEMORY.md` — a bloated index gets **truncated on load** and old entries become invisible to Claude.
+
+1. Write the detail to a **topic file** (`{topic}.md`) — create or update it.
+2. Add/refresh **one thin index row** in `MEMORY.md` pointing to it (link + "Read when…" triggers: names / IDs / PR# / domain terms). Never a paragraph.
+3. If `MEMORY.md` links a **`MEMORY-archive-index.md`** at the top, aged/older rows live there — add aged rows there (not the lean index) and read it when recalling old context.
+
+The index is periodically re-slimmed by **autodream** (memory consolidation). Full 4-phase procedure + no-loss rules: `~/.claude/memory/autodream-principles.md`.
+
 **On error:** Log `⚠️ memory/: skipped (directory not found)`, continue.
 
 ### Step 4: CLAUDE.md (Only critical error-preventing rules)
