@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.0] - 2026-06-07
+
+### Added — autodream-aware memory skills (lean-index discipline)
+
+- **`memory-routing` (`/mn:save`)** — Step 3 (`memory/`) now documents the lean-index discipline: write the detail to a **topic file** + **one thin index row** in `MEMORY.md` (a `| File | Read when… |` table, ≤~200-char recall triggers like names / IDs / PR# / domain terms), **never a paragraph**. A bloated index gets **truncated on load** and old entries become invisible to Claude. Knows about an optional `MEMORY-archive-index.md` for aged rows, and points to the consolidation procedure (`autodream`).
+- **`vault-search` (`/mn:ask`)** — new Step 3b: recall now also scans Claude's `memory/` index (`MEMORY.md` + topic files + optional `MEMORY-archive-index.md`), not just the Obsidian vault. Obsidian = user-facing knowledge; `memory/` = Claude-facing technical context (gotchas, decisions, sessions).
+- **`vault-health` (`/mn:health`)** — new Step 10: flags an oversized `memory/MEMORY.md` (>60 KB) and recommends running **autodream** (consolidate into topic files + archive index, no loss). Guards against the index silently re-bloating.
+
+### Context
+
+Aligns mnemo with **autodream** (background memory consolidation, akin to Anthropic's AutoDream): `MEMORY.md` is a lean retrieval index, details live in topic files, aged rows split into a linked `MEMORY-archive-index.md`. Cross-project principles: `~/.claude/memory/autodream-principles.md`. Skill count unchanged (7); `session-notes` / `link-discovery` / `session-review` / `initial-setup` untouched (Obsidian-only or already correct — they pick up the discipline via the `MEMORY.md` header they read).
+
 ## [0.9.0] - 2026-05-27
 
 ### Removed — inbox-triage skill (`/mn:sort`)
