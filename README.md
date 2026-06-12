@@ -167,10 +167,10 @@ Legacy installs through `jojoprison/claude-mnemo` continue to work through the G
 
 ```bash
 codex plugin marketplace add jojoprison/mnemo
-codex plugin install mnemo@mnemo
+codex plugin add mnemo@mnemo
 ```
 
-Codex discovers the shared skills from `plugins/mnemo/skills/`. Use `$mnemo:vault-search`, `$mnemo:memory-routing`, or let Codex invoke the relevant skill from its description.
+Codex discovers the shared skills from `plugins/mnemo/skills/`. Use the short aliases `/mn:ask`, `/mn:save`, `/mn:session`, or let Codex invoke the relevant skill from its description. The longer skill names (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`) remain available for compatibility.
 
 ### First Run
 
@@ -507,10 +507,10 @@ claude plugin install mnemo@mnemo
 
 ```bash
 codex plugin marketplace add jojoprison/mnemo
-codex plugin install mnemo@mnemo
+codex plugin add mnemo@mnemo
 ```
 
-В Codex вызывай skills напрямую (`$mnemo:vault-search`, `$mnemo:memory-routing`) или полагайся на auto-invocation по описанию.
+В Codex используй короткие алиасы `/mn:ask`, `/mn:save`, `/mn:session` или полагайся на auto-invocation по описанию. Длинные имена skills (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`) остаются для совместимости.
 
 ### Первый запуск
 
@@ -735,10 +735,10 @@ claude plugin install mnemo@mnemo
 
 ```bash
 codex plugin marketplace add jojoprison/mnemo
-codex plugin install mnemo@mnemo
+codex plugin add mnemo@mnemo
 ```
 
-Codex 可以直接调用 skills（如 `$mnemo:vault-search`、`$mnemo:memory-routing`），也可以按 description 自动触发。
+Codex 支持短别名 `/mn:ask`、`/mn:save`、`/mn:session`，也可以按 description 自动触发。长 skill 名称（`mnemo:vault-search`、`mnemo:memory-routing`、`mnemo:session-notes`）仍保留兼容。
 
 ### 首次运行
 

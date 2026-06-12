@@ -6,29 +6,29 @@ mnemo ships as native Agent Skills for Codex while preserving the Claude Code `/
 
 ```bash
 codex plugin marketplace add jojoprison/mnemo
-codex plugin install mnemo@mnemo
+codex plugin add mnemo@mnemo
 ```
 
 For local development from this repository, Codex reads `.agents/plugins/marketplace.json` and `plugins/mnemo/.codex-plugin/plugin.json`.
 
 ## Invocation
 
-Codex invokes skills directly:
+Codex exposes Claude-compatible mnemo aliases:
 
 ```text
-$mnemo:vault-search what did we decide about Obsidian MCP?
-$mnemo:memory-routing remember this deployment gotcha
-$mnemo:session-review
+/mn:ask what did we decide about Obsidian MCP?
+/mn:save remember this deployment gotcha
+/mn:session
 ```
 
-The same `plugins/mnemo/skills/*/SKILL.md` files are used by Claude Code. Avoid creating Codex-only copies unless the workflow genuinely diverges.
+The longer skill names (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`) remain available for compatibility. The same `plugins/mnemo/skills/*/SKILL.md` files are used by Claude Code. Avoid creating Codex-only copies unless the workflow genuinely diverges.
 
 ## Runtime Differences
 
 | Area | Claude Code | Codex |
 |------|-------------|-------|
 | User rules | `CLAUDE.md` | `AGENTS.md` |
-| Commands | `/mn:*` wrappers | `$mnemo:*` skills |
+| Commands | `/mn:*` wrappers | `/mn:*` alias skills + `mnemo:*` compatibility skills |
 | Plugin manifest | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` |
 | Marketplace | `.claude-plugin/marketplace.json` | `.agents/plugins/marketplace.json` |
 | Session log | `~/.claude/projects/*/*.jsonl` | `~/.codex/sessions/**/*.jsonl` |

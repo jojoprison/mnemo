@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.2] - 2026-06-12
+
+### Added — Codex slash aliases for Claude-compatible mnemo commands
+
+- Added Codex-native alias skills for **`/mn:ask`**, **`/mn:save`**, and **`/mn:session`**. They route to the existing `vault-search`, `memory-routing`, and `session-notes` skills respectively, so Codex users can keep the same muscle memory as Claude Code.
+- Updated the Codex starter prompts to advertise the short `/mn:*` entry points instead of the longer `$mnemo:*` skill names.
+- This is additive: existing Claude Code commands under `commands/mn/` and existing Codex skill names (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`) continue to work.
+
 ## [0.10.1] - 2026-06-07
 
 ### Changed — vault-health memory-index check: configurable threshold + accurate truncation framing
