@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.3] - 2026-06-13
+
+### Added — complete Codex mn slash alias coverage
+
+- Added the missing Codex-native **`/mn:review`** alias for `mnemo:session-review`, matching the existing Claude Code command and the documented "one command to end a session" workflow.
+- Added compatibility aliases for accidental namespaced invocations: **`/mnemo:mn:ask`**, **`/mnemo:mn:save`**, **`/mnemo:mn:session`**, and **`/mnemo:mn:review`**. The canonical commands remain `/mn:*`, but old muscle memory now routes instead of failing with "Unrecognized command".
+- Updated Codex docs and starter prompts to make `/mn:review` the default session-close entry point.
+
 ## [0.10.2] - 2026-06-12
 
 ### Added — Codex slash aliases for Claude-compatible mnemo commands

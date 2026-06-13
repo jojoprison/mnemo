@@ -170,7 +170,7 @@ codex plugin marketplace add jojoprison/mnemo
 codex plugin add mnemo@mnemo
 ```
 
-Codex discovers the shared skills from `plugins/mnemo/skills/`. Use the short aliases `/mn:ask`, `/mn:save`, `/mn:session`, or let Codex invoke the relevant skill from its description. The longer skill names (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`) remain available for compatibility.
+Codex discovers the shared skills from `plugins/mnemo/skills/`. Use the short aliases `/mn:ask`, `/mn:save`, `/mn:session`, `/mn:review`, or let Codex invoke the relevant skill from its description. The longer skill names (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`, `mnemo:session-review`) remain available for compatibility. If you accidentally type `/mnemo:mn:*`, mnemo routes it too, but `/mn:*` is the canonical form.
 
 ### First Run
 
@@ -510,7 +510,7 @@ codex plugin marketplace add jojoprison/mnemo
 codex plugin add mnemo@mnemo
 ```
 
-В Codex используй короткие алиасы `/mn:ask`, `/mn:save`, `/mn:session` или полагайся на auto-invocation по описанию. Длинные имена skills (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`) остаются для совместимости.
+В Codex используй короткие алиасы `/mn:ask`, `/mn:save`, `/mn:session`, `/mn:review` или полагайся на auto-invocation по описанию. Длинные имена skills (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`, `mnemo:session-review`) остаются для совместимости. Если случайно набрать `/mnemo:mn:*`, mnemo тоже смаршрутизирует, но каноничный формат — `/mn:*`.
 
 ### Первый запуск
 
@@ -738,7 +738,7 @@ codex plugin marketplace add jojoprison/mnemo
 codex plugin add mnemo@mnemo
 ```
 
-Codex 支持短别名 `/mn:ask`、`/mn:save`、`/mn:session`，也可以按 description 自动触发。长 skill 名称（`mnemo:vault-search`、`mnemo:memory-routing`、`mnemo:session-notes`）仍保留兼容。
+Codex 支持短别名 `/mn:ask`、`/mn:save`、`/mn:session`、`/mn:review`，也可以按 description 自动触发。长 skill 名称（`mnemo:vault-search`、`mnemo:memory-routing`、`mnemo:session-notes`、`mnemo:session-review`）仍保留兼容。误输入 `/mnemo:mn:*` 也会被路由，但规范格式是 `/mn:*`。
 
 ### 首次运行
 

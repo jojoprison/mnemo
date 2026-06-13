@@ -19,16 +19,17 @@ Codex exposes Claude-compatible mnemo aliases:
 /mn:ask what did we decide about Obsidian MCP?
 /mn:save remember this deployment gotcha
 /mn:session
+/mn:review
 ```
 
-The longer skill names (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`) remain available for compatibility. The same `plugins/mnemo/skills/*/SKILL.md` files are used by Claude Code. Avoid creating Codex-only copies unless the workflow genuinely diverges.
+Use `/mn:review` to close a session: it runs the end-of-session review and then routes into save + session notes. The longer skill names (`mnemo:vault-search`, `mnemo:memory-routing`, `mnemo:session-notes`, `mnemo:session-review`) remain available for compatibility. Accidental `/mnemo:mn:*` invocations are also routed, but `/mn:*` is the canonical Codex/Claude-compatible form. The same `plugins/mnemo/skills/*/SKILL.md` files are used by Claude Code. Avoid creating Codex-only copies unless the workflow genuinely diverges.
 
 ## Runtime Differences
 
 | Area | Claude Code | Codex |
 |------|-------------|-------|
 | User rules | `CLAUDE.md` | `AGENTS.md` |
-| Commands | `/mn:*` wrappers | `/mn:*` alias skills + `mnemo:*` compatibility skills |
+| Commands | `/mn:*` wrappers | `/mn:*` alias skills + `mnemo:*` and `/mnemo:mn:*` compatibility aliases |
 | Plugin manifest | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` |
 | Marketplace | `.claude-plugin/marketplace.json` | `.agents/plugins/marketplace.json` |
 | Session log | `~/.claude/projects/*/*.jsonl` | `~/.codex/sessions/**/*.jsonl` |
