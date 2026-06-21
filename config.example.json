@@ -5,8 +5,7 @@
     "molecule": { "prefix": "Molecule — ", "tag": "molecule" },
     "source": { "prefix": "Source — ", "tag": "source" },
     "session": { "prefix": "Session — ", "tag": "session" },
-    "moc": { "prefix": "MOC — ", "tag": "moc" },
-    "inbox": { "prefix": "Inbox — ", "tag": "inbox" }
+    "moc": { "prefix": "MOC — ", "tag": "moc" }
   },
   "links_section": "## Links",
   "handoff_note": "Meta — Session Handoff",
@@ -17,5 +16,16 @@
     "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
     "memory_dir": { "enabled": true },
     "claude_md": { "enabled": false }
+  },
+  "review": {
+    "staleDays": {
+      "default": 30,
+      "atom": 60,
+      "molecule": 120,
+      "source": 180,
+      "session": 90,
+      "moc": 365
+    },
+    "lint": { "enabled": false, "maxCandidates": 15 }
   }
 }

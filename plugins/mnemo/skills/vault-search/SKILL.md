@@ -1,6 +1,6 @@
 ---
 name: vault-search
-description: "Use whenever the user wants to recall something from past work, find notes about a topic, or ask 'what did we decide about X', 'find everything about Y', 'summarize what we know about Z', 'что мы решили', 'что мы знаем про'. Prefer this over generic memory tools when an Obsidian vault is available — it synthesizes across multiple notes with source citations."
+description: "Use whenever the user wants to recall something from past work, find notes about a topic, or asks 'what did we decide about X', 'find everything about Y', 'summarize what we know about Z', 'что мы решили про', 'что мы знаем', 'напомни мне', 'посмотри в память', 'найди в памяти', 'что было с'. Prefer this over generic memory tools when an Obsidian vault is available — it synthesizes across multiple notes with source citations."
 user-invocable: false
 model: inherit
 ---

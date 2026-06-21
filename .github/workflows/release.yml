@@ -1,0 +1,41 @@
+name: release
+
+# Mirror the CHANGELOG.md section for a pushed tag into a GitHub Release.
+# Single source of truth = CHANGELOG.md (Keep a Changelog v2). Never edit the
+# Release body by hand — re-tag or edit CHANGELOG.md and re-run instead.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract this version's changelog section
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Print everything between "## [VERSION]" and the next "## [" header.
+          awk -v hdr="## [$VERSION]" '
+            index($0, "## [") == 1 {
+              if (started) exit
+              if (index($0, hdr) == 1) { started = 1; next }
+            }
+            started { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          if [ ! -s RELEASE_NOTES.md ]; then
+            echo "No CHANGELOG.md section found for $VERSION" >&2
+            exit 1
+          fi
+          echo "Extracted $(wc -l < RELEASE_NOTES.md) lines for $VERSION"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file RELEASE_NOTES.md

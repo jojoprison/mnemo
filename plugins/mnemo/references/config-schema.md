@@ -45,9 +45,23 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
 
   "memory": {
     "indexWarnKB": 22
+  },
+
+  "review": {
+    "staleDays": {
+      "default": 30,
+      "atom": 60,
+      "molecule": 120,
+      "source": 180,
+      "session": 90,
+      "moc": 365
+    },
+    "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku" }
   }
 }
 ```
+
+The whole `review` section is **optional** — if absent, `vault-health` falls back to a uniform 30-day staleness threshold (the legacy behavior) and the content-lint pass stays off. Add it only when you want type-aware cadence or the LLM lint.
 
 ## Field reference
 
@@ -64,6 +78,22 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
 | `cascade.memory_dir.enabled` | Skip memory/ writes if false | memory-routing |
 | `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md (default false) | memory-routing |
 | `memory.indexWarnKB` | Warn threshold (KB) for `memory/MEMORY.md` size. Claude Code auto-memory **hard-truncates the index ~24.4KB on load** → warn earlier. Default **22** | vault-health |
+| `review.staleDays.default` | Days before a note becomes a review candidate when its type has no specific entry. Default **30** | vault-health |
+| `review.staleDays.{type}` | Per-type staleness cadence (key = taxonomy `type`, e.g. `atom`/`decision`/`source`). A fast-moving fact ages quicker than an architectural decision | vault-health |
+| `review.lint.enabled` | Run the content-lint deep pass (LLM re-reads candidates, emits still-valid/update-needed/contradicts verdicts). Default **false** — it reads note bodies and costs tokens | vault-health |
+| `review.lint.maxCandidates` | Cap on notes the lint pass reads per run (most-overdue first). Default **15** | vault-health |
+| `review.lint.model` | Model for the lint pass, spawned as a subagent so the cheap haiku health fork stays cheap. `haiku` (default, triage-grade) / `sonnet` / `opus` (highest-quality verdicts & contradiction detection — `opus` = current Opus 4.8). Only the lint subagent uses it; Steps 1-7 always run on the health fork's own model | vault-health |
+
+## Optional per-note frontmatter (review)
+
+Two optional fields override the config cadence on a single note. Neither is written automatically — they are the user's lever:
+
+| Field | Meaning | Example |
+|-------|---------|---------|
+| `ttl` | Per-note staleness budget **in days**, measured from `date`/`reviewed`. Overrides `review.staleDays`. For notes that age faster or slower than their type's default (a volatile API gotcha: `ttl: 14`) | `ttl: 14` |
+| `reviewed` | Snooze stamp — date the note was last confirmed still valid. Resets the staleness clock (age is measured from `max(date, reviewed)`). Stamp this on a still-valid candidate so it stops appearing in reports | `reviewed: 2026-06-21` |
+
+This is deliberately **not** an absolute `review-by:` date. Computed-from-type plus an optional relative `ttl` does not rot the way a hand-typed future date does, and avoids the "guilt-debt" failure mode where stale review dates pile up as unactioned nags.
 
 ## Defaults when fields are missing
 

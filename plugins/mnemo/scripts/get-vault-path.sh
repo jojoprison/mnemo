@@ -8,4 +8,7 @@
 set -u
 
 VAULT="${1:-main}"
-obsidian vault vault="$VAULT" 2>/dev/null | awk '/^path\s/{print $2; exit}'
+# Output is tab-separated ("path<TAB>/abs/path"). Match the literal field name and
+# split on TAB — NOT `\s`, which macOS/BSD awk does not support (it silently matches
+# nothing → empty path even when Obsidian is running). -F'\t' also preserves spaces in paths.
+obsidian vault vault="$VAULT" 2>/dev/null | awk -F'\t' '$1=="path"{print $2; exit}'

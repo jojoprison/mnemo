@@ -1,6 +1,6 @@
 ---
 name: memory-routing
-description: "Use whenever the user says 'remember this', 'save to memory', 'запомни', 'в память', 'сохрани', 'в мнемо', solved a bug worth remembering, made a non-obvious decision, or learned a gotcha. Routes each item to Obsidian + optional claude-mem + memory/ + CLAUDE.md with graceful degradation if a backend is unavailable."
+description: "Use whenever the user says 'remember this', 'save to memory', 'save this', 'запомни', 'запоминай', 'сохрани', 'помни', 'отложи в память', 'в память', 'в памяти', 'в мнемо', solved a bug worth remembering, made a non-obvious decision, or learned a gotcha. Routes each item to Obsidian + optional claude-mem + memory/ + CLAUDE.md with graceful degradation if a backend is unavailable."
 user-invocable: false
 model: inherit
 ---
@@ -69,6 +69,7 @@ source: "{where this came from}"
 - **Molecule = non-trivial synthesis** of ≥2 atoms (new insight not in either alone), not "linked two notes."
 - **Two link layers:** inline with context in the body («contradicts [[X]]», «builds on [[Y]]») + `## {links_section}` for MOC/nav. A bare link without context is noise.
 - **Short project names** (`[[Diadoc]]`, `[[BTS Holding]]`) need a **hub note** — Obsidian doesn't resolve bare links via alias (by design). If `[[ShortName]]` is referenced and no `ShortName.md` exists, create it: a one-liner redirecting to `[[MOC — …]]`.
+- **Staleness is type-driven, not stamped here.** The `date` you write *is* the review anchor — `vault-health` derives review cadence from the note's `type` (config `review.staleDays`), so you don't add a review date. **Exception:** for a fast-rotting fact (a volatile API quirk, a "current as of" price) add an optional `ttl: <days>` to the frontmatter to age it faster than its type default. Don't add `reviewed:` — that's the snooze health/the user stamps later. See `references/config-schema.md` → "Optional per-note frontmatter".
 
 **Add to MOC — MCP `str_replace` for targeted insert, or CLI for plain wikilinks:**
 

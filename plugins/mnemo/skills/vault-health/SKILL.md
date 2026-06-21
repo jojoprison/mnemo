@@ -107,15 +107,36 @@ find "$VAULT_PATH" -name "*#*.md" -not -path "*/.obsidian/*" -not -path "*/.tras
 
 Files with `#` in the name are **permanent orphans** — `[[Note #1]]` parses as `[[Note]]` + heading anchor `#1`, so nothing resolves to them (even existing links). Flag for rename (`#` → `—` or drop the `#`). Same for `.` mid-name (breaks CLI create). See `references/tool-routing.md` (naming rules).
 
-### Step 7: Stale Notes
+### Step 7: Review Candidates (content-staleness, type-aware)
 
-Find notes with `date:` in frontmatter older than 30 days, then check backlinks:
+A *temporal* signal, distinct from orphans (Step 1, which is *structural*): notes untouched longer than the threshold **for their type** are candidates for a re-read. Threshold precedence: per-note `ttl: <days>` → `review.staleDays.<type>` → `review.staleDays.default` → `30` (legacy). Age is measured from the newest of `date` or `reviewed` — so stamping `reviewed: {today}` on a still-valid note **resets its clock**. That snooze is what stops a stale list from rotting into guilt-debt (the canonical failure mode of review dates — see Gotchas).
 
 ```bash
-obsidian backlinks file="{note_name}" vault="{vault}"
+VAULT_PATH=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/get-vault-path.sh" "{vault}")
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review-candidates.py" "$VAULT_PATH" --limit 30
+# Or from source: plugins/mnemo/scripts/review-candidates.py
 ```
 
-If zero backlinks AND date > 30 days ago → stale.
+Output: `CANDIDATES\t{n}`, then `THRESHOLDS\t{json}`, then one tab-separated row per note (`{overdue_days}  {type}  {anchor_date}  {anchor_src}  {relpath}`), most-overdue first. Pure filesystem — independent of the obsidian CLI graph cache (no lag/lie risk). A missing `review` config section reproduces the legacy uniform 30-day behavior, so this is safe before any config migration.
+
+Don't AND this with backlinks — a well-linked note can still hold outdated claims. Report candidates on their own; cross-reference Step 1 yourself if you specifically want "old **and** orphaned."
+
+### Step 7.5: Content Lint (optional deep pass — gated by `review.lint.enabled`)
+
+Steps 1-7 are cheap and structural. This is the **content** pass — Karpathy's "lint": actually re-read the notes to judge whether claims have rotted, instead of trusting the calendar. Together the checks cover his four: orphans (Step 1) + concepts-mentioned-but-no-page (Step 2 unresolved links) + stale claims (Step 7) + **contradictions** (here). Gated by `config.json` → `review.lint.enabled` (default **false**) because it reads note bodies and costs tokens — **skip this step silently when disabled**.
+
+When enabled, take the top `review.lint.maxCandidates` (default **15**) candidates from Step 7 and have them read & judged on the model set by `config.json` → `review.lint.model` (default **`haiku`**; `sonnet`/`opus` for higher-quality verdicts). This health skill itself runs as a `haiku` fork and **cannot upgrade its own model**, so:
+
+- If `review.lint.model` is `haiku` (or unset) → do the lint inline in this fork.
+- Otherwise → **spawn one subagent** (Agent/Task tool, `model: {review.lint.model}`, `subagent_type: Explore` or general) that reads the candidate note bodies in **one batched pass** (filesystem read, not one `obsidian read` per file) and returns the verdicts. Keeping the cheap Steps 1-7 on `haiku` while the lint runs on `opus` is the whole point of the split.
+
+Emit a verdict per candidate:
+
+- **still-valid** → recommend the user stamp `reviewed: {today}` on it (resets the clock).
+- **update-needed** → one line on what specifically looks outdated.
+- **contradicts [[Other Note]]** → name the conflicting note; flag the *older* one against the newer.
+
+Verdicts are **triage, not truth** — on `haiku` especially, expect false positives; even on `opus`, surface them as questions. Never auto-edit; only report (consistent with the rest of health). The user decides.
 
 ### Step 8: Top Hubs
 
@@ -160,10 +181,19 @@ Total: {N} notes
   2. MOC — AI ML Tools (28)
   ...
 
-💤 Stale (30d+ no backlinks): {N}
+💤 Review candidates (stale by type-aware age): {N}
+  - Atom — API X gotcha — 45d overdue (atom, ttl 14)
+  - Decision — auth model — 35d overdue (decision, 365d)
+  (snooze a still-valid note: add `reviewed: {today}` to its frontmatter)
+
+🔬 Content lint: {N judged}   ← only when review.lint.enabled
+  - Atom — API X gotcha → UPDATE-NEEDED: superseded by [[Atom — API X v2]]
+  - Decision — auth model → still-valid (recommend `reviewed: {today}`)
 
 🧠 Claude memory/ index: {KB}KB / {lines} lines {✅ lean | ⚠️ bloated → autodream}
 ```
+
+Omit the `🔬 Content lint` block entirely when `review.lint.enabled` is false.
 
 Skip the `⚠️ claude-mem` line entirely if Step 0 found nothing to warn about.
 
@@ -190,5 +220,7 @@ Common failures in `references/gotchas.md`. Skill-specific rules:
 - Reference notes (taxonomy docs, templates) aren't orphans even if few backlinks — they're meant to be lookups.
 - Ghost notes (unresolved wikilinks) are a **feature**, not a bug — they enable entity discovery. Don't flag on raw count; instead surface the **top targets** (Step 2 eval) — frequent ones = missing hub notes (actionable).
 - **CLI graph queries cache & can lie** — `orphans`/`unresolved`/`backlinks` lag writes and have shown a note as resolved AND broken at once. For critical checks use `obsidian eval` on `metadataCache` (see `references/gotchas.md`). Treat counts as advisory if notes were created this session.
-- **Do not auto-fix anything** — only report. User decides what to clean up.
+- **Do not auto-fix anything** — only report. User decides what to clean up. This includes `reviewed:` — **health never writes frontmatter**; the snooze stamp is the user's call (keeps health strictly read-only).
 - Step 5 uses filesystem grep (~3600x faster than per-file reads — 49ms vs 180s on a 999-note vault) — safe on any vault size.
+- **Review candidates (Step 7) are temporal, not structural** — don't conflate with orphans. A note can be both, either, or neither. The script is age-only by design (cheap, no graph dependency).
+- **Content-lint verdicts (Step 7.5) are triage-grade** — time-based staleness is a *proxy*, not the signal (a 6-month-old note may be perfectly valid; "not read ≠ not valuable"). On `haiku` especially, contradiction/update calls have false positives. Surface them as questions, never as facts, and never act on them automatically. The whole point of `reviewed:` is to let a quick human confirm and silence a false flag.

@@ -2,6 +2,43 @@
 
 All notable changes to this project will be documented in this file.
 
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [0.11.0] - 2026-06-21
+
+### Added — type-aware review candidates + optional content lint (Karpathy "lint your wiki")
+
+- **`vault-health` Step 7 reworked into type-aware review candidates.** Staleness is no longer a hardcoded uniform 30 days. New `scripts/review-candidates.py` (pure filesystem, no obsidian-CLI graph dependency) flags notes past a per-**type** threshold from `config.json` → **`review.staleDays`** (e.g. a volatile `atom` ages in 60d, a `decision` in 365d). Precedence: per-note `ttl:` → `review.staleDays.<type>` → `review.staleDays.default` → 30 (legacy fallback when the `review` section is absent — fully backward compatible).
+- **`reviewed:` snooze + `ttl:` override (optional per-note frontmatter).** Age is measured from `max(date, reviewed)`, so stamping `reviewed: {today}` on a still-valid note resets its clock — the fix for the "guilt-debt" failure mode of review dates. `ttl: <days>` ages a single note faster/slower than its type default. Deliberately **not** an absolute `review-by:` date (those rot). health never writes either field — it stays strictly read-only.
+- **`vault-health` Step 7.5: optional content lint** gated by **`review.lint.enabled`** (default false). When on, an LLM re-reads the top `review.lint.maxCandidates` (default 15) candidates and emits verdicts (still-valid / update-needed / contradicts `[[Other]]`) — Karpathy's "lint your wiki" applied to claims, not the calendar. Triage only, never auto-applied. Together with orphans (Step 1) and unresolved links (Step 2 = "concepts mentioned but missing a page"), health now covers all four of Karpathy's lint checks including **contradictions**.
+- **Config + docs:** documented the `review` section and the optional `reviewed`/`ttl` frontmatter in `references/config-schema.md`, added the block to `config.example.json`, and refreshed `docs/health.md`. `memory-routing` now notes that staleness is type-driven (no review date to stamp at save time; `ttl:` only for fast-rotting facts).
+
+### Added — configurable lint model
+
+- **`review.lint.model`** (default `haiku`) selects the model for the Step 7.5 content lint. The lint runs as a spawned subagent, so the cheap `haiku` health fork stays cheap while verdicts can run on `sonnet`/`opus` when you want higher quality.
+
+### Added — `/rs` research skill (standalone, global)
+
+- New standalone personal skill `~/.claude/skills/rs/` — give it a GitHub repo or news URL and it vets hype-vs-substance: checks your vault & `memory/` **first** (Step 0), fans out across GitHub internals + Twitter/Reddit/HN/Lobsters/Bluesky, adversarially verifies claims, and returns an adopt / defer-until-pain verdict. Not part of mnemo (general research), but consults mnemo's vault-search.
+
+### Changed — stronger skill auto-trigger descriptions
+
+- `memory-routing` and `vault-search` descriptions gained more trigger phrases (incl. `помни`, `в памяти`, `отложи в память`, `напомни мне`, `посмотри в память`, `найди в памяти`) per Anthropic's skill-authoring best practices — addresses occasional under-triggering on paraphrased/misspelled Russian input.
+
+### Changed — changelog is now single-source (Keep a Changelog v2 + GitHub Releases)
+
+- `CHANGELOG.md` adopts Keep a Changelog v2 (an `[Unreleased]` section + version compare-links). A new `.github/workflows/release.yml` mirrors each tag's section into a GitHub Release on push. The trilingual README keeps only a short "What's New" summary + a link here.
+
+### Fixed — `get-vault-path.sh` returned empty on macOS
+
+- The helper matched `awk '/^path\s/'`, but `\s` is unsupported by macOS/BSD awk → it returned an empty path even with Obsidian running, breaking `vault-health` Steps 5/7. Now splits on tab (`awk -F'\t' '$1=="path"'`). Affected every macOS user.
+
+### Removed — inbox taxonomy remnants
+
+- The `inbox-triage` skill (`/mn:sort`) was removed in v0.9.0; this release cleans the leftover `inbox` type from `config.example.json`, deletes `docs/sort.md`, and drops inbox references from `docs/health.md` / `docs/setup.md`.
+
 ## [0.10.4] - 2026-06-21
 
 ### Changed — session notes never gated by "significance" + same-day dedup hardened
@@ -550,3 +587,30 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - Plugin marketplace support
 - `config.example.json`
 - MIT License
+
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/jojoprison/mnemo/compare/v0.10.4...v0.11.0
+[0.10.4]: https://github.com/jojoprison/mnemo/compare/v0.10.3...v0.10.4
+[0.10.3]: https://github.com/jojoprison/mnemo/compare/v0.10.2...v0.10.3
+[0.10.2]: https://github.com/jojoprison/mnemo/compare/v0.10.1...v0.10.2
+[0.10.1]: https://github.com/jojoprison/mnemo/compare/v0.10.0...v0.10.1
+[0.10.0]: https://github.com/jojoprison/mnemo/compare/v0.9.0...v0.10.0
+[0.9.0]: https://github.com/jojoprison/mnemo/compare/v0.8.2...v0.9.0
+[0.8.2]: https://github.com/jojoprison/mnemo/compare/v0.8.1...v0.8.2
+[0.8.1]: https://github.com/jojoprison/mnemo/compare/v0.8.0...v0.8.1
+[0.8.0]: https://github.com/jojoprison/mnemo/compare/v0.7.4...v0.8.0
+[0.7.4]: https://github.com/jojoprison/mnemo/compare/v0.7.3...v0.7.4
+[0.7.3]: https://github.com/jojoprison/mnemo/compare/v0.7.2...v0.7.3
+[0.7.2]: https://github.com/jojoprison/mnemo/compare/v0.7.1...v0.7.2
+[0.7.1]: https://github.com/jojoprison/mnemo/compare/v0.7.0...v0.7.1
+[0.7.0]: https://github.com/jojoprison/mnemo/compare/v0.6.2...v0.7.0
+[0.6.2]: https://github.com/jojoprison/mnemo/compare/v0.6.1...v0.6.2
+[0.6.1]: https://github.com/jojoprison/mnemo/compare/v0.6.0...v0.6.1
+[0.6.0]: https://github.com/jojoprison/mnemo/compare/v0.5.10...v0.6.0
+[0.5.10]: https://github.com/jojoprison/mnemo/compare/v0.5.9...v0.5.10
+[0.5.9]: https://github.com/jojoprison/mnemo/compare/v0.5.8...v0.5.9
+[0.5.8]: https://github.com/jojoprison/mnemo/compare/v0.4.0...v0.5.8
+[0.4.0]: https://github.com/jojoprison/mnemo/compare/v0.3.0...v0.4.0
+[0.3.0]: https://github.com/jojoprison/mnemo/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/jojoprison/mnemo/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/jojoprison/mnemo/releases/tag/v0.1.0

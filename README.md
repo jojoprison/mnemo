@@ -31,7 +31,7 @@ You work → mnemo remembers → Your vault grows → You find things later
 | **review** | `/mn:review` | End-of-session orchestrator — audits the session, auto-runs save + session, recommends the rest |
 | **ask** | `/mn:ask` | Search vault (+ Claude's `memory/` index) and synthesize an answer with citations |
 | **connect** | `/mn:connect` | Discover hidden connections between notes — suggests, never auto-applies |
-| **health** | `/mn:health` | Vault audit: orphans, broken links, missing sections, stale notes, growth stats |
+| **health** | `/mn:health` | Vault audit: orphans, broken links, type-aware review candidates (+ optional LLM lint), growth stats |
 | **setup** | `/mn:setup` | Interactive onboarding — vault name, taxonomy, language |
 
 ### When to Use Which
@@ -51,8 +51,9 @@ You work → mnemo remembers → Your vault grows → You find things later
 
 Obsidian plugins run inside Obsidian. mnemo runs inside your coding agent — **Codex or Claude Code** — so it has access to your development context, conversation history, and codebase. When you finish a 3-hour debugging session, `/mn:session` knows what you did because it was there.
 
-### What's New (v0.10.x)
+### What's New (v0.11.x)
 
+- **Type-aware review + content lint** (v0.11.0) — `/mn:health` flags stale notes by a per-**type** budget (`review.staleDays`) instead of a flat 30 days, with a `reviewed:` snooze and per-note `ttl:`; an opt-in LLM lint (`review.lint.enabled`) re-reads candidates for outdated/contradicting claims — Karpathy's "lint your wiki". Changelog moved to Keep a Changelog v2 + GitHub Releases.
 - **Codex/Claude command parity** (v0.10.2–0.10.3) — full `/mn:ask`, `/mn:save`, `/mn:session`, `/mn:review` aliases on Codex; accidental `/mnemo:mn:*` now routes instead of failing.
 - **Autodream-aware memory index** (v0.10.0–0.10.1) — `memory/MEMORY.md` is a *lean* index: one `| File | Read when… |` row per topic file, never a paragraph. Claude Code hard-truncates it at ~24.4 KB on load, so `/mn:health` warns past a configurable `memory.indexWarnKB` (default 22). `/mn:ask` now also recalls from the `memory/` index, not just the vault.
 - **PKM-canon + leaner skill set** (v0.9.0) — removed `inbox-triage` (**8 → 7 skills**): in an agent-driven flow, typed notes are written directly, so there's nothing to triage. Baked in note-naming rules (`# . / .md` forbidden), hub notes for short names, and `metadataCache`-over-CLI-cache for accurate link checks.
@@ -201,11 +202,15 @@ cp config.example.json ~/.mnemo/config.json
     "claude_mem": { "enabled": false },
     "memory_dir": { "enabled": true },
     "claude_md": { "enabled": false }
+  },
+  "review": {
+    "staleDays": { "default": 30, "atom": 60, "source": 180, "session": 90, "moc": 365 },
+    "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku" }
   }
 }
 ```
 
-All fields are optional. Skills ask on first use.
+All fields are optional. Skills ask on first use. `review.*` tunes `/mn:health` staleness per note type plus the optional content lint — see [config-schema.md](plugins/mnemo/references/config-schema.md).
 
 ### Custom Taxonomy
 
@@ -279,12 +284,14 @@ mnemo/
 │   │   ├── session-scan.py          # JSONL parser (Claude + Codex) with incremental cache
 │   │   ├── skills-discover.py       # Auto-discovery across Claude/Codex skill paths
 │   │   ├── get-vault-path.sh        # obsidian vault → filesystem path
+│   │   ├── review-candidates.py     # type-aware staleness scan for /mn:health
 │   │   └── check-cm-version.sh      # claude-mem cache inspector
 │   └── hooks/                       # Harness hooks
 │       ├── hooks.json               # SessionStart async prewarm
 │       └── prewarm.sh               # Warms /mn:review caches non-blocking
 ├── .agents/plugins/marketplace.json # Codex marketplace entry
 ├── .github/workflows/skill-lint.yml # CI: validates SKILL.md frontmatter + refs
+├── .github/workflows/release.yml    # CI: mirror CHANGELOG section → GitHub Release on tag
 ├── scripts/lint-skills.py           # Linter used by CI and locally
 ├── docs/codex.md                    # Codex install, invocation, runtime differences
 ├── AGENTS.md · CONTRIBUTING.md · CHANGELOG.md · TESTING.md · LICENSE
@@ -295,6 +302,7 @@ mnemo/
 - [My-Brain-Is-Full-Crew](https://github.com/gnekt/My-Brain-Is-Full-Crew) — 8 AI agents managing Obsidian. Great concept, different approach: PARA-based, heavier. mnemo takes the best ideas and packages them as lightweight skills for **any** vault.
 - [kepano/obsidian-cli](https://github.com/kepano/obsidian-cli) + [obsidian-skills](https://github.com/kepano/obsidian-skills) — CLI-first philosophy and the 70,000x token savings insight.
 - [Zettelkasten](https://zettelkasten.de/), [Atomic/Molecular Notes](https://reasonabledeviations.com/2022/04/18/molecular-notes-part-1/), [Maps of Content](https://www.dsebastien.net/2022-05-15-maps-of-content/) — note taxonomy research.
+- [Andrej Karpathy's "LLM Wiki"](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) (2026) — the operational model mnemo implements: an AI reads sources once, builds & maintains an interlinked markdown wiki, then "lints" it. `/mn:health` is that lint.
 
 ## Contributing
 
@@ -323,7 +331,7 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 | **review** | `/mn:review` | Оркестратор конца сессии — аудит сессии, авто-запуск save + session, рекомендация остального |
 | **ask** | `/mn:ask` | Поиск по vault (+ индекс `memory/` для Claude) и синтез ответа с цитатами |
 | **connect** | `/mn:connect` | Находит скрытые связи между заметками — предлагает, не применяет сам |
-| **health** | `/mn:health` | Аудит vault: orphans, битые ссылки, пропущенные секции, стагнирующие заметки, статистика |
+| **health** | `/mn:health` | Аудит vault: orphans, битые ссылки, type-aware кандидаты на ревью (+ опц. LLM-линт), статистика роста |
 | **setup** | `/mn:setup` | Интерактивный онбординг — имя vault, таксономия, язык |
 
 ### Когда что использовать
@@ -343,8 +351,9 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 
 Плагины Obsidian работают внутри Obsidian. mnemo работает внутри твоего кодинг-агента — **Codex или Claude Code** — у него есть доступ ко всему контексту разработки, истории разговора и кодовой базе. Когда ты заканчиваешь 3-часовую сессию, `/mn:session` знает что ты делал, потому что был рядом.
 
-### Что нового (v0.10.x)
+### Что нового (v0.11.x)
 
+- **Type-aware ревью + контент-линт** (v0.11.0) — `/mn:health` помечает устаревшие заметки по бюджету на **тип** (`review.staleDays`), а не единым «30 дней»; снуз `reviewed:` + per-note `ttl:`; опц. LLM-линт (`review.lint.enabled`) перечитывает кандидатов на устаревшие/противоречащие утверждения — «lint your wiki» Карпати. Changelog переехал в Keep a Changelog v2 + GitHub Releases.
 - **Паритет команд Codex/Claude** (v0.10.2–0.10.3) — полные алиасы `/mn:ask`, `/mn:save`, `/mn:session`, `/mn:review` в Codex; случайный `/mnemo:mn:*` теперь роутится, а не падает.
 - **Autodream-aware индекс памяти** (v0.10.0–0.10.1) — `memory/MEMORY.md` это *тощий* индекс: одна строка `| File | Read when… |` на topic-файл, не абзац. Claude Code жёстко обрезает его на ~24.4 KB при загрузке, поэтому `/mn:health` предупреждает после настраиваемого `memory.indexWarnKB` (дефолт 22). `/mn:ask` теперь вспоминает и из индекса `memory/`, не только из vault.
 - **PKM-канон + меньше скиллов** (v0.9.0) — убран `inbox-triage` (**8 → 7 скиллов**): в agent-driven потоке типизированные заметки пишутся напрямую, триажить нечего. Вшиты правила именования (`# . / .md` запрещены), hub-заметки для коротких имён, `metadataCache`-вместо-CLI-кеша для точной проверки ссылок.
@@ -485,7 +494,7 @@ cp config.example.json ~/.mnemo/config.json
 | **review** | `/mn:review` | 会话结束编排器 —— 审计会话、自动运行 save + session、推荐其余技能 |
 | **ask** | `/mn:ask` | 搜索 vault（+ Claude 的 `memory/` 索引）并综合答案，附带引用 |
 | **connect** | `/mn:connect` | 发现笔记之间隐藏的联系 —— 仅建议，不自动应用 |
-| **health** | `/mn:health` | Vault 审计：孤立笔记、断链、缺失章节、陈旧笔记、增长统计 |
+| **health** | `/mn:health` | Vault 审计：孤立笔记、断链、按类型的复查候选（+ 可选 LLM lint）、增长统计 |
 | **setup** | `/mn:setup` | 交互式引导配置 —— vault 名称、分类法、语言 |
 
 ### 何时用哪个
@@ -505,8 +514,9 @@ cp config.example.json ~/.mnemo/config.json
 
 Obsidian 插件在 Obsidian 内部运行。mnemo 在你的编码代理 —— **Codex 或 Claude Code** —— 内部运行，它可以访问你的整个开发上下文、对话历史和代码库。当你结束一个 3 小时的调试会话时，`/mn:session` 知道你做了什么，因为它全程在场。
 
-### 新特性（v0.10.x）
+### 新特性（v0.11.x）
 
+- **按类型的复查 + 内容 lint**（v0.11.0）—— `/mn:health` 按**类型**预算（`review.staleDays`）标记陈旧笔记，而非统一的 30 天；`reviewed:` 缓刑 + 单笔记 `ttl:`；可选 LLM lint（`review.lint.enabled`）重读候选以发现过时/矛盾的声明 —— Karpathy 的 "lint your wiki"。Changelog 迁移到 Keep a Changelog v2 + GitHub Releases。
 - **Codex/Claude 命令对等**（v0.10.2–0.10.3）—— Codex 上完整的 `/mn:ask`、`/mn:save`、`/mn:session`、`/mn:review` 别名；误输入的 `/mnemo:mn:*` 现在会被路由而非报错。
 - **Autodream 感知的记忆索引**（v0.10.0–0.10.1）—— `memory/MEMORY.md` 是*精简*索引：每个主题文件一行 `| File | Read when… |`，而非段落。Claude Code 在加载时会在 ~24.4 KB 处硬截断，因此 `/mn:health` 会在可配置的 `memory.indexWarnKB`（默认 22）之后警告。`/mn:ask` 现在也从 `memory/` 索引回忆，不只是 vault。
 - **PKM 规范 + 更精简的技能集**（v0.9.0）—— 移除 `inbox-triage`（**8 → 7 个技能**）：在代理驱动的流程中，类型化笔记被直接写入，没有需要分类的收件箱。内置笔记命名规则（禁用 `# . / .md`）、短名称的 hub 笔记、用 `metadataCache` 而非 CLI 缓存进行准确的链接检查。

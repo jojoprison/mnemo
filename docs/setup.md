@@ -36,7 +36,6 @@ Your skills:
   /mn:connect   — discover hidden links
   /mn:session   — session notes + handoff
   /mn:ask       — search & synthesize
-  /mn:sort      — classify inbox notes
   /mn:save      — memory routing cascade
   /mn:review    — session completeness review
   /mn:setup     — this command
@@ -54,8 +53,7 @@ Try: /mn:health
     "molecule": { "prefix": "Molecule — ", "tag": "molecule" },
     "source": { "prefix": "Source — ", "tag": "source" },
     "session": { "prefix": "Session — ", "tag": "session" },
-    "moc": { "prefix": "MOC — ", "tag": "moc" },
-    "inbox": { "prefix": "Inbox — ", "tag": "inbox" }
+    "moc": { "prefix": "MOC — ", "tag": "moc" }
   },
   "links_section": "## Связи",
   "handoff_note": "Meta — Session Handoff"
