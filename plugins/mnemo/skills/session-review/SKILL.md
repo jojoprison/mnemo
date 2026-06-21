@@ -191,7 +191,7 @@ After the report, **automatically run** save + session without asking — these 
    ```
    Skill(skill: "mnemo:memory-routing", args: "{extracted decisions and findings}")
    ```
-2. **mnemo:session-notes** (session) — if significant work was done, invoke:
+2. **mnemo:session-notes** (session) — if significant work was done, invoke (a research / exploration / personal-curiosity session counts as significant — never skip it for being "just curiosity" or "no code produced"):
    ```
    Skill(skill: "mnemo:session-notes", args: "")
    ```
