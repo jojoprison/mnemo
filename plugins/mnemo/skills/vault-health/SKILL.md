@@ -128,7 +128,7 @@ Steps 1-7 are cheap and structural. This is the **content** pass — Karpathy's 
 When enabled, take the top `review.lint.maxCandidates` (default **15**) candidates from Step 7 and have them read & judged on the model set by `config.json` → `review.lint.model` (default **`haiku`**; `sonnet`/`opus` for higher-quality verdicts). This health skill itself runs as a `haiku` fork and **cannot upgrade its own model**, so:
 
 - If `review.lint.model` is `haiku` (or unset) → do the lint inline in this fork.
-- Otherwise → **spawn one subagent** (Agent/Task tool, `model: {review.lint.model}`, `subagent_type: Explore` or general) that reads the candidate note bodies in **one batched pass** (filesystem read, not one `obsidian read` per file) and returns the verdicts. Keeping the cheap Steps 1-7 on `haiku` while the lint runs on `opus` is the whole point of the split.
+- Otherwise → **spawn one subagent** on `model: {review.lint.model}` (Claude Code: Task tool, `subagent_type: Explore` or general; Codex: `spawn_agent`) that reads the candidate note bodies in **one batched pass** (filesystem read, not one `obsidian read` per file) and returns the verdicts. Keeping the cheap Steps 1-7 on `haiku` while the lint runs on `opus` is the whole point of the split.
 
 Emit a verdict per candidate:
 
@@ -183,12 +183,12 @@ Total: {N} notes
 
 💤 Review candidates (stale by type-aware age): {N}
   - Atom — API X gotcha — 45d overdue (atom, 14d budget)
-  - Decision — auth model — 35d overdue (decision, 365d budget)
+  - Source — vendor API pricing — 35d overdue (source, 180d budget)
   (snooze a still-valid note: add `reviewed: {today}` to its frontmatter)
 
 🔬 Content lint: {N judged}   ← only when review.lint.enabled
   - Atom — API X gotcha → UPDATE-NEEDED: superseded by [[Atom — API X v2]]
-  - Decision — auth model → still-valid (recommend `reviewed: {today}`)
+  - Source — vendor API pricing → still-valid (recommend `reviewed: {today}`)
 
 🧠 Claude memory/ index: {KB}KB / {lines} lines {✅ lean | ⚠️ bloated → autodream}
 ```

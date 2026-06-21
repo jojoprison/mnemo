@@ -27,6 +27,7 @@ Output (tab-separated, sorted most-overdue first):
 """
 from __future__ import annotations
 
+import argparse
 import datetime as dt
 import json
 import os
@@ -46,10 +47,13 @@ def load_thresholds(config_path: str) -> tuple[dict, int]:
 
     review = cfg.get("review", {})
     stale = review.get("staleDays", {})
-    if isinstance(stale, int):  # bare integer form: one value for everything
-        return {}, stale
     if not isinstance(stale, dict):
-        return {}, DEFAULT_STALE_DAYS
+        # bare-scalar form (int or numeric string) → one uniform threshold,
+        # coerced like the nested branches below; junk falls back to default.
+        try:
+            return {}, int(stale)
+        except (TypeError, ValueError):
+            return {}, DEFAULT_STALE_DAYS
 
     default = stale.get("default", DEFAULT_STALE_DAYS)
     try:
@@ -77,8 +81,10 @@ def parse_frontmatter(path: str) -> dict | None:
             if first.strip() != "---":
                 return {}
             fields: dict[str, str] = {}
-            for line in f:
-                if line.strip() == "---":
+            for i, line in enumerate(f):
+                # stop at the closing fence, or bail if frontmatter never
+                # closes — don't stream a whole note body (100 lines is ample).
+                if i >= 100 or line.strip() == "---":
                     break
                 if ":" not in line:
                     continue
@@ -100,35 +106,15 @@ def parse_date(value: str) -> dt.date | None:
 
 
 def main() -> int:
-    args = sys.argv[1:]
-    if not args:
-        print("usage: review-candidates.py <vault-path> [--limit N] [--config PATH]",
-              file=sys.stderr)
-        return 1
+    p = argparse.ArgumentParser(
+        description="Detect notes due for review (type-aware staleness candidates).")
+    p.add_argument("vault_path", help="path to the Obsidian vault root")
+    p.add_argument("--limit", type=int, default=50, help="max rows to print (default 50)")
+    p.add_argument("--config", default="~/.mnemo/config.json",
+                   help="path to mnemo config.json (default ~/.mnemo/config.json)")
+    a = p.parse_args()
+    vault_path, limit, config_path = a.vault_path, a.limit, a.config
 
-    vault_path = ""
-    limit = 50
-    config_path = "~/.mnemo/config.json"
-    i = 0
-    positional = []
-    while i < len(args):
-        a = args[i]
-        if a == "--limit" and i + 1 < len(args):
-            try:
-                limit = int(args[i + 1])
-            except ValueError:
-                pass
-            i += 2
-        elif a == "--config" and i + 1 < len(args):
-            config_path = args[i + 1]
-            i += 2
-        else:
-            positional.append(a)
-            i += 1
-    if not positional:
-        print("error: vault path required", file=sys.stderr)
-        return 1
-    vault_path = positional[0]
     if not os.path.isdir(vault_path):
         print(f"error: not a directory: {vault_path}", file=sys.stderr)
         return 1
@@ -136,7 +122,7 @@ def main() -> int:
     per_type, default_days = load_thresholds(config_path)
     today = dt.date.today()
 
-    candidates = []  # (overdue_days, type, anchor_iso, anchor_src, relpath)
+    candidates = []  # (overdue_days, type, anchor_iso, anchor_src, threshold, relpath)
     seen_types = set()
     for root, dirs, files in os.walk(vault_path):
         dirs[:] = [d for d in dirs if d not in (".obsidian", ".trash", ".git")]

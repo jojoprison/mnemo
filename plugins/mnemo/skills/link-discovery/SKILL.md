@@ -38,8 +38,8 @@ Extract:
 **Even better than parallel `obsidian search` calls: one `grep -E` with all concepts OR'd together.** Single filesystem scan against the vault path — ~50ms for any number of concepts vs ~180ms per `obsidian search`.
 
 ```bash
-# Get vault filesystem path once
-VAULT_PATH=$(obsidian vault vault="{vault}" | awk '/^path\s/{print $2}')
+# Get vault filesystem path once (shared helper — BSD/macOS-awk-safe)
+VAULT_PATH=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/get-vault-path.sh" "{vault}")
 
 # Run these TWO commands in parallel (single message, two Bash tool uses):
 # 1. Single grep for all concepts — much faster than N separate obsidian searches

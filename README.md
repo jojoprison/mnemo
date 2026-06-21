@@ -204,7 +204,7 @@ cp config.example.json ~/.mnemo/config.json
     "claude_md": { "enabled": false }
   },
   "review": {
-    "staleDays": { "default": 30, "atom": 60, "source": 180, "session": 90, "moc": 365 },
+    "staleDays": { "default": 30, "atom": 60, "molecule": 120, "source": 180, "session": 90, "moc": 365 },
     "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku" }
   }
 }

@@ -78,8 +78,8 @@ The whole `review` section is **optional** — if absent, `vault-health` falls b
 | `cascade.memory_dir.enabled` | Skip memory/ writes if false | memory-routing |
 | `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md (default false) | memory-routing |
 | `memory.indexWarnKB` | Warn threshold (KB) for `memory/MEMORY.md` size. Claude Code auto-memory **hard-truncates the index ~24.4KB on load** → warn earlier. Default **22** | vault-health |
-| `review.staleDays.default` | Days before a note becomes a review candidate when its type has no specific entry. Default **30** | vault-health |
-| `review.staleDays.{type}` | Per-type staleness cadence (key = taxonomy `type`, e.g. `atom`/`decision`/`source`). A fast-moving fact ages quicker than an architectural decision | vault-health |
+| `review.staleDays.default` | Days before a note becomes a review candidate when its type has no specific entry. Default **30**. (`review.staleDays` may also be a bare integer — a single uniform threshold for every type.) | vault-health |
+| `review.staleDays.{type}` | Per-type staleness cadence (key = a taxonomy `type` you actually use: `atom`/`molecule`/`source`/`session`/`moc`). A fast-moving fact ages quicker than an architectural decision | vault-health |
 | `review.lint.enabled` | Run the content-lint deep pass (LLM re-reads candidates, emits still-valid/update-needed/contradicts verdicts). Default **false** — it reads note bodies and costs tokens | vault-health |
 | `review.lint.maxCandidates` | Cap on notes the lint pass reads per run (most-overdue first). Default **15** | vault-health |
 | `review.lint.model` | Model for the lint pass, spawned as a subagent so the cheap haiku health fork stays cheap. `haiku` (default, triage-grade) / `sonnet` / `opus` (highest-quality verdicts & contradiction detection — `opus` = current Opus 4.8). Only the lint subagent uses it; Steps 1-7 always run on the health fork's own model | vault-health |

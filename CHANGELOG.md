@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-06-21
+
+### Fixed — code-review follow-ups (full multi-persona review of the v0.11.x changeset)
+
+- **`link-discovery` (`/mn:connect`)** carried its own copy of the BSD/macOS-awk `\s` bug that v0.11.1 fixed elsewhere — it inlined `awk '/^path\s/'` instead of using the shared `get-vault-path.sh`, so on macOS `$VAULT_PATH` was empty and `/mn:connect` silently surfaced **zero** connections. Now uses the shared helper. (Pre-existing; the v0.11.x awk fix should have reached this sibling skill.)
+- **`vault-health` Step 7.5** described the lint-subagent spawn with Claude-Code-only tool names (`Task` / `subagent_type`) inside a dual-runtime SKILL.md — misleading for Codex. Reworded by capability (Claude Code: Task tool; Codex: `spawn_agent`).
+- **`review.staleDays` sample drift** — `README.md` was missing the `molecule` key that `config.example.json` and `config-schema.md` carry; all three now agree.
+- **Worked-example types** — `vault-health` Step 9 and `config-schema.md` used a `decision` type that ships in no config (so its `365d` budget wasn't reproducible); switched to shipping types.
+- **`scripts/review-candidates.py`** — hand-rolled arg parser → `argparse` (also fixes the `--limit`-before-path footgun); `parse_frontmatter` now caps at 100 lines so an unterminated `---` block can't stream a whole note body; bare-scalar `staleDays` now accepts a numeric string; stale tuple-shape comment corrected. The bare-integer `staleDays` form is now documented in `config-schema.md`.
+
 ## [0.11.1] - 2026-06-21
 
 ### Fixed
@@ -596,7 +606,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.11.1...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.11.2...HEAD
+[0.11.2]: https://github.com/jojoprison/mnemo/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/jojoprison/mnemo/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/jojoprison/mnemo/compare/v0.10.4...v0.11.0
 [0.10.4]: https://github.com/jojoprison/mnemo/compare/v0.10.3...v0.10.4
