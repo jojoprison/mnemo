@@ -57,11 +57,17 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
       "moc": 365
     },
     "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku" }
+  },
+
+  "recall": {
+    "codeGraph": null
   }
 }
 ```
 
 The whole `review` section is **optional** — if absent, `vault-health` falls back to a uniform 30-day staleness threshold (the legacy behavior) and the content-lint pass stays off. Add it only when you want type-aware cadence or the LLM lint.
+
+The `recall` section is optional and ships off. `recall.codeGraph` (default `null`) is a seam for `/mn:ask` Step 4c: set it to a code-knowledge-graph backend you have installed — `"graphify"` (reads its `graph.json` / `GRAPH_REPORT.md`) or an MCP server (`"sourcegraph"` / `"ast-grep"` / `"tree-sitter-analyzer"`) — and recall gains structural "what's where" context. With no backend it's a no-op. (The project-repo **git-log** grounding in Step 4c runs regardless whenever `/mn:ask` is invoked inside a git project — it needs no config.)
 
 ## Field reference
 

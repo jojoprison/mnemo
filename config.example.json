@@ -27,5 +27,8 @@
       "moc": 365
     },
     "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku" }
+  },
+  "recall": {
+    "codeGraph": null
   }
 }

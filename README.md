@@ -29,7 +29,7 @@ You work → mnemo remembers → Your vault grows → You find things later
 | **save** | `/mn:save` | Routing cascade — sends one fact/decision/finding to Obsidian (+ `memory/`, + claude-mem if enabled), with graceful degradation |
 | **session** | `/mn:session` | Session summary note + cross-session handoff for the next session |
 | **review** | `/mn:review` | End-of-session orchestrator — audits the session, auto-runs save + session, recommends the rest |
-| **ask** | `/mn:ask` | Search vault (+ Claude's `memory/` index), synthesize a cited answer, and date each source by recency |
+| **ask** | `/mn:ask` | Search vault (+ Claude's `memory/` index), synthesize a cited answer, date each source by recency, and ground current-state answers in the project's git history |
 | **connect** | `/mn:connect` | Discover hidden connections between notes — suggests, never auto-applies |
 | **health** | `/mn:health` | Vault audit: orphans, broken links, type-aware review candidates (+ optional LLM lint), growth stats |
 | **setup** | `/mn:setup` | Interactive onboarding — vault name, taxonomy, language |
@@ -51,8 +51,9 @@ You work → mnemo remembers → Your vault grows → You find things later
 
 Obsidian plugins run inside Obsidian. mnemo runs inside your coding agent — **Codex or Claude Code** — so it has access to your development context, conversation history, and codebase. When you finish a 3-hour debugging session, `/mn:session` knows what you did because it was there.
 
-### What's New (v0.12.x)
+### What's New (v0.13.x)
 
+- **Recall grounded in live code** (v0.13.0) — for "is this still true / what changed" questions inside a git project, `/mn:ask` cross-checks the repo's recent commits and flags any note a newer commit may have outdated. Optional code-knowledge-graph backend via `recall.codeGraph` (Graphify / Sourcegraph / ast-grep…), off by default.
 - **Recency-aware recall** (v0.12.0) — `/mn:ask` now dates every source it cites (git last-commit when the vault is a repo, else file mtime + `reviewed`/`date` frontmatter) and flags an answer that rests on stale notes.
 - **Type-aware review + content lint** (v0.11.0) — `/mn:health` flags stale notes by a per-**type** budget (`review.staleDays`) instead of a flat 30 days, with a `reviewed:` snooze and per-note `ttl:`; an opt-in LLM lint (`review.lint.enabled`) re-reads candidates for outdated/contradicting claims — Karpathy's "lint your wiki". Changelog moved to Keep a Changelog v2 + GitHub Releases.
 - **Codex/Claude command parity** (v0.10.2–0.10.3) — full `/mn:ask`, `/mn:save`, `/mn:session`, `/mn:review` aliases on Codex; accidental `/mnemo:mn:*` now routes instead of failing.
@@ -330,7 +331,7 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 | **save** | `/mn:save` | Каскад роутинга — отправляет один факт/решение/находку в Obsidian (+ `memory/`, + claude-mem если включён), с graceful degradation |
 | **session** | `/mn:session` | Сессионная заметка + cross-session handoff для следующей сессии |
 | **review** | `/mn:review` | Оркестратор конца сессии — аудит сессии, авто-запуск save + session, рекомендация остального |
-| **ask** | `/mn:ask` | Поиск по vault (+ индекс `memory/` для Claude), синтез ответа с цитатами + датировка каждого источника по свежести |
+| **ask** | `/mn:ask` | Поиск по vault (+ индекс `memory/` для Claude), синтез ответа с цитатами, датировка источников по свежести + заземление ответов про текущее состояние в git-истории проекта |
 | **connect** | `/mn:connect` | Находит скрытые связи между заметками — предлагает, не применяет сам |
 | **health** | `/mn:health` | Аудит vault: orphans, битые ссылки, type-aware кандидаты на ревью (+ опц. LLM-линт), статистика роста |
 | **setup** | `/mn:setup` | Интерактивный онбординг — имя vault, таксономия, язык |
@@ -352,8 +353,9 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 
 Плагины Obsidian работают внутри Obsidian. mnemo работает внутри твоего кодинг-агента — **Codex или Claude Code** — у него есть доступ ко всему контексту разработки, истории разговора и кодовой базе. Когда ты заканчиваешь 3-часовую сессию, `/mn:session` знает что ты делал, потому что был рядом.
 
-### Что нового (v0.12.x)
+### Что нового (v0.13.x)
 
+- **Recall, заземлённый в живом коде** (v0.13.0) — на вопросы «актуально ли / что изменилось» внутри git-проекта `/mn:ask` сверяется со свежими коммитами репо и флажит заметки, которые новый коммит мог устаревшить. Опц. code-graph бэкенд через `recall.codeGraph` (Graphify / Sourcegraph / ast-grep…), выключен по умолчанию.
 - **Recall со свежестью** (v0.12.0) — `/mn:ask` теперь датирует каждый цитируемый источник (git last-commit если vault под git, иначе mtime файла + frontmatter `reviewed`/`date`) и помечает ответ, опирающийся на устаревшие заметки.
 - **Type-aware ревью + контент-линт** (v0.11.0) — `/mn:health` помечает устаревшие заметки по бюджету на **тип** (`review.staleDays`), а не единым «30 дней»; снуз `reviewed:` + per-note `ttl:`; опц. LLM-линт (`review.lint.enabled`) перечитывает кандидатов на устаревшие/противоречащие утверждения — «lint your wiki» Карпати. Changelog переехал в Keep a Changelog v2 + GitHub Releases.
 - **Паритет команд Codex/Claude** (v0.10.2–0.10.3) — полные алиасы `/mn:ask`, `/mn:save`, `/mn:session`, `/mn:review` в Codex; случайный `/mnemo:mn:*` теперь роутится, а не падает.
@@ -494,7 +496,7 @@ cp config.example.json ~/.mnemo/config.json
 | **save** | `/mn:save` | 路由级联 —— 将一条事实/决策/发现发送到 Obsidian（+ `memory/`，+ claude-mem 如已启用），优雅降级 |
 | **session** | `/mn:session` | 会话摘要笔记 + 跨会话上下文传递 |
 | **review** | `/mn:review` | 会话结束编排器 —— 审计会话、自动运行 save + session、推荐其余技能 |
-| **ask** | `/mn:ask` | 搜索 vault（+ Claude 的 `memory/` 索引），综合带引用的答案，并按时效标注每个来源 |
+| **ask** | `/mn:ask` | 搜索 vault（+ Claude 的 `memory/` 索引），综合带引用的答案，按时效标注来源，并用项目 git 历史为"当前状态"类回答提供依据 |
 | **connect** | `/mn:connect` | 发现笔记之间隐藏的联系 —— 仅建议，不自动应用 |
 | **health** | `/mn:health` | Vault 审计：孤立笔记、断链、按类型的复查候选（+ 可选 LLM lint）、增长统计 |
 | **setup** | `/mn:setup` | 交互式引导配置 —— vault 名称、分类法、语言 |
@@ -516,8 +518,9 @@ cp config.example.json ~/.mnemo/config.json
 
 Obsidian 插件在 Obsidian 内部运行。mnemo 在你的编码代理 —— **Codex 或 Claude Code** —— 内部运行，它可以访问你的整个开发上下文、对话历史和代码库。当你结束一个 3 小时的调试会话时，`/mn:session` 知道你做了什么，因为它全程在场。
 
-### 新特性（v0.12.x）
+### 新特性（v0.13.x）
 
+- **基于实时代码的回忆**（v0.13.0）—— 在 git 项目内回答"是否仍然成立/有何变化"类问题时，`/mn:ask` 会对照仓库最近的提交，标记可能已被新提交过时的笔记。可选代码知识图谱后端 `recall.codeGraph`（Graphify / Sourcegraph / ast-grep…），默认关闭。
 - **带时效的回忆**（v0.12.0）—— `/mn:ask` 现在为每个引用来源标注更新时间（vault 是 git 仓库则用 git last-commit，否则用文件 mtime + `reviewed`/`date` frontmatter），并标记基于陈旧笔记的答案。
 - **按类型的复查 + 内容 lint**（v0.11.0）—— `/mn:health` 按**类型**预算（`review.staleDays`）标记陈旧笔记，而非统一的 30 天；`reviewed:` 缓刑 + 单笔记 `ttl:`；可选 LLM lint（`review.lint.enabled`）重读候选以发现过时/矛盾的声明 —— Karpathy 的 "lint your wiki"。Changelog 迁移到 Keep a Changelog v2 + GitHub Releases。
 - **Codex/Claude 命令对等**（v0.10.2–0.10.3）—— Codex 上完整的 `/mn:ask`、`/mn:save`、`/mn:session`、`/mn:review` 别名；误输入的 `/mnemo:mn:*` 现在会被路由而非报错。

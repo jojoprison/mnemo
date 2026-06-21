@@ -81,9 +81,27 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review-candidates.py" "$VAULT_PATH" --lim
 
 This keeps `/mn:ask` and `/mn:health` in lock-step on what "stale" means. Read `date`/`reviewed` from frontmatter only for display context.
 
+### Step 4c: Ground in the live code (optional — only when it earns it)
+
+mnemo runs *inside* your coding agent, so for **current-state** questions the code is ground truth and the notes are what you distrust. **Gate this — run only when BOTH hold, else skip silently:**
+
+1. The working dir is a git repo — a real project, separate from the vault: `git rev-parse --is-inside-work-tree`.
+2. The query is about current/actual state, not past rationale. "what did we DECIDE / why did we choose" → notes suffice, skip. "is this still true / what changed / current state of X" → ground it.
+
+Then pull the project's recent history relevant to the query (in the CWD repo, **not** the vault) and cross-check your cited notes:
+
+```bash
+git log --oneline -n 15 -i --grep="{term}" 2>/dev/null               # recent commits mentioning the topic
+git log --oneline -n 10 -- "{relevant_path_or_glob}" 2>/dev/null      # …or touching the implied area
+```
+
+If a cited note predates a relevant code change, say so: "⚠️ [[note]] (2026-03-14) predates commit a1b2 (2026-06-20) touching `auth/` — verify against current code." This makes recall agree with reality, not just with old notes.
+
+**Code-knowledge-graph (config seam, default OFF).** If `config.json` → `recall.codeGraph` names a backend you actually have, also query it for structural "what's where": a file-output skill (Graphify → read its `graph.json` / `GRAPH_REPORT.md`) or an MCP server (Sourcegraph SCIP / ast-grep / tree-sitter-analyzer). Ships off — lights up only when you set it; no-op otherwise.
+
 ### Step 5: Synthesize Answer
 
-Compose a clear answer from the found notes. For each claim, cite the source note **with its last-changed date** (Step 4b). If a load-bearing source is in the stale set, flag it ⚠️ — note the file may have been touched recently yet its content still be stale — so the reader knows the answer may rest on outdated info (offer `/mn:health` or a re-check):
+Compose a clear answer from the found notes. For each claim, cite the source note **with its last-changed date** (Step 4b). If a load-bearing source is in the stale set, flag it ⚠️ — note the file may have been touched recently yet its content still be stale — so the reader knows the answer may rest on outdated info (offer `/mn:health` or a re-check). If Step 4c ran, fold the live-code findings in and flag any note a recent commit contradicts:
 
 ```
 Based on your vault:

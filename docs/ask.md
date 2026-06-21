@@ -18,8 +18,9 @@ Search across your entire vault and get a synthesized answer with source citatio
 2. Runs `obsidian search` for each term
 3. Reads the top 7 most relevant notes
 4. Dates each cited note — **last-changed** (git last-commit if the vault is a repo, else file mtime) and **stale?** (content age from `date`/`reviewed` vs the type's budget — same engine as `/mn:health`)
-5. Synthesizes a clear answer citing specific notes, ⚠️-flagging any whose content is stale
-6. Lists all source notes with `[[wikilinks]]`, their last-changed date, and a stale flag where it applies
+5. For **current-state** questions inside a git project, cross-checks the project's recent commits — flags any cited note a newer commit may have outdated (optional code-knowledge-graph via `recall.codeGraph`, off by default)
+6. Synthesizes a clear answer citing specific notes, ⚠️-flagging any whose content is stale or contradicted by recent code
+7. Lists all source notes with `[[wikilinks]]`, their last-changed date, and a stale flag where it applies
 
 ## Example Output
 
@@ -44,6 +45,7 @@ Key points:
 - **Max 7 notes read** — prevents context overflow
 - **CLI-first search** — uses `obsidian search`, not MCP
 - **Dates every source** — shows when each cited note last changed (git if the vault is a repo, else mtime + frontmatter) so you know whether an answer rests on fresh or stale notes
+- **Grounds in live code** — for "is this still true" questions inside a git project, checks the project's recent commits so recall agrees with the code, not just old notes; optional code-graph backend via `recall.codeGraph` (off by default)
 
 ## Related Skills
 

@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-06-21
+
+### Added — `/mn:ask` grounds recall in the live code
+
+- **New Step 4c in `vault-search`: code grounding.** For *current-state* questions ("is X still true / what changed") run from inside a git project, `/mn:ask` now cross-checks the **project repo's recent commits** (`git log --grep` / `-- path` in the CWD repo, distinct from the vault) and flags any cited note a newer commit may have outdated — so recall agrees with the code, not just with old notes. **Auto-gated:** fires only inside a git repo AND for current-state intent (pure decision-rationale recall skips it). Extends the existing multi-store / git-shelling pattern (Steps 3b/4b) rather than adding a separate skill.
+- **`recall.codeGraph` config seam (default off).** Optional code-knowledge-graph backend for structural "what's where" context — a file-output skill (`"graphify"` → reads its `graph.json` / `GRAPH_REPORT.md`) or an MCP server (`"sourcegraph"` / `"ast-grep"` / `"tree-sitter-analyzer"`). Ships dark; a no-op unless you set it and have the backend installed. Documented in `config-schema.md` + `config.example.json`; `docs/ask.md` + README updated.
+
 ## [0.12.1] - 2026-06-21
 
 ### Fixed — `/mn:ask` recency: separate "last changed" from "stale"
@@ -618,7 +625,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.12.1...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/jojoprison/mnemo/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/jojoprison/mnemo/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/jojoprison/mnemo/compare/v0.11.2...v0.12.0
 [0.11.2]: https://github.com/jojoprison/mnemo/compare/v0.11.1...v0.11.2
