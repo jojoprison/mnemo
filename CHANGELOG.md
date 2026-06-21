@@ -2,6 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.10.4] - 2026-06-21
+
+### Changed — session notes never gated by "significance" + same-day dedup hardened
+
+- **`session-notes` / `session-review`**: a research / exploration / personal-curiosity session is no longer mis-classified as "trivial" and skipped — it always gets a session note, even with zero code. Closes a loophole where a no-code research session could be silently dropped (`session-notes` When-to-Trigger + Rules, `session-review` Step 7). "Trivial" is now explicitly narrowed to mechanical one-liners (typo, single rename).
+- **`session-notes` Step 2 (duplicate check)**: hardened against the many-sessions-in-one-day footgun. A same-day match is context, NOT a reason to skip creation or assume the note already exists (that silently lost sessions). On an exact-filename collision, lead with append/continuation via `mcp__obsidian__insert` / `str_replace` — never silent-skip, never auto-clobber with `create`.
+
+### Changed — README rewrite (trilingual)
+
+- Condensed the long per-version "What's New" wall into a short "What's New (v0.10.x)" + a link to this CHANGELOG; the full history lives here.
+- Synced all three language sections (EN / RU / 中文): 7 skills (inbox-triage long removed), Codex + Claude dual-runtime everywhere, a new "When to use which" cadence chapter, accurate v0.10.x facts. Fixed the broken top-of-file language-anchor links and a duplicated section heading.
+
 ## [0.10.3] - 2026-06-13
 
 ### Added — complete Codex mn slash alias coverage

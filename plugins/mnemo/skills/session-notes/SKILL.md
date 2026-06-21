@@ -20,7 +20,7 @@ Tool-routing (MCP for writes, CLI for reads/search) in `references/tool-routing.
 - After completing a feature / PR / fix
 - After significant research session
 - Manually via `/mnemo:session`
-- Do NOT trigger for trivial tasks (typo fix, one-liner)
+- Do NOT trigger for trivial tasks (typo fix, one-liner). Research / exploration / personal-curiosity sessions are **NOT** trivial — they get a note even with zero code. When unsure, create: a session note is cheap, a lost session is not.
 
 ## Workflow
 
@@ -42,7 +42,7 @@ Derive a **planned filename**: `{session_prefix}{YYYY-MM-DD} {short descriptive 
 obsidian read file="{planned-filename}" vault="{vault}" 2>/dev/null | head -5
 ```
 
-If the read returns content → note already exists. Ask user: **append**, **overwrite**, or **rename with suffix** (e.g., `... part 2`, `... continuation`).
+If the read returns content → a note with this EXACT filename already exists. Do NOT silently skip and do NOT auto-overwrite. Offer **append / overwrite / rename**, leading with append/continuation. To append, use `mcp__obsidian__insert` (at the file's last line) or `mcp__obsidian__str_replace` to add a `## part 2` / `## continuation` section — NOT `mcp__obsidian__create` (it only creates new files and will fail or clobber an existing one). Overwrite only if the user is clearly regenerating the same session.
 
 **Level 2 — related same-day sessions (informational only):**
 
@@ -50,7 +50,7 @@ If the read returns content → note already exists. Ask user: **append**, **ove
 obsidian search query="{session_prefix}{YYYY-MM-DD}" vault="{vault}"
 ```
 
-These are NOT duplicates — same day, different topics. Show the list to the user so they can:
+These are NOT duplicates — same day, different topics. **Doing many sessions in one day is normal: each distinct topic gets its OWN note. A Level-2 same-day match is context, NOT a reason to skip creation or to assume the note already exists** — that mistake silently loses sessions. Show the list to the user so they can:
 - Decide if this session should be merged into an existing one
 - Remember to cross-link related sessions via `## Связи` / `## Links`
 
@@ -153,7 +153,7 @@ Output summary:
 - **No inline `obsidian create content="..."` with markdown** — banned
 - **Two-level duplicate check** — exact-read + same-day-search
 - **Include session_id in frontmatter** — disambiguates same-day sessions
-- **No session notes for trivial work** — only significant sessions
+- **No session notes for trivial work** — but "trivial" = mechanical one-liners only (typo, single rename). A research / exploration / curiosity session counts as significant even with zero code; default to creating.
 - **Branch field optional** — research sessions don't have branches
 - **Handoff file: targeted `str_replace`, not blind append** — pending items shouldn't accumulate infinitely
 - **Links section is mandatory** — at least one MOC link
