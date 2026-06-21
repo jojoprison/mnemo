@@ -88,6 +88,8 @@ Full version-by-version history: [CHANGELOG.md](CHANGELOG.md).
 - **Non-destructive** — skills report and suggest, never auto-delete or overwrite
 - **Any taxonomy** — works with Zettelkasten, PARA, Atom/Molecule, or your own system
 
+→ Full rationale and **non-goals** (features deliberately not shipped — auto-ingest, web-search imputation, `hot.md` — each with how to add it): [docs/design-decisions.md](docs/design-decisions.md).
+
 ## Quick Start
 
 ### Install: Claude Code
