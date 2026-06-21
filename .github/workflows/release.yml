@@ -27,6 +27,7 @@ jobs:
               if (started) exit
               if (index($0, hdr) == 1) { started = 1; next }
             }
+            started && /^\[[^]]+\]: http/ { exit }
             started { print }
           ' CHANGELOG.md > RELEASE_NOTES.md
           if [ ! -s RELEASE_NOTES.md ]; then

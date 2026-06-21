@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-06-21
+
+### Fixed
+
+- **`.github/workflows/release.yml`** — the CHANGELOG section extractor now stops at the Keep-a-Changelog link-reference block (`[x.y.z]: https://…`), so releasing the file's oldest/last version no longer appends the whole compare-link list to the GitHub Release body. (Latent in v0.11.0; harmless for any version that has a newer section after it.)
+- **`scripts/review-candidates.py`** now emits the resolved per-note threshold (the budget actually applied: per-note `ttl` → per-type → default) as a 6th column. `vault-health` Step 9 and `docs/health.md` report examples now show `(type, Nd budget)` instead of an invented `ttl N` the script never output — a doc/output contract mismatch.
+- **`config.example.json`** — added `review.lint.model` (`"haiku"`) so the copy-paste template matches the documented configurable lint model.
+
 ## [0.11.0] - 2026-06-21
 
 ### Added — type-aware review candidates + optional content lint (Karpathy "lint your wiki")
@@ -588,7 +596,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/jojoprison/mnemo/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/jojoprison/mnemo/compare/v0.10.4...v0.11.0
 [0.10.4]: https://github.com/jojoprison/mnemo/compare/v0.10.3...v0.10.4
 [0.10.3]: https://github.com/jojoprison/mnemo/compare/v0.10.2...v0.10.3

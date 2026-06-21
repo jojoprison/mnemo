@@ -23,7 +23,7 @@ Usage: review-candidates.py <vault-path> [--limit N] [--config PATH]
 Output (tab-separated, sorted most-overdue first):
   CANDIDATES\t<total>
   THRESHOLDS\t<json of resolved per-type thresholds>
-  <overdue_days>\t<type>\t<anchor-date>\t<anchor-src>\t<relpath>
+  <overdue_days>\t<type>\t<anchor-date>\t<anchor-src>\t<threshold-days>\t<relpath>
 """
 from __future__ import annotations
 
@@ -173,7 +173,7 @@ def main() -> int:
             overdue = (today - anchor).days - threshold
             if overdue > 0:
                 rel = os.path.relpath(full, vault_path)
-                candidates.append((overdue, ntype, anchor.isoformat(), anchor_src, rel))
+                candidates.append((overdue, ntype, anchor.isoformat(), anchor_src, threshold, rel))
 
     candidates.sort(key=lambda c: c[0], reverse=True)
 
@@ -182,7 +182,7 @@ def main() -> int:
     print(f"CANDIDATES\t{len(candidates)}")
     print(f"THRESHOLDS\t{json.dumps(resolved, ensure_ascii=False)}")
     for c in candidates[:limit]:
-        print(f"{c[0]}\t{c[1]}\t{c[2]}\t{c[3]}\t{c[4]}")
+        print(f"{c[0]}\t{c[1]}\t{c[2]}\t{c[3]}\t{c[4]}\t{c[5]}")
     return 0
 
 

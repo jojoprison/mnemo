@@ -45,8 +45,8 @@ Total: 375 notes
   3. MOC — Infrastructure (37)
 
 💤 Review candidates (stale by type-aware age): 3
-  - Atom — Heroku backup count — 72d overdue (atom, 60d)
-  - Source — pricing page snapshot — 40d overdue (source, ttl 30)
+  - Atom — Heroku backup count — 72d overdue (atom, 60d budget)
+  - Source — pricing page snapshot — 40d overdue (source, 30d budget)
   (snooze a still-valid note: add `reviewed: 2026-03-24` to its frontmatter)
 ```
 

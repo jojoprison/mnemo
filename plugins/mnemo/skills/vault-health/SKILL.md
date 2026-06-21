@@ -117,7 +117,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/review-candidates.py" "$VAULT_PATH" --lim
 # Or from source: plugins/mnemo/scripts/review-candidates.py
 ```
 
-Output: `CANDIDATES\t{n}`, then `THRESHOLDS\t{json}`, then one tab-separated row per note (`{overdue_days}  {type}  {anchor_date}  {anchor_src}  {relpath}`), most-overdue first. Pure filesystem — independent of the obsidian CLI graph cache (no lag/lie risk). A missing `review` config section reproduces the legacy uniform 30-day behavior, so this is safe before any config migration.
+Output: `CANDIDATES\t{n}`, then `THRESHOLDS\t{json}`, then one tab-separated row per note (`{overdue_days}  {type}  {anchor_date}  {anchor_src}  {threshold_days}  {relpath}`), most-overdue first. `{threshold_days}` is the budget actually applied to that note (per-note `ttl:` if set, else its type's `staleDays`, else default) — show it as `(type, Nd budget)`, never invent a `ttl`. Pure filesystem — independent of the obsidian CLI graph cache (no lag/lie risk). A missing `review` config section reproduces the legacy uniform 30-day behavior, so this is safe before any config migration.
 
 Don't AND this with backlinks — a well-linked note can still hold outdated claims. Report candidates on their own; cross-reference Step 1 yourself if you specifically want "old **and** orphaned."
 
@@ -182,8 +182,8 @@ Total: {N} notes
   ...
 
 💤 Review candidates (stale by type-aware age): {N}
-  - Atom — API X gotcha — 45d overdue (atom, ttl 14)
-  - Decision — auth model — 35d overdue (decision, 365d)
+  - Atom — API X gotcha — 45d overdue (atom, 14d budget)
+  - Decision — auth model — 35d overdue (decision, 365d budget)
   (snooze a still-valid note: add `reviewed: {today}` to its frontmatter)
 
 🔬 Content lint: {N judged}   ← only when review.lint.enabled
