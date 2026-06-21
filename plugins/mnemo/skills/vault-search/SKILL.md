@@ -53,9 +53,28 @@ obsidian read file="{note_name_2}" vault="{vault}"
 ...
 ```
 
+### Step 4b: Date each source (recency)
+
+An answer is only as fresh as the notes behind it — surface WHEN each cited note last changed so the reader can trust or distrust it. Resolve the vault path once, then date the cited notes in **one batched pass** (parallel, like Step 4):
+
+```bash
+VAULT_PATH=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/get-vault-path.sh" "{vault}")
+
+# Prefer real edit history when the vault is a git repo (e.g. the obsidian-git plugin):
+if git -C "$VAULT_PATH" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  git -C "$VAULT_PATH" log -1 --format='%cs' -- "{note}.md"           # last-change date
+  # deeper history when it matters: git -C "$VAULT_PATH" log --oneline -n 3 -- "{note}.md"
+else
+  # most vaults aren't git — fall back to filesystem mtime (portable, macOS + Linux)
+  python3 -c "import os,datetime,sys;print(datetime.date.fromtimestamp(os.path.getmtime(sys.argv[1])))" "$VAULT_PATH/{note}.md"
+fi
+```
+
+Also note each cited note's frontmatter `date` (created) and `reviewed` (last confirmed) — they carry intent the filesystem can't. **Freshness precedence:** git last-commit → `reviewed` → `date` → mtime. Use the strongest available signal as "updated".
+
 ### Step 5: Synthesize Answer
 
-Compose a clear answer from the found notes. For each claim, cite the source note:
+Compose a clear answer from the found notes. For each claim, cite the source note **with its last-updated date** (from Step 4b). If a load-bearing source is older than its type's `review.staleDays` budget, flag it ⚠️ so the reader knows the answer may rest on stale info (and offer `/mn:health` or a re-check):
 
 ```
 Based on your vault:
@@ -67,9 +86,9 @@ Key points:
 - Final decision: $29 starter, $99 pro, custom enterprise [Source: Molecule — pricing decision]
 
 📚 Sources (3 notes):
-1. [[Session — 2026-03-14 pipeline vision]]
-2. [[Atom — pricing research]]
-3. [[Molecule — pricing decision]]
+1. [[Session — 2026-03-14 pipeline vision]] — updated 2026-03-14
+2. [[Atom — pricing research]] — updated 2026-05-02
+3. [[Molecule — pricing decision]] — updated 2026-03-14 ⚠️ ~3mo old, may be stale
 ```
 
 ### Step 6: Offer Follow-up
@@ -85,3 +104,6 @@ Common failures (Obsidian IPC, shell injection) are documented once in `referenc
 - **If nothing found** — say so honestly, suggest alternative search terms instead of guessing.
 - **Respect note types** — Sessions contain decisions, Atoms contain facts, Molecules contain insights. Use the right citation format for each.
 - **CLI for search** — only CLI has `obsidian search` (indexed). MCP doesn't expose it.
+- **Date the sources (Step 4b)** — an answer built on a half-year-old note should say so. Use the strongest freshness signal: git last-commit if the vault is a repo, else `reviewed`/`date` frontmatter, else file mtime.
+- **mtime is a fallback, not truth** — it resets on vault sync/copy/restore (Syncthing, iCloud, fresh clone), so when frontmatter `reviewed`/`date` exists, trust those over mtime. Most Obsidian vaults are NOT git repos — mtime + frontmatter is the usual path; git history only applies with obsidian-git.
+- **Only date what you cite** — fetch recency for the ≤7 notes you actually read (Step 4b runs in parallel), never for every search hit.

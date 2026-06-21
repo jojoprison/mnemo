@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-06-21
+
+### Added — recency-aware recall in `/mn:ask`
+
+- **`vault-search` (`/mn:ask`) now dates every source it cites.** New Step 4b resolves each cited note's last-changed signal — **git last-commit** when the vault is a git repo (e.g. the obsidian-git plugin), else **filesystem mtime** (portable, macOS + Linux) plus frontmatter `date`/`reviewed`. Freshness precedence: git → `reviewed` → `date` → mtime. The synthesis annotates each source with its date and **flags an answer resting on a note older than its type's `review.staleDays` budget**, so recall and the v0.11 staleness model reinforce each other. Reuses the shared `get-vault-path.sh`; recency is fetched only for the ≤7 cited notes, in parallel. `docs/ask.md` + README updated.
+
 ## [0.11.2] - 2026-06-21
 
 ### Fixed — code-review follow-ups (full multi-persona review of the v0.11.x changeset)
@@ -606,7 +612,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.11.2...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.12.0...HEAD
+[0.12.0]: https://github.com/jojoprison/mnemo/compare/v0.11.2...v0.12.0
 [0.11.2]: https://github.com/jojoprison/mnemo/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/jojoprison/mnemo/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/jojoprison/mnemo/compare/v0.10.4...v0.11.0

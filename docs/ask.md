@@ -17,8 +17,9 @@ Search across your entire vault and get a synthesized answer with source citatio
 1. Breaks your question into 2-4 search terms
 2. Runs `obsidian search` for each term
 3. Reads the top 7 most relevant notes
-4. Synthesizes a clear answer citing specific notes
-5. Lists all source notes with `[[wikilinks]]`
+4. Dates each cited note (git history if the vault is a repo, else file mtime + `reviewed`/`date` frontmatter)
+5. Synthesizes a clear answer citing specific notes, flagging any that look stale
+6. Lists all source notes with `[[wikilinks]]` and their last-updated date
 
 ## Example Output
 
@@ -33,8 +34,8 @@ Key points:
   [Source: Atom — pricing research]
 
 📚 Sources (2 notes):
-1. [[Session — 2026-03-14 pipeline vision]]
-2. [[Atom — pricing research]]
+1. [[Session — 2026-03-14 pipeline vision]] — updated 2026-03-14
+2. [[Atom — pricing research]] — updated 2026-05-02
 ```
 
 ## Important Notes
@@ -42,6 +43,7 @@ Key points:
 - **Only answers from your vault** — never hallucinated from general knowledge
 - **Max 7 notes read** — prevents context overflow
 - **CLI-first search** — uses `obsidian search`, not MCP
+- **Dates every source** — shows when each cited note last changed (git if the vault is a repo, else mtime + frontmatter) so you know whether an answer rests on fresh or stale notes
 
 ## Related Skills
 
