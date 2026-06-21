@@ -4,3 +4,7 @@
 
 # Local Claude Code agent worktrees — never track
 .claude/worktrees/
+
+# Python bytecode cache (auto-generated when scripts run/compile — never source)
+__pycache__/
+*.pyc
