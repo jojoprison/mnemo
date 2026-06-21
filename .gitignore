@@ -1,3 +1,6 @@
 **/config.json
 .DS_Store
 .idea/
+
+# Local Claude Code agent worktrees — never track
+.claude/worktrees/
