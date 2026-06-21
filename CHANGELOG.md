@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.12.1] - 2026-06-21
+
+### Fixed — `/mn:ask` recency: separate "last changed" from "stale"
+
+- **A measurement on the real vault caught a v0.12.0 semantic flaw.** v0.12.0 collapsed recency into one "updated" date with precedence `git → reviewed → date → mtime` — so a note edited *today* displayed its **creation** date as "updated" (`date` wrongly outranked `mtime`). Step 4b now reports two distinct signals: **last-changed** = git last-commit (vault is a git repo) else file `mtime`; **stale?** = the content-freshness check delegated to `review-candidates.py` (`max(date, reviewed)` vs the type budget — the same engine `/mn:health` uses), never `mtime`. A file touched today can still be flagged stale, and `/mn:ask` and `/mn:health` now agree on "stale" by construction. `docs/ask.md` + README aligned.
+
 ## [0.12.0] - 2026-06-21
 
 ### Added — recency-aware recall in `/mn:ask`
@@ -612,7 +618,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.12.1...HEAD
+[0.12.1]: https://github.com/jojoprison/mnemo/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/jojoprison/mnemo/compare/v0.11.2...v0.12.0
 [0.11.2]: https://github.com/jojoprison/mnemo/compare/v0.11.1...v0.11.2
 [0.11.1]: https://github.com/jojoprison/mnemo/compare/v0.11.0...v0.11.1

@@ -17,9 +17,9 @@ Search across your entire vault and get a synthesized answer with source citatio
 1. Breaks your question into 2-4 search terms
 2. Runs `obsidian search` for each term
 3. Reads the top 7 most relevant notes
-4. Dates each cited note (git history if the vault is a repo, else file mtime + `reviewed`/`date` frontmatter)
-5. Synthesizes a clear answer citing specific notes, flagging any that look stale
-6. Lists all source notes with `[[wikilinks]]` and their last-updated date
+4. Dates each cited note — **last-changed** (git last-commit if the vault is a repo, else file mtime) and **stale?** (content age from `date`/`reviewed` vs the type's budget — same engine as `/mn:health`)
+5. Synthesizes a clear answer citing specific notes, ⚠️-flagging any whose content is stale
+6. Lists all source notes with `[[wikilinks]]`, their last-changed date, and a stale flag where it applies
 
 ## Example Output
 
@@ -34,8 +34,8 @@ Key points:
   [Source: Atom — pricing research]
 
 📚 Sources (2 notes):
-1. [[Session — 2026-03-14 pipeline vision]] — updated 2026-03-14
-2. [[Atom — pricing research]] — updated 2026-05-02
+1. [[Session — 2026-03-14 pipeline vision]] — changed 2026-03-14
+2. [[Atom — pricing research]] — changed 2026-06-20 · ⚠️ stale (content from 2026-03-14, never reviewed → past its budget)
 ```
 
 ## Important Notes
