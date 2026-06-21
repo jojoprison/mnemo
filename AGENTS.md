@@ -21,3 +21,10 @@ mnemo is a dual-runtime Agent Skills plugin for Codex and Claude Code. Keep Clau
 - Run `python3 scripts/lint-skills.py` after editing any skill, manifest, script reference, or plugin metadata.
 - Run `python3 plugins/mnemo/scripts/session-scan.py` once without runtime env vars to verify graceful fallback.
 - Preserve shell-safety: never pass arbitrary markdown through `obsidian create content="..."` or `obsidian append content="..."`.
+
+## Releasing
+
+- Bump the version in **all three** manifests together: `plugins/mnemo/.claude-plugin/plugin.json`, `plugins/mnemo/.codex-plugin/plugin.json`, and `.claude-plugin/marketplace.json`.
+- Add a dated section to `CHANGELOG.md` (Keep a Changelog format); keep the `[Unreleased]` section and the version compare-links at the bottom in sync.
+- **Always create and push an annotated git tag `vX.Y.Z` for every new version** — `git tag -a vX.Y.Z -m "…" && git push origin vX.Y.Z`. This is easy to forget; a missing tag breaks the CHANGELOG compare-links and skips the GitHub Release. `.github/workflows/release.yml` mirrors the tag's CHANGELOG section into a GitHub Release on push.
+- After releasing, run `claude plugin update mnemo@mnemo` to pick it up locally — the loaded plugin cache lags the repo.
