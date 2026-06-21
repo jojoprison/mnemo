@@ -123,6 +123,7 @@ When enabled, take the top `review.lint.maxCandidates` (default **15**) candidat
 
 - If `review.lint.model` is `haiku` (or unset) → do the lint inline in this fork.
 - Otherwise → **spawn one subagent** on `model: {review.lint.model}` (Claude Code: Task tool, `subagent_type: Explore` or general; Codex: `spawn_agent`) that reads the candidate note bodies in **one batched pass** (filesystem read, not one `obsidian read` per file) and returns the verdicts. Keeping the cheap Steps 1-7 on `haiku` while the lint runs on `opus` is the whole point of the split.
+  - **Report the subagent's verdicts verbatim — never assume "all still-valid".** The fork only *aggregates* what the subagent returned; it does not re-judge. The Step 9 Content-lint block and its count MUST reflect the subagent's actual breakdown: if the subagent returned 13 still-valid + 2 update-needed out of 15, the report says `13 still-valid, 2 update-needed`, NOT `15 still-valid`. Defaulting the count to the candidate total (as if everything passed) is a reporting bug — wait for the subagent's verdicts before writing the report.
 
 Emit a verdict per candidate:
 
@@ -196,7 +197,8 @@ Total: {N} notes
   - Source — vendor API pricing — 35d overdue (source, 180d budget)
   (snooze a still-valid note: add `reviewed: {today}` to its frontmatter)
 
-🔬 Content lint: {N judged}   ← only when review.lint.enabled
+🔬 Content lint: {N judged} — {S} still-valid, {U} update-needed, {C} contradicts   ← only when review.lint.enabled
+  (counts MUST equal the lint's actual verdicts — never default to all-still-valid; see Step 7.5)
   - Atom — API X gotcha → UPDATE-NEEDED: superseded by [[Atom — API X v2]]
   - Source — vendor API pricing → still-valid (stamped reviewed: {today})
 

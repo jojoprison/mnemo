@@ -6,11 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-06-21
+
+### Fixed — `/mn:health` content-lint report aggregation (found by live smoke-testing v0.14.0)
+
+- **The lint report could overstate the still-valid count when the lint runs in a spawned subagent** (`review.lint.model` ≠ haiku). On a live run the fork's Step 9 summary reported "15 still-valid" while the lint subagent had actually returned **13 still-valid + 2 update-needed** — the fork defaulted the count to the candidate total instead of waiting for and aggregating the subagent's verdicts. **Writes were always correct** (only still-valid notes were stamped; the 2 update-needed were correctly left alone) — the defect was reporting-only, but it could hide notes that genuinely need updating from anyone reading just the final report. Step 7.5 now instructs the fork to report the subagent's verdicts verbatim and never assume "all still-valid"; the Step 9 `🔬 Content lint` block carries the actual `still-valid / update-needed / contradicts` breakdown.
+
 ### Added
-- **`docs/design-decisions.md`** — design philosophy & non-goals: the one principle mnemo follows (human-authored vault, non-destructive, in-agent) and the Karpathy LLM-wiki features deliberately **not** shipped (auto-ingest `raw/`→`wiki/`, web-search imputation in the lint, `hot.md` cache) — each with why, and an on-philosophy "if you want it" note so a contributor can add it opt-in. Linked from `AGENTS.md`.
+- **`docs/design-decisions.md`** — design philosophy & non-goals: the one principle mnemo follows (human-authored vault, non-destructive, in-agent) and the Karpathy LLM-wiki features deliberately **not** shipped (auto-ingest `raw/`→`wiki/`, web-search imputation in the lint, `hot.md` cache) — each with why, and an on-philosophy "if you want it" note so a contributor can add it opt-in. Linked from `AGENTS.md` + README.
 
 ### Changed
-- **`TESTING.md` refreshed** — header/status were frozen at v0.9.0/v0.7.3; updated to current (v0.14.0) and added smoke-check sections for the v0.10–v0.13 features (autodream memory index, type-aware review candidates, content lint, recency-aware recall, code-grounding) alongside the v0.14.0 checks. Corrected stale version/cache references.
+- **`TESTING.md` refreshed** — header/status were frozen at v0.9.0/v0.7.3; updated to current and added smoke-check sections for the v0.10–v0.13 features (autodream memory index, type-aware review candidates, content lint, recency-aware recall, code-grounding) alongside the v0.14.0 checks. Corrected stale version/cache references.
 
 ## [0.14.0] - 2026-06-21
 
@@ -653,7 +659,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.14.0...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.14.1...HEAD
+[0.14.1]: https://github.com/jojoprison/mnemo/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/jojoprison/mnemo/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/jojoprison/mnemo/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/jojoprison/mnemo/compare/v0.12.0...v0.12.1
