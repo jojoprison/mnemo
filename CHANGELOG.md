@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+- **`docs/design-decisions.md`** — design philosophy & non-goals: the one principle mnemo follows (human-authored vault, non-destructive, in-agent) and the Karpathy LLM-wiki features deliberately **not** shipped (auto-ingest `raw/`→`wiki/`, web-search imputation in the lint, `hot.md` cache) — each with why, and an on-philosophy "if you want it" note so a contributor can add it opt-in. Linked from `AGENTS.md`.
+
+### Changed
+- **`TESTING.md` refreshed** — header/status were frozen at v0.9.0/v0.7.3; updated to current (v0.14.0) and added smoke-check sections for the v0.10–v0.13 features (autodream memory index, type-aware review candidates, content lint, recency-aware recall, code-grounding) alongside the v0.14.0 checks. Corrected stale version/cache references.
+
 ## [0.14.0] - 2026-06-21
 
 ### Added — close the loop: knowledge compounds, lint self-snoozes, vault growth surfaced

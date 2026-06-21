@@ -1,10 +1,11 @@
-# Testing — mnemo v0.9.0 smoke test
+# Testing — mnemo smoke tests (current: v0.14.0)
 
-Smoke tests for the v0.9.x line. Run once after `/plugin update mnemo` or `codex plugin install mnemo@mnemo` to verify all 7 skills behave as intended (v0.9.0 removed inbox-triage; added PKM-canon rules: naming, hub-notes, metadataCache resolution checks).
+Manual smoke tests for mnemo (the project has no automated test suite — these are the regression harness). Run after `/plugin update mnemo@mnemo` or `codex plugin install mnemo@mnemo`. Two layers below: the **6 per-skill checks** (version-agnostic — do the skills still behave) and the **"What changed in vX" feature checks** (grouped by the release that introduced each behavior — run the ones relevant to what you updated through).
 
-## Status — v0.7.3 passed 7/7 on 2026-04-24
+## Status
 
-All six checks below ran clean in a large opus-4-7[1m] session. The universal red flag never fired. Two pre-existing claude-mem v12.3.9 API bugs surfaced during Check #4 and are patched in v0.7.4 (see [CHANGELOG](./CHANGELOG.md#074---2026-04-24)). Re-run on a fresh install to reconfirm, but no regression is expected.
+- **Last full per-skill pass:** v0.7.3 — 7/7 clean on 2026-04-24 (large opus-4-7[1m] session; universal red flag never fired; two claude-mem v12.3.9 API bugs found in Check #4, patched in v0.7.4).
+- **Feature checks v0.10–v0.14** added 2026-06-21 (this is the checklist; not yet run end-to-end on a fresh install). The v0.14.0 write-path check (V3) is the highest priority — it is the first frontmatter write `/mn:health` can make.
 
 ## What changed in v0.7.3
 
@@ -13,6 +14,16 @@ Model routing was rewritten to prevent mid-session model switches from triggerin
 ## What changed in v0.7.4
 
 `/mn:save`'s claude-mem POST body switched from `content` → `text` to match v12.3.9 (previously returned `{"error": "text is required"}`). Key provenance (note name, vault, CM version) is now embedded in the `text` itself because v12.3.9 silently drops custom `metadata.*` fields — full-text search keeps the link back to Obsidian until upstream restores persistence.
+
+## What changed in v0.10–v0.13 — smoke checks
+
+Feature checks for the releases between v0.9 and v0.14. Run after `/plugin update mnemo@mnemo`.
+
+- **A1 — Autodream-aware memory index (v0.10).** `/mn:health` Step 10: on a project whose `memory/MEMORY.md` exceeds `memory.indexWarnKB` (default 22), the report warns to run autodream (the index hard-truncates ~24.4 KB on load). Verify the threshold is read from config — set `memory.indexWarnKB: 5` on a small index → the warning fires earlier.
+- **A2 — Type-aware review candidates (v0.11).** `/mn:health` Step 7: a stale `atom` is flagged against the **atom** budget (60d), not a flat 30; a note whose `reviewed:` is newer than its `date:` is **not** flagged (snooze); a note with per-note `ttl: 14` ages on 14 days regardless of type. With no `review` config → falls back to a uniform 30 days.
+- **A3 — Content lint (v0.11, opt-in).** With `review.lint.enabled: true`, `/mn:health` Step 7.5 re-reads the top candidates and emits still-valid / update-needed / contradicts verdicts on `review.lint.model`. With it `false` (default) → the step is skipped silently.
+- **A4 — Recency-aware recall (v0.12).** `/mn:ask` annotates each cited source with `changed YYYY-MM-DD` (git last-commit if the vault is a repo, else file mtime) and ⚠️-flags any cited note older than its type budget. "changed today" must NOT clear a stale flag — touch ≠ fresh (staleness uses `date`/`reviewed`).
+- **A5 — Code-grounding (v0.13).** Run `/mn:ask` about *current state* ("is X still true / what changed") from **inside a git project** (CWD a repo, separate from the vault): it cross-checks the project's recent commits and flags a cited note a newer commit may have outdated. A pure "why did we decide" recall must NOT trigger it. `recall.codeGraph` stays off unless a backend is configured.
 
 ## What changed in v0.14.0 — smoke checks for the new behaviors
 
@@ -36,7 +47,7 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
   Verify:
   ```bash
   ls ~/.claude/plugins/cache/mnemo/mnemo/ ~/.claude/plugins/cache/claude-mnemo/mnemo/ 2>/dev/null
-  # expected: 0.8.1 (older 0.7.x dirs can be deleted once confirmed working)
+  # expected: 0.14.0 (older version dirs can be deleted once confirmed working). Source of truth: ~/.claude/plugins/installed_plugins.json
   ```
 - **claude-mem plugin optional**. If `cascade.claude_mem.enabled=false`, `/mn:health` Step 0 and `/mn:save` claude-mem POST should skip silently.
 
@@ -92,7 +103,7 @@ Try a recall-style query you know is in your vault:
 ### 4. `/mn:save` — claude-mem metadata enrichment
 
 ```
-/mn:save "Тестовая заметка: smoke test mnemo v0.8.0. Facade ping."
+/mn:save "Тестовая заметка: smoke test mnemo. Facade ping."
 ```
 
 **Expect:**
@@ -151,18 +162,17 @@ Open <https://github.com/jojoprison/mnemo/actions>. Last run should show **Skill
 ## If something breaks
 
 1. Note **which skill** and **what output differed** from "Expect" above.
-2. Check cache: `ls ~/.claude/plugins/cache/mnemo/mnemo/ ~/.claude/plugins/cache/claude-mnemo/mnemo/ 2>/dev/null` — if only `0.6.1` is there, the update didn't take effect. Try `/plugin update mnemo` again or restart Claude Code.
+2. Check cache: `ls ~/.claude/plugins/cache/mnemo/mnemo/ ~/.claude/plugins/cache/claude-mnemo/mnemo/ 2>/dev/null` — if only an old version is there, the update didn't take effect. Try `/plugin update mnemo@mnemo` again or restart Claude Code.
 3. Check CI: if GitHub Actions is red, the linter found an issue.
 4. Open a fresh session with the same failure, tag Claude: "smoke test failed on `/mn:X`, expected Y, got Z" — we'll debug from there.
 
 ## Cleanup after a clean run
 
 - Optionally delete the "Facade ping" test atom via Obsidian
-- Remove legacy cache:
+- Remove legacy cache (older version dirs), only after confirming the current version works — and **never** a dir with a live `.in_use/` lock (check `~/.claude/plugins/cache/.../<ver>/.in_use/` against running sessions first):
   ```bash
-  rm -rf ~/.claude/plugins/cache/claude-mnemo/mnemo/0.6.1
+  ls ~/.claude/plugins/cache/mnemo/mnemo/   # delete only stale, unlocked version dirs
   ```
-  (Only after confirming v0.7.3 works.)
 
 ## Expected total time
 

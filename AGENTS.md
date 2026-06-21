@@ -2,6 +2,8 @@
 
 mnemo is a dual-runtime Agent Skills plugin for Codex and Claude Code. Keep Claude Code compatibility intact while adding Codex support.
 
+**Design philosophy & non-goals:** read `docs/design-decisions.md` first — the one principle everything follows (human-authored vault, non-destructive, in-agent) and the features deliberately **not** shipped (auto-ingest, web-search imputation, `hot.md`), each with an on-philosophy way to add it if you want it.
+
 ## Compatibility Rules
 
 - Do not remove `plugins/mnemo/.claude-plugin/plugin.json` or `plugins/mnemo/commands/mn/*`; Claude users rely on `/mn:*`.
