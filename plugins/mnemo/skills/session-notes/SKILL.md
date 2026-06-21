@@ -19,7 +19,7 @@ Tool-routing (MCP for writes, CLI for reads/search) in `references/tool-routing.
 
 - After completing a feature / PR / fix
 - After significant research session
-- Manually via `/mnemo:session`
+- Manually via `/mn:session`
 - Do NOT trigger for trivial tasks (typo fix, one-liner). Research / exploration / personal-curiosity sessions are **NOT** trivial — they get a note even with zero code. When unsure, create: a session note is cheap, a lost session is not.
 
 ## Workflow
@@ -126,7 +126,7 @@ mcp__obsidian__str_replace(
 )
 ```
 
-If handoff note doesn't exist, create it via `mcp__obsidian__create` (same structure as `mnemo:setup` step 7).
+If handoff note doesn't exist, create it via `mcp__obsidian__create` (same structure as `initial-setup` Step 6).
 
 ### Step 6: Orphan Check
 

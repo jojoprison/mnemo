@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-06-21
+
+### Added — close the loop: knowledge compounds, lint self-snoozes, vault growth surfaced
+
+Three opt-in, on-philosophy enhancements distilled from a full audit of Andrej Karpathy's "LLM Wiki" pattern against mnemo's real code (26-agent comparison, every claim adversarially verified). mnemo already matched or exceeded the pattern on maintenance, recall, recency, code-grounding, MOC/hub structure, and the non-destructive stance; these close the few genuine, philosophy-compatible gaps. All are opt-in: a default install still writes nothing (the content lint is off by default), the compounding save is always user-confirmed, and the single auto-write — the `reviewed:` stamp — happens only once you enable the lint.
+
+- **Compounding loop in `/mn:ask`.** After synthesizing an answer across ≥2 notes, `vault-search` Step 6 now offers to **save the synthesis back as a `Molecule`** (via `/mn:save`, with `cites:` + `[[links]]` to the sources pre-attached) so an exploration accumulates instead of evaporating when the conversation ends — Karpathy's "knowledge compounds like interest". Gated on the Molecule bar (a real ≥2-note insight, not a trivial lookup) and never written without the user's go-ahead; the write is delegated to the existing memory-routing cascade (dedup + shell-safe MCP create + mandatory MOC link), not re-implemented.
+- **`review.lint.autoStampReviewed` (default true) — self-snoozing lint.** The content lint (Step 7.5) stamps `reviewed: {today}` on notes it judges **still-valid**, closing the snooze loop so a confirmed note stops resurfacing without a manual edit. This is the *only* frontmatter write health can make, and only ever the `reviewed:` field on a still-valid verdict — never content, never on update-needed/contradicts. It fires only when the content lint is enabled (`review.lint.enabled`, default false), so a default install still writes nothing; set `autoStampReviewed: false` to keep the lint suggest-only.
+- **Research-gap candidates in `/mn:health` (report-only).** New Step 8.5 turns signal already collected (Step 2 unresolved targets, Step 3/4 tag counts, Step 8 MOC list — no new CLI calls) into the on-philosophy half of Karpathy's "suggest new article candidates": a populous topic tag (≥5 notes) with no MOC, and a recurring external entity cited many times with no `Source —` note. Suggestions only — mnemo points at the gap and the user decides; it deliberately does **not** web-search to fill it (the auto-imputation half is out of scope for a human-authored vault).
+
+Docs: `docs/ask.md`, `docs/health.md`, `config-schema.md`, `config.example.json`, README updated.
+
+### Fixed — repo-wide documentation/consistency sweep
+
+A multi-persona review of the changeset plus a full audit of every project `.md` surfaced and fixed a batch of pre-existing doc/consistency defects:
+
+- **`## {links_section}` double-heading bug.** `links_section` already includes the `##` (e.g. `## Links`), so templates must use `{links_section}`, not `## {links_section}`. The latter produced a malformed `## ## Links` heading — including in `initial-setup`'s **hub-note create template** (every hub note got a broken heading). Fixed across `initial-setup`, `memory-routing`, `vault-search`, and `tool-routing.md`.
+- **Canonical command form.** Standardized scattered `/mnemo:*` slash-command examples to the canonical `/mn:*` across all skills (the `mnemo:skill-name` invocation form is unchanged).
+- **`config.example.json`** now matches `config-schema.md`: added the documented `memory.indexWarnKB`, removed undocumented/unused `gmail_*` keys.
+- **CONTRIBUTING.md** "CLI-first" principle corrected to the hybrid rule (CLI for reads, MCP for markdown writes) — the old wording could lead a contributor to reintroduce the v0.5.10 shell-injection vector.
+- **Coherence fixes:** CHANGELOG v0.11.0 "strictly read-only" now notes the v0.14.0 extension; `docs/health.md` example used the wrong `source` budget (30d → 180d) and a stale "never auto-applied" line; `vault-health` Step 9 example used a 14d atom budget (→ 60d); `session-notes` cross-ref pointed at the wrong setup step; README trilingual health example regained its Sessions/MOCs line and the project tree regained `.claude-plugin/marketplace.json`; `TESTING.md` version/count refs refreshed; `docs/setup.md`/`docs/review.md` stale lines corrected.
+
 ## [0.13.0] - 2026-06-21
 
 ### Added — `/mn:ask` grounds recall in the live code
@@ -48,7 +70,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added — type-aware review candidates + optional content lint (Karpathy "lint your wiki")
 
 - **`vault-health` Step 7 reworked into type-aware review candidates.** Staleness is no longer a hardcoded uniform 30 days. New `scripts/review-candidates.py` (pure filesystem, no obsidian-CLI graph dependency) flags notes past a per-**type** threshold from `config.json` → **`review.staleDays`** (e.g. a volatile `atom` ages in 60d, a `decision` in 365d). Precedence: per-note `ttl:` → `review.staleDays.<type>` → `review.staleDays.default` → 30 (legacy fallback when the `review` section is absent — fully backward compatible).
-- **`reviewed:` snooze + `ttl:` override (optional per-note frontmatter).** Age is measured from `max(date, reviewed)`, so stamping `reviewed: {today}` on a still-valid note resets its clock — the fix for the "guilt-debt" failure mode of review dates. `ttl: <days>` ages a single note faster/slower than its type default. Deliberately **not** an absolute `review-by:` date (those rot). health never writes either field — it stays strictly read-only.
+- **`reviewed:` snooze + `ttl:` override (optional per-note frontmatter).** Age is measured from `max(date, reviewed)`, so stamping `reviewed: {today}` on a still-valid note resets its clock — the fix for the "guilt-debt" failure mode of review dates. `ttl: <days>` ages a single note faster/slower than its type default. Deliberately **not** an absolute `review-by:` date (those rot). At this version health never writes either field — strictly read-only *(extended in [0.14.0]: opt-in `autoStampReviewed` lets the content lint auto-stamp `reviewed:` on still-valid notes once the lint is enabled)*.
 - **`vault-health` Step 7.5: optional content lint** gated by **`review.lint.enabled`** (default false). When on, an LLM re-reads the top `review.lint.maxCandidates` (default 15) candidates and emits verdicts (still-valid / update-needed / contradicts `[[Other]]`) — Karpathy's "lint your wiki" applied to claims, not the calendar. Triage only, never auto-applied. Together with orphans (Step 1) and unresolved links (Step 2 = "concepts mentioned but missing a page"), health now covers all four of Karpathy's lint checks including **contradictions**.
 - **Config + docs:** documented the `review` section and the optional `reviewed`/`ttl` frontmatter in `references/config-schema.md`, added the block to `config.example.json`, and refreshed `docs/health.md`. `memory-routing` now notes that staleness is type-driven (no review date to stamp at save time; `ttl:` only for fast-rotting facts).
 
@@ -625,7 +647,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.13.0...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.14.0...HEAD
+[0.14.0]: https://github.com/jojoprison/mnemo/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/jojoprison/mnemo/compare/v0.12.1...v0.13.0
 [0.12.1]: https://github.com/jojoprison/mnemo/compare/v0.12.0...v0.12.1
 [0.12.0]: https://github.com/jojoprison/mnemo/compare/v0.11.2...v0.12.0

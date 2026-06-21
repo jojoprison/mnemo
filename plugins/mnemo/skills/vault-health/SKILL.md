@@ -16,7 +16,7 @@ Obsidian must be open; `obsidian` CLI on PATH. Config at `~/.mnemo/config.json` 
 
 ## Workflow
 
-**Steps 1-4 run in parallel** — single assistant message with 4 Bash tool uses. These are independent CLI queries against the same indexed vault, ~180ms each → 180ms total vs 720ms sequential.
+**Steps 1-4 run in parallel** — single assistant message batching the independent CLI reads (orphans, unresolved, tag counts; Step 4 reuses Step 3's tag output, no extra call). These are independent queries against the same indexed vault, ~180ms total vs ~720ms sequential.
 
 ### Step 0: claude-mem Sanity Check (optional, ~20ms)
 
@@ -67,13 +67,7 @@ Show top 15 tags. Flag tags used only once (potential typos).
 
 ### Step 4: Notes by Type
 
-Use tags (indexed, reliable) instead of fulltext search:
-
-```bash
-obsidian tags counts sort=count vault="{vault}"
-```
-
-From the output, extract counts for taxonomy tags: `#atom`, `#molecule`, `#source`, `#session`, `#moc`. These correspond to `config.taxonomy.*.tag` values.
+**Reuse the `obsidian tags counts` output from Step 3 — do not call it again** (the tag index is one query; Steps 3 and 4 are two views of the same result). From it, extract counts for taxonomy tags: `#atom`, `#molecule`, `#source`, `#session`, `#moc`. These correspond to `config.taxonomy.*.tag` values.
 
 Total notes count:
 
@@ -132,21 +126,37 @@ When enabled, take the top `review.lint.maxCandidates` (default **15**) candidat
 
 Emit a verdict per candidate:
 
-- **still-valid** → recommend the user stamp `reviewed: {today}` on it (resets the clock).
+- **still-valid** → close the loop: stamp `reviewed: {today}` into the note's frontmatter via `mcp__obsidian__str_replace` — anchor on the **frontmatter** line inside the leading `---` block (not a `date:`/`reviewed:` mention in the body): replace the existing `reviewed:` value, or if absent insert after `date:` (`date: {d}` → `date: {d}\nreviewed: {today}`). A confirmed-valid note then stops resurfacing without a manual edit. This auto-stamp is **on by default** (`config.json` → `review.lint.autoStampReviewed`, default **true**); **only if the user set it to `false`** do you just *recommend* the stamp and write nothing. When the lint runs in a spawned subagent (model ≠ haiku), that subagent does the stamping — it already holds the verdict and the note path. If a stamp write fails (Obsidian offline, or `mcp__obsidian__str_replace` unavailable in the subagent context), don't drop it silently — collect those note paths and surface them under the Content lint report block so the user can stamp them manually.
 - **update-needed** → one line on what specifically looks outdated.
 - **contradicts [[Other Note]]** → name the conflicting note; flag the *older* one against the newer.
 
-Verdicts are **triage, not truth** — on `haiku` especially, expect false positives; even on `opus`, surface them as questions. Never auto-edit; only report (consistent with the rest of health). The user decides.
+Verdicts are **triage, not truth** — on `haiku` especially, expect false positives; even on `opus`, surface them as questions. The **only** write health ever performs is the `reviewed:` auto-stamp above, and only ever on a **still-valid** verdict — never content, never on update-needed/contradicts. It fires only inside this lint pass (which is itself off unless `review.lint.enabled` is true), and can be turned back to suggest-only with `autoStampReviewed: false`. The user stays in control.
 
 ### Step 8: Top Hubs
 
-For each MOC, count backlinks:
+Enumerate the MOC notes (by the `moc` taxonomy prefix), then count backlinks for each:
+
+```bash
+VAULT_PATH=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/get-vault-path.sh" "{vault}")
+find "$VAULT_PATH" -name "{moc_prefix}*.md" -not -path "*/.obsidian/*" -not -path "*/.trash/*" 2>/dev/null | sed "s|.*/||;s|\.md$||"   # MOC names
+```
+
+For each enumerated MOC name, count backlinks:
 
 ```bash
 obsidian backlinks file="{moc_name}" vault="{vault}"
 ```
 
-Sort by count, show top 5.
+Sort by count, show top 5. **Keep the enumerated MOC-name list** — Step 8.5 reuses it to find topics that have no MOC.
+
+### Step 8.5: Research-Gap Candidates (report-only — where the vault wants to grow)
+
+Karpathy's lint also proposes *what to research next*. Steps 1-8 already collected the raw signal — turn it into growth suggestions **without any new CLI calls** (reuse Step 2's `obsidian eval` top-10 unresolved targets, Step 3/4's tag counts, and the MOC-name list enumerated in Step 8). Two cheap, computable gap types:
+
+- **Topic cluster with no MOC** — a non-taxonomy topic tag with **≥5 notes** (Milo's "mental squeeze point", the same trigger `config-schema.md` uses for creating a MOC) whose `{moc_prefix}{Topic}` is **absent from Step 8's enumerated MOC-name list**. Suggest: "12 notes tagged `#auth`, no MOC → create `MOC — Auth`?"
+- **Recurring external with no Source note** — a top unresolved target from **Step 2's `obsidian eval` list** (the authoritative metadataCache top-10, not the CLI `unresolved` output) cited **≥5 times** that reads like an external tool/paper/vendor (not a short *project* name, which instead wants a hub note) and has no `Source — …` note. Suggest: "`[[LangGraph]]` cited ×9, no Source note → capture one?"
+
+These are **suggestions, never auto-created** (same non-destructive stance as the rest of health). Skip a type silently when it yields nothing. Do **not** web-search to fill the gap — mnemo maintains a human-authored vault: it points at the gap, the user decides whether to fill it. (This is the on-philosophy half of Karpathy's "suggest new article candidates"; the auto-web-imputation half is deliberately omitted.)
 
 ### Step 9: Output Report
 
@@ -182,18 +192,22 @@ Total: {N} notes
   ...
 
 💤 Review candidates (stale by type-aware age): {N}
-  - Atom — API X gotcha — 45d overdue (atom, 14d budget)
+  - Atom — API X gotcha — 45d overdue (atom, 60d budget)
   - Source — vendor API pricing — 35d overdue (source, 180d budget)
   (snooze a still-valid note: add `reviewed: {today}` to its frontmatter)
 
 🔬 Content lint: {N judged}   ← only when review.lint.enabled
   - Atom — API X gotcha → UPDATE-NEEDED: superseded by [[Atom — API X v2]]
-  - Source — vendor API pricing → still-valid (recommend `reviewed: {today}`)
+  - Source — vendor API pricing → still-valid (stamped reviewed: {today})
+
+🌱 Research-gap candidates (where the vault wants to grow): {N}
+  - #auth ×12 notes, no MOC → create MOC — Auth?
+  - [[LangGraph]] ×9, no Source note → capture one?
 
 🧠 Claude memory/ index: {KB}KB / {lines} lines {✅ lean | ⚠️ bloated → autodream}
 ```
 
-Omit the `🔬 Content lint` block entirely when `review.lint.enabled` is false.
+Omit the `🔬 Content lint` block entirely when `review.lint.enabled` is false. Omit the `🌱 Research-gap candidates` block when Step 8.5 found nothing. The still-valid line above shows the default (`autoStampReviewed: true` — the note was stamped); with `autoStampReviewed: false` render it as `→ still-valid (recommend reviewed: {today})` instead, since nothing was written.
 
 Skip the `⚠️ claude-mem` line entirely if Step 0 found nothing to warn about.
 
@@ -220,7 +234,7 @@ Common failures in `references/gotchas.md`. Skill-specific rules:
 - Reference notes (taxonomy docs, templates) aren't orphans even if few backlinks — they're meant to be lookups.
 - Ghost notes (unresolved wikilinks) are a **feature**, not a bug — they enable entity discovery. Don't flag on raw count; instead surface the **top targets** (Step 2 eval) — frequent ones = missing hub notes (actionable).
 - **CLI graph queries cache & can lie** — `orphans`/`unresolved`/`backlinks` lag writes and have shown a note as resolved AND broken at once. For critical checks use `obsidian eval` on `metadataCache` (see `references/gotchas.md`). Treat counts as advisory if notes were created this session.
-- **Do not auto-fix anything** — only report. User decides what to clean up. This includes `reviewed:` — **health never writes frontmatter**; the snooze stamp is the user's call (keeps health strictly read-only).
+- **Do not auto-fix anything** — only report. User decides what to clean up. The **one** exception is `review.lint.autoStampReviewed` (default **true**): it lets the content-lint stamp `reviewed: {today}` on a **still-valid** note (Step 7.5) to close the snooze loop. That is the sole frontmatter write health can make — only the `reviewed:` field of a confirmed-valid note, never content, never anything else. It fires **only when the content lint itself is enabled** (`review.lint.enabled`, default **false**), so a default install still writes nothing; set `autoStampReviewed: false` to keep the lint suggest-only.
 - Step 5 uses filesystem grep (~3600x faster than per-file reads — 49ms vs 180s on a 999-note vault) — safe on any vault size.
 - **Review candidates (Step 7) are temporal, not structural** — don't conflate with orphans. A note can be both, either, or neither. The script is age-only by design (cheap, no graph dependency).
 - **Content-lint verdicts (Step 7.5) are triage-grade** — time-based staleness is a *proxy*, not the signal (a 6-month-old note may be perfectly valid; "not read ≠ not valuable"). On `haiku` especially, contradiction/update calls have false positives. Surface them as questions, never as facts, and never act on them automatically. The whole point of `reviewed:` is to let a quick human confirm and silence a false flag.

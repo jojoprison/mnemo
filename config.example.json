@@ -9,8 +9,7 @@
   },
   "links_section": "## Links",
   "handoff_note": "Meta — Session Handoff",
-  "gmail_enabled": false,
-  "gmail_mark_read": false,
+  "memory": { "indexWarnKB": 22 },
   "cascade": {
     "obsidian": { "enabled": true },
     "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
@@ -26,7 +25,7 @@
       "session": 90,
       "moc": 365
     },
-    "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku" }
+    "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku", "autoStampReviewed": true }
   },
   "recall": {
     "codeGraph": null

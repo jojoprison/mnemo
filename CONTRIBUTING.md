@@ -29,7 +29,7 @@ model: opus      # or omit for default
 
 ## Skill Design Principles
 
-- **CLI-first** — use `obsidian` CLI, not MCP (70,000x cheaper)
+- **CLI-first for reads** — use `obsidian` CLI for reads/search/orphans/backlinks (70,000x cheaper); use MCP (`mcp__obsidian__create` / `str_replace`) for any write that passes markdown content (shell-safety — see v0.5.10)
 - **Non-destructive** — report and suggest, never auto-delete
 - **Config-driven** — all user-specific values in `~/.mnemo/config.json`
 - **Description = trigger** — write as "Use when [situation]", not "This skill does [function]"

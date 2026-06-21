@@ -19,7 +19,7 @@ Also triggers on: "что забыли?", "что осталось?", "session r
 Shell scripts run automatically:
 - **Git state** — status, branch, recent commits, uncommitted changes
 - **JSONL introspection** — parses `${CLAUDE_SESSION_ID}.jsonl` to extract every tool call, skill invocation, modified file, error count
-- **Skill discovery** — globs 6 paths to find all 200+ installed skills across personal skills, plugins, cache, and marketplaces
+- **Skill discovery** — globs the install locations (personal skills, plugins, cache, marketplaces) to find all available skills
 - **Open PRs** — checks for your open GitHub PRs
 
 ### 2. Session fingerprinting

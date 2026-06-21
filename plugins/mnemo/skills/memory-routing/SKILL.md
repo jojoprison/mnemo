@@ -67,7 +67,8 @@ source: "{where this came from}"
 - **Naming:** never `#` / `.` / `/` / `.md` in the title — they break wikilinks (`#`→heading anchor) or the CLI (`.`→truncation). Sanitize before `create`. Use `—` or space.
 - **Atom title = a statement, not a topic** (Matuschak «title as API» / Умэсао): `Atom — Redis fail-open keeps reads alive when cache is down`, NOT `Atom — Redis`.
 - **Molecule = non-trivial synthesis** of ≥2 atoms (new insight not in either alone), not "linked two notes."
-- **Two link layers:** inline with context in the body («contradicts [[X]]», «builds on [[Y]]») + `## {links_section}` for MOC/nav. A bare link without context is noise.
+- **Molecule handed off with `cites:` (e.g. from `/mn:ask` compounding):** when the caller passes `type: molecule` plus a `cites:` source list and a pre-built `{links_section}`, write `cites: [{sources}]` into frontmatter (right after `date:`) and use the caller's links block verbatim instead of generating a bare MOC link.
+- **Two link layers:** inline with context in the body («contradicts [[X]]», «builds on [[Y]]») + `{links_section}` for MOC/nav. A bare link without context is noise.
 - **Short project names** (`[[Diadoc]]`, `[[BTS Holding]]`) need a **hub note** — Obsidian doesn't resolve bare links via alias (by design). If `[[ShortName]]` is referenced and no `ShortName.md` exists, create it: a one-liner redirecting to `[[MOC — …]]`.
 - **Staleness is type-driven, not stamped here.** The `date` you write *is* the review anchor — `vault-health` derives review cadence from the note's `type` (config `review.staleDays`), so you don't add a review date. **Exception:** for a fast-rotting fact (a volatile API quirk, a "current as of" price) add an optional `ttl: <days>` to the frontmatter to age it faster than its type default. Don't add `reviewed:` — that's the snooze health/the user stamps later. See `references/config-schema.md` → "Optional per-note frontmatter".
 
@@ -189,7 +190,7 @@ Or with failures:
   2. claude-mem ⏭  skipped (disabled)
   3. memory/   ✅ → ~/.claude/memory/topic.md updated
 
-⚠️ Run /mnemo:save again after restarting Obsidian to complete sync.
+⚠️ Run /mn:save again after restarting Obsidian to complete sync.
 ```
 
 ## Decision Matrix

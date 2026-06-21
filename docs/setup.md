@@ -38,7 +38,6 @@ Your skills:
   /mn:ask       — search & synthesize
   /mn:save      — memory routing cascade
   /mn:review    — session completeness review
-  /mn:setup     — this command
 
 Try: /mn:health
 ```

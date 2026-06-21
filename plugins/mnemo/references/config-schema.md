@@ -14,7 +14,7 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
     "session": { "prefix": "Session — ", "tag": "session" },
     "moc": { "prefix": "MOC — ", "tag": "moc" }
   },
-  "links_section": "## Связи",
+  "links_section": "## Links",
   "handoff_note": "Meta — Session Handoff"
 }
 ```
@@ -33,7 +33,7 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
     "moc":      { "prefix": "MOC — ",      "tag": "moc" }
   },
 
-  "links_section": "## Связи",
+  "links_section": "## Links",
   "handoff_note":  "Meta — Session Handoff",
 
   "cascade": {
@@ -56,7 +56,7 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
       "session": 90,
       "moc": 365
     },
-    "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku" }
+    "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku", "autoStampReviewed": true }
   },
 
   "recall": {
@@ -89,6 +89,7 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `review.lint.enabled` | Run the content-lint deep pass (LLM re-reads candidates, emits still-valid/update-needed/contradicts verdicts). Default **false** — it reads note bodies and costs tokens | vault-health |
 | `review.lint.maxCandidates` | Cap on notes the lint pass reads per run (most-overdue first). Default **15** | vault-health |
 | `review.lint.model` | Model for the lint pass, spawned as a subagent so the cheap haiku health fork stays cheap. `haiku` (default, triage-grade) / `sonnet` / `opus` (highest-quality verdicts & contradiction detection — `opus` = current Opus 4.8). Only the lint subagent uses it; Steps 1-7 always run on the health fork's own model | vault-health |
+| `review.lint.autoStampReviewed` | Close the review loop automatically: the content lint stamps `reviewed: {today}` on notes it judges **still-valid** (the only frontmatter write health makes — never content, never on update-needed/contradicts). Default **true**, but only takes effect when `review.lint.enabled` is also on; with the lint off (the default) health writes nothing. Set **false** to keep the lint suggest-only | vault-health |
 
 ## Optional per-note frontmatter (review)
 

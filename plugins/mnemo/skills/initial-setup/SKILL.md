@@ -138,7 +138,7 @@ aliases: [{short-name}]
 
 → [[MOC — {full project name}]]
 
-## {links_section}
+{links_section}
 - [[MOC — {full project name}]]
 """
 )
@@ -152,17 +152,17 @@ Skip if a file with that name already exists (`obsidian read` returns content). 
 🧠 mnemo is ready!
 
 Your skills:
-  /mnemo:health    — vault audit & analytics
-  /mnemo:connect   — discover hidden links
-  /mnemo:session   — session notes + handoff
-  /mnemo:ask       — search & synthesize
-  /mnemo:save      — memory routing cascade
-  /mnemo:review    — session completeness review
+  /mn:health    — vault audit & analytics
+  /mn:connect   — discover hidden links
+  /mn:session   — session notes + handoff
+  /mn:ask       — search & synthesize
+  /mn:save      — memory routing cascade
+  /mn:review    — session completeness review
 
 Config saved to: ~/.mnemo/config.json
 Handoff note created: Meta — Session Handoff
 
-Try: /mnemo:health
+Try: /mn:health
 ```
 
 ## Gotchas

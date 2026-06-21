@@ -105,9 +105,9 @@ Now `[[Diadoc]]` resolves everywhere by filename-match (100% reliable). Optional
 ## Two link layers (Luhmann / Matuschak)
 
 1. **Inline with context** — in the body, where the connection matters: «builds on [[Atom — X]] because…», «contradicts [[Atom — Y]]». The sentence carries the *why*. A bare `[[link]]` with no context is noise (zettelkasten.de: "state explicitly why you made the link").
-2. **`## {links_section}`** — bottom nav block: MOC + structural links, pure wikilinks (context lives inline).
+2. **`{links_section}`** — bottom nav block: MOC + structural links, pure wikilinks (context lives inline).
 
-For graph/backlinks the position doesn't matter (Obsidian parses the whole file), but inline context makes the graph semantically rich. Skills creating notes: always emit `## {links_section}` (≥1 MOC link); for Atoms/Molecules that reference other notes — add inline context too.
+For graph/backlinks the position doesn't matter (Obsidian parses the whole file), but inline context makes the graph semantically rich. Skills creating notes: always emit `{links_section}` (≥1 MOC link); for Atoms/Molecules that reference other notes — add inline context too.
 
 ## Reading order of preference
 

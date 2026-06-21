@@ -17,7 +17,7 @@ Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault` and `l
 
 ### Step 1: Accept Query
 
-Input as argument: `/mnemo:ask "what did we decide about pricing strategy?"`
+Input as argument: `/mn:ask "what did we decide about pricing strategy?"`
 
 If no argument, ask: "What would you like to find in your vault?"
 
@@ -119,9 +119,15 @@ Key points:
 ```
 (Note source 2: the file was touched yesterday, but its *content* is stale — `changed` ≠ `fresh`.)
 
-### Step 6: Offer Follow-up
+### Step 6: Offer Follow-up — and let the answer compound
 
-Ask: "Want me to search deeper, or connect any of these notes?"
+A synthesized answer is itself knowledge. If it's a non-trivial insight drawn across **≥2** notes (not just "here are the notes I found"), offer to fold it back into the vault so future recall starts from it instead of re-deriving it every time. This is the compounding loop — explorations add up like interest instead of evaporating when the conversation ends.
+
+Ask: "Want me to **save this synthesis** as a `Molecule` (cites the sources above, links pre-attached), search deeper, or connect any of these notes?"
+
+If the user accepts the save, hand off to `/mn:save` (memory-routing) with the synthesis as the content, `type: molecule`, a `cites:` field listing the cited source notes, and the `{links_section}` pre-populated with `[[links]]` to those sources + the relevant MOC. **memory-routing owns the write** (duplicate check, shell-safe MCP create, mandatory MOC link) — don't create the note here; reuse the one cascade that already does it right.
+
+**Only offer when the answer clears the Molecule bar** — a genuine synthesis (config `taxonomy.molecule` semantics). A trivial single-note lookup or a "nothing found" result doesn't compound; skip the offer. Never save without the user's go-ahead — the user authors their vault (non-destructive).
 
 ## Gotchas
 
@@ -135,3 +141,4 @@ Common failures (Obsidian IPC, shell injection) are documented once in `referenc
 - **Two signals, don't conflate (Step 4b)** — "last changed" (git/mtime = when the file moved) is NOT "stale" (content outdated). A note edited today can still be stale; staleness uses `date`/`reviewed` vs the type budget (same engine as `/mn:health` — `review-candidates.py`), never mtime.
 - **mtime is a fallback for "last changed" only** — it resets on vault sync/copy/restore (Syncthing, iCloud, fresh clone). Most Obsidian vaults aren't git repos, so "last changed" = mtime; but "stale?" always comes from `date`/`reviewed`, so a sync that bumps every mtime can't fake freshness.
 - **Only date what you cite** — "last changed" is per cited note; the stale set is one `review-candidates.py` pass intersected with your ≤7 cited notes. Never date every search hit.
+- **Compounding is opt-in per answer (Step 6)** — offer to save a real synthesis as a Molecule, never auto-file it. Delegate the write to `/mn:save`; gate the offer on the Molecule bar (≥2-note insight) so trivial lookups don't spawn note-spam.

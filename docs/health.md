@@ -22,6 +22,7 @@ No arguments needed. Reads vault name from `~/.mnemo/config.json`.
 | Tag typos | Tags used only once (potential misspelling) | 🟡 Medium |
 | Review candidates | Notes past their **type-aware** staleness threshold — due for a re-read/refresh | 💤 Low |
 | Content lint *(opt-in)* | LLM re-reads candidates → still-valid / update-needed / contradicts verdicts | 🔬 Deep |
+| Research-gap candidates | Where the vault wants to grow — populous topic with no MOC, recurring external with no Source note | 🌱 Growth |
 
 ## Example Output
 
@@ -46,20 +47,30 @@ Total: 375 notes
 
 💤 Review candidates (stale by type-aware age): 3
   - Atom — Heroku backup count — 72d overdue (atom, 60d budget)
-  - Source — pricing page snapshot — 40d overdue (source, 30d budget)
+  - Source — pricing page snapshot — 40d overdue (source, 180d budget)
   (snooze a still-valid note: add `reviewed: 2026-03-24` to its frontmatter)
+
+🌱 Research-gap candidates (where the vault wants to grow): 2
+  - #auth ×12 notes, no MOC → create MOC — Auth?
+  - [[LangGraph]] ×9, no Source note → capture one?
 ```
 
 ## Staleness & review
 
 Review candidates are **temporal** (age-based), separate from orphans (structural). The threshold is per **type**, configured in `~/.mnemo/config.json` → `review.staleDays` — a volatile `atom` ages faster than a `decision`. A per-note `ttl: <days>` overrides it; a `reviewed: <date>` stamp resets the clock (the snooze that keeps stale lists from becoming guilt-debt). With no `review` config, it falls back to a uniform 30 days.
 
-Set `review.lint.enabled: true` to add the **content lint** — an LLM re-reads the top candidates and judges whether claims actually rotted (still-valid / update-needed / contradicts), Karpathy-style, instead of trusting the calendar. It's off by default because it reads note bodies; verdicts are triage, never auto-applied.
+Set `review.lint.enabled: true` to add the **content lint** — an LLM re-reads the top candidates and judges whether claims actually rotted (still-valid / update-needed / contradicts), Karpathy-style, instead of trusting the calendar. It's off by default because it reads note bodies; verdicts are triage — the only write they can trigger is the `reviewed:` snooze stamp on still-valid notes (see next paragraph), never a content edit.
+
+`review.lint.autoStampReviewed` (default **true**) **closes the snooze loop**: the lint stamps `reviewed: {today}` on notes it judges still-valid, so a confirmed note stops resurfacing without a manual edit. That one `reviewed:` write is the *only* frontmatter health ever touches (never content, never on update-needed/contradicts). It only fires when the content lint is enabled (`review.lint.enabled`, default off), so a default install still writes nothing; set `autoStampReviewed: false` to keep the lint suggest-only.
+
+## Research-gap candidates
+
+Beyond cleaning up, `/mn:health` points at where the vault wants to **grow** — Karpathy's "suggest new article candidates", the on-philosophy half. From signal it already collected (no extra cost), it flags a populous topic tag (≥5 notes) with no MOC, and a recurring external entity cited many times with no `Source —` note. These are suggestions only — mnemo never web-searches to fill them or auto-creates anything; it shows the gap and you decide.
 
 ## Important Notes
 
 - **Ghost notes are a feature** — `[[Technology]]` links to non-existent files are intentional for entity discovery in Graph View
-- **Non-destructive** — only reports, never auto-fixes. You decide what to fix
+- **Non-destructive by default** — out of the box health only reports (the content lint is off). The one write it can make is the `reviewed:` snooze stamp on still-valid notes once you enable the lint (`review.lint.autoStampReviewed`, default on; set false to keep the lint suggest-only).
 - Run weekly or after creating many notes at once
 
 ## Related Skills

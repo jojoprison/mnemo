@@ -4,7 +4,7 @@ Smoke tests for the v0.9.x line. Run once after `/plugin update mnemo` or `codex
 
 ## Status — v0.7.3 passed 7/7 on 2026-04-24
 
-All seven checks below ran clean in a large opus-4-7[1m] session. The universal red flag never fired. Two pre-existing claude-mem v12.3.9 API bugs surfaced during Check #4 and are patched in v0.7.4 (see [CHANGELOG](./CHANGELOG.md#074---2026-04-24)). Re-run on a fresh install to reconfirm, but no regression is expected.
+All six checks below ran clean in a large opus-4-7[1m] session. The universal red flag never fired. Two pre-existing claude-mem v12.3.9 API bugs surfaced during Check #4 and are patched in v0.7.4 (see [CHANGELOG](./CHANGELOG.md#074---2026-04-24)). Re-run on a fresh install to reconfirm, but no regression is expected.
 
 ## What changed in v0.7.3
 
@@ -14,6 +14,14 @@ Model routing was rewritten to prevent mid-session model switches from triggerin
 
 `/mn:save`'s claude-mem POST body switched from `content` → `text` to match v12.3.9 (previously returned `{"error": "text is required"}`). Key provenance (note name, vault, CM version) is now embedded in the `text` itself because v12.3.9 silently drops custom `metadata.*` fields — full-text search keeps the link back to Obsidian until upstream restores persistence.
 
+## What changed in v0.14.0 — smoke checks for the new behaviors
+
+Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-21)). Run these after `/plugin update mnemo@mnemo`. The **stamp check (V3) is the highest priority** — it is the first and only frontmatter write `/mn:health` can make, and it had no automated coverage.
+
+- **V1 — Compounding loop (`/mn:ask`).** Ask a question whose answer synthesizes ≥2 notes. Expect Step 6 to *offer* "save this synthesis as a Molecule" (not auto-save). Accept → confirm one `Molecule — …` note is created via `/mn:save` with a `cites:` frontmatter field and the source `[[links]]` pre-populated. Ask a question with **one** hit or **no** hits → the offer must NOT appear (Molecule-bar gate).
+- **V2 — Research-gap candidates (`/mn:health`).** On a vault with a tag used ≥5 times and no matching `MOC — {Topic}`, the report shows a `🌱 Research-gap candidates` block suggesting the MOC. On a vault where every populous tag already has a MOC → block is omitted (no false suggestion). Never auto-creates anything.
+- **V3 — autoStampReviewed write-path (`/mn:health`, the one write).** Set `review.lint.enabled: true` in `~/.mnemo/config.json` (default leaves it off — verify that with the flag off, health writes **zero** frontmatter). With lint on and `autoStampReviewed: true` (default), run `/mn:health` on a vault holding a stale-but-still-valid note. **Read the note back** and assert: `reviewed:` was added/updated to today's date, inside the `---` frontmatter block, with the note body unchanged. Then set `autoStampReviewed: false`, re-run, and assert the report only *recommends* the stamp and the file is **not** modified. Red flag: any write to a note the lint judged `update-needed`/`contradicts`, or any body-text change — health must only ever touch the `reviewed:` field of a still-valid note.
+
 **Universal red flag for every test below:** if you see `API Error: Extra usage is required for 1M context` during any skill invocation, the routing regressed — a skill is still forcing a model switch in the main session. File an issue with the skill name.
 
 
@@ -21,7 +29,7 @@ Model routing was rewritten to prevent mid-session model switches from triggerin
 ## Prerequisites
 
 - **Obsidian running**, vault `main` (or whatever is in `~/.mnemo/config.json`)
-- **Plugin updated to v0.8.1** in the current session:
+- **Plugin updated to v0.14.0** in the current session:
   ```
   /plugin update mnemo
   ```

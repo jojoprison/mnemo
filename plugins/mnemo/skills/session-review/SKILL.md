@@ -165,7 +165,7 @@ From CLAUDE.md, check mandatory steps:
 
 | # | Skill | Why | Priority |
 |---|-------|-----|----------|
-| 1 | /mnemo:session | Significant work done, no session notes | HIGH |
+| 1 | /mn:session | Significant work done, no session notes | HIGH |
 
 **Correctly skipped:** {skills matching signals but rightly unused, with reason}
 
@@ -237,4 +237,4 @@ Run any? (1,2,3 / A=all / N=skip)
 - **Preprocessing fallback** — if JSONL/discovery failed, gather data with Bash at runtime
 - **Don't over-report** — unchecked plan AC is noise if code + tests pass
 - **Multiple projects** — analyze each project dir separately
-- **Respect completed work** — /mnemo:save already ran? Acknowledge, don't re-recommend
+- **Respect completed work** — /mn:save already ran? Acknowledge, don't re-recommend
