@@ -2,7 +2,7 @@
 
 ## Overview
 
-The brain of mnemo. When you say "remember this" or "save to memory", this skill routes the information to the right storage backends — Obsidian, claude-mem, memory files, CLAUDE.md — with graceful degradation. If one backend is down, others still work.
+The brain of mnemo. When you say "remember this" or "save to memory", this skill routes the information to the right storage backends — Obsidian, claude-mem, memory files, `.claude/rules/` (for actionable rules), CLAUDE.md — with graceful degradation. If one backend is down, others still work.
 
 ## Usage
 
@@ -22,12 +22,14 @@ remember: gws gmail command is +triage not list
 
 ```
 Your input
-  ↓ classify (fact? decision? gotcha? source?)
+  ↓ classify — recall item, or an actionable rule?
   ↓
-  ├─→ 1. Obsidian (Atom/Molecule/Source) → if down, skip
-  ├─→ 2. claude-mem (semantic search)    → if down, skip
-  ├─→ 3. memory/ (error prevention)      → if not needed, skip
-  └─→ 4. CLAUDE.md (critical rules only) → almost never
+  recall item ─┬─→ 1. Obsidian (Atom/Molecule/Source) → if down, skip
+               ├─→ 2. claude-mem (semantic search)    → if down, skip
+               └─→ 3. memory/ (error prevention)      → if not needed, skip
+  ↓
+  actionable rule ─→ 3.5 .claude/rules/<domain>.md (auto-inject, path-scoped)
+                          → create file/dir if none matches; CLAUDE.md only as fallback
   ↓
   Report: what saved where, what skipped
 ```
@@ -44,6 +46,7 @@ Backends:
   1. Obsidian  ✅ → "Atom — SCOPE chosen over TextGrad" in MOC — Agent Self-Correction
   2. claude-mem ✅ → semantic search indexed
   3. memory/   ✅ → memory/antomate-stack.md updated
+  3.5 .claude/rules ⏭  skipped (recall item, not an actionable rule)
   4. CLAUDE.md ⏭  skipped (not critical rule)
 ```
 
@@ -57,6 +60,7 @@ In `~/.mnemo/config.json`:
     "obsidian": { "enabled": true },
     "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
     "memory_dir": { "enabled": true },
+    "project_rules": { "enabled": true },
     "claude_md": { "enabled": false }
   }
 }

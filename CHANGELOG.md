@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-06-24
+
+### Added — actionable rules route to `.claude/rules/` (recall vs auto-inject split)
+
+mnemo now distinguishes two kinds of save and sends them to different homes. A **recall** item (fact / insight / decision / source — "what we did / why") is fetched on demand and still goes to Obsidian + claude-mem + `memory/`. An **actionable rule** ("never do X / always do Y" tied to specific code) must *auto-surface* the moment a future agent opens the relevant file — so it now routes into **`.claude/rules/<domain>.md`** (Claude Code's native path-scoped rules), the granular evolution of the old "dump it in CLAUDE.md" branch. Motivated by a real workflow gap: lessons were being hand-placed into `.claude/rules/` because `/mn:save` had no path for them.
+
+- **`memory-routing` Step 3.5 — `.claude/rules/` routing.** On an actionable-rule save: pick the level (repo-specific → project `.claude/rules/`; cross-project generic → user-global `~/.claude/rules/`), find the file whose `paths:`/domain matches the code the rule governs and append, or **create a new `<domain>.md` (and the dir) when none matches**. Frontmatter guidance makes `paths:` the load trigger (path-scoped auto-load; `description:` is for humans, not loading) and the YAML is verified after write (a broken-indent `paths:` silently drops the file). Plain `Write`/`Edit` (these files live outside the vault — never the Obsidian CLI/MCP). Step 0 classification, the report block, the decision matrix, and the gotchas all gained the recall-vs-rule fork; Step 4 (CLAUDE.md) is now explicitly the fallback.
+- **`cascade.project_rules.enabled` (default true).** New config toggle gating Step 3.5. Fires **only** for actionable-rule saves — recall items are never touched — so a default install routes a rule to `.claude/rules/` but still writes nothing extra for ordinary notes. Set false to keep rules out of the cascade. Documented in `config-schema.md` (schema block, field reference, defaults line).
+- **`/mn:review` interactive rule-routing (Step 8).** The orchestrator's session scan now detects actionable rules learned in the session, and — because routing one **creates/edits committed project files** — surfaces them for a y/n in Step 8 instead of writing unattended (recall items still auto-save silently). On accept it delegates to `memory-routing` Step 3.5, keeping a single write path. A direct `/mn:save` of a rule still routes automatically.
+
+### Changed
+- **`docs/design-decisions.md`** — new "Recall memory vs auto-inject rules" section documents the split, the project-vs-global decision, and the **deliberate boundaries**: `/mn:session` stays a pure narrative channel (rule-routing there was rejected), the orchestrator confirms before writing project files, and the Codex/`AGENTS.md` 32 KiB caveat is acknowledged but not owned by mnemo.
+
 ## [0.14.1] - 2026-06-21
 
 ### Fixed — `/mn:health` content-lint report aggregation (found by live smoke-testing v0.14.0)
@@ -659,7 +672,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.14.1...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.15.0...HEAD
+[0.15.0]: https://github.com/jojoprison/mnemo/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/jojoprison/mnemo/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/jojoprison/mnemo/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/jojoprison/mnemo/compare/v0.12.1...v0.13.0
