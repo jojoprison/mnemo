@@ -26,7 +26,7 @@ You work → mnemo remembers → Your vault grows → You find things later
 
 | Skill | Command | What it does |
 |-------|---------|-------------|
-| **save** | `/mn:save` | Routing cascade — sends one fact/decision/finding to Obsidian (+ `memory/`, + claude-mem if enabled), with graceful degradation |
+| **save** | `/mn:save` | Routing cascade — sends a recall item to Obsidian (+ `memory/`, + claude-mem if enabled), or an actionable rule to `.claude/rules/` (path-scoped auto-inject), with graceful degradation |
 | **session** | `/mn:session` | Session summary note + cross-session handoff for the next session |
 | **review** | `/mn:review` | End-of-session orchestrator — audits the session, auto-runs save + session, recommends the rest |
 | **ask** | `/mn:ask` | Search vault (+ Claude's `memory/` index), synthesize a cited answer, date each source by recency, and ground current-state answers in the project's git history |
@@ -129,7 +129,7 @@ Codex discovers the shared skills from `plugins/mnemo/skills/`. Use the short al
 /mn:save "We chose PostgreSQL over DynamoDB for the audit log — better JSON querying"
 ```
 
-Routes to Obsidian (an Atom note) + `memory/` (Claude's future context) + claude-mem (semantic search, if enabled). If any backend is down, the others still work.
+Routes a recall item to Obsidian (an Atom note) + `memory/` (Claude's future context) + claude-mem (semantic search, if enabled); routes an actionable rule ("never X / always Y" tied to code) to `.claude/rules/<domain>.md` (path-scoped auto-inject) instead. If any backend is down, the others still work.
 
 ### End-of-session orchestrator (the one command to close a session)
 
@@ -206,6 +206,7 @@ cp config.example.json ~/.mnemo/config.json
     "obsidian": { "enabled": true },
     "claude_mem": { "enabled": false },
     "memory_dir": { "enabled": true },
+    "project_rules": { "enabled": true },
     "claude_md": { "enabled": false }
   },
   "review": {

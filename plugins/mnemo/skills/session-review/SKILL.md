@@ -73,6 +73,7 @@ From conversation history + preprocessed data, identify:
 5. **Errors encountered** — all resolved? Workarounds or proper fixes?
 6. **Questions asked** — by user or Claude, answered or dropped?
 7. **External systems** — Linear tasks, GitHub PRs, Obsidian notes — updated?
+8. **Actionable rules learned** — any "never do X / always do Y" lesson tied to specific code/paths that a *future agent* must auto-see before repeating the mistake (vs recall "what/why"). These belong in `.claude/rules/<domain>.md` (path-scoped auto-inject), not just recall memory — flag them for Step 8 routing.
 
 ### Step 4: Skill Gap Analysis
 
@@ -198,6 +199,8 @@ After the report, **automatically run** save + session without asking — these 
 
 **Order matters:** save before session (decisions should be persisted before session note references them).
 
+**Actionable rules are the exception to silent auto-run.** When the save would route an actionable rule into `.claude/rules/` (memory-routing Step 3.5 — it **creates/edits committed project files**, not just a recall note), do **not** write it silently here. Extract the rule, then **surface it in Step 8 for confirmation** ("found an actionable rule → put it in `.claude/rules/<domain>` so it auto-injects? y/n"). Recall items (facts/decisions/findings) still auto-save without asking — only the project-file-writing rule branch needs the user's nod in the orchestrator flow.
+
 **Skip auto-run if:** the skill was already invoked this session (per SKILLS_INVOKED preprocessing).
 
 ### Step 8: Offer Remaining Skills
@@ -212,10 +215,17 @@ Auto-completed:
 Also recommended:
 
   1. [CRITICAL] /commit — 5 uncommitted files
-  2. [MEDIUM] /mn:connect — 2 new notes, find links?
-  3. [LOW] /mn:health — vault audit after mass creation?
+  2. [HIGH] .claude/rules — 1 actionable rule learned ("gate Kontur on the flag") → route to .claude/rules/te5-frontend.md (auto-inject)?
+  3. [MEDIUM] /mn:connect — 2 new notes, find links?
+  4. [LOW] /mn:health — vault audit after mass creation?
 
-Run any? (1,2,3 / A=all / N=skip)
+Run any? (1,2,3,4 / A=all / N=skip)
+```
+
+When the user accepts a `.claude/rules` routing offer, invoke memory-routing with the extracted rule so Step 3.5 handles the file create/append (don't hand-write the file from here — keep one code path):
+
+```
+Skill(skill: "mnemo:memory-routing", args: "{the actionable rule, phrased as a never-X/always-Y instruction tied to its code paths}")
 ```
 
 **Execution rules:**

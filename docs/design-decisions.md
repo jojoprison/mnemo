@@ -12,6 +12,21 @@ Three consequences:
 - **Non-destructive** — skills report and suggest; they never auto-delete, overwrite, or author content. The single, opt-in exception is the `reviewed:` snooze stamp (`review.lint.autoStampReviewed`), and only on notes the lint judged still-valid.
 - **In-agent** — mnemo runs inside Claude Code / Codex. The harness already injects the `memory/MEMORY.md` index and the live conversation as hot context, so mnemo never has to re-create the agent's working memory.
 
+## Recall memory vs auto-inject rules (v0.15.0)
+
+mnemo saves two different kinds of thing, and they must land in different places:
+
+- **Recall memory** — facts, insights, decisions, sources: "*what* we did / *why*". Fetched **on demand** (`/mn:ask`, a future agent searching the vault). Home: Obsidian + optional claude-mem + `memory/`.
+- **Actionable rules** — "never do X / always do Y" tied to specific code: a lesson a future agent must see **before** it repeats the mistake. Useless if it only sits in recall — by the time someone thinks to search for it, the error is already made. Home: **`.claude/rules/<domain>.md`** — Claude Code's native path-scoped rules, which auto-load the moment the agent touches a matching file.
+
+`memory-routing` Step 3.5 makes this split: an actionable-rule save is routed into `.claude/rules/` (project) or `~/.claude/rules/` (cross-project, applies on every repo), creating the file — and the dir — when none matches by meaning. It's the granular evolution of the old "write the rule into CLAUDE.md" branch: `.claude/rules/` is path-scoped (zero idle context cost) where CLAUDE.md is always-on and unstructured. The load trigger is the file's `paths:` frontmatter, not `description:`. Gated by `cascade.project_rules.enabled` (default true; fires only for actionable-rule saves, never for recall). On a fresh repo with no `.claude/rules/`, the first such save **creates** the dir + domain file (a rule bootstraps the convention) — intentional, but set `project_rules.enabled: false` if you'd rather rules fall back to CLAUDE.md/`memory/`. See [config-schema](../plugins/mnemo/references/config-schema.md).
+
+**Deliberate boundaries:**
+
+- **`/mn:session` stays pure narrative.** Session notes record "what happened" for human recall; they are *not* a rules channel. Folding rule-routing into session-notes would blur two responsibilities and was rejected. The interactive "found an actionable rule → route it?" prompt lives in the **orchestrator** (`/mn:review`, Step 8) instead, where it can confirm before writing committed project files — and even then it delegates the write to `memory-routing` Step 3.5 rather than re-implementing it.
+- **Auto-route, but confirmed in the orchestrator.** A direct `/mn:save` of a rule routes automatically (the user explicitly asked to save). The *silent* auto-save inside `/mn:review` is the exception: because routing a rule creates/edits committed project files, the orchestrator surfaces it for a y/n instead of writing unattended.
+- **Codex caveat acknowledged, not solved here.** Codex reads only `AGENTS.md` (32 KiB, silent truncate), not `.claude/rules/`. mnemo routes to `.claude/rules/` and flags the AGENTS.md build-step as the user's responsibility — it does not own that assemble step.
+
 ## Non-goals (deliberately rejected)
 
 These surfaced during the Karpathy "LLM Wiki" audit (v0.14.0 — see [CHANGELOG](../CHANGELOG.md)). Each is a reasonable idea for a *different* tool; each conflicts with the principle above. None are "forgotten" — they were evaluated and declined. If you want one, the "If you want it" note shows the on-philosophy way: always opt-in, default off, never masquerading as hand-curated content.

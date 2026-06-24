@@ -1,4 +1,4 @@
-# Testing — mnemo smoke tests (current: v0.14.0)
+# Testing — mnemo smoke tests (current: v0.15.0)
 
 Manual smoke tests for mnemo (the project has no automated test suite — these are the regression harness). Run after `/plugin update mnemo@mnemo` or `codex plugin install mnemo@mnemo`. Two layers below: the **6 per-skill checks** (version-agnostic — do the skills still behave) and the **"What changed in vX" feature checks** (grouped by the release that introduced each behavior — run the ones relevant to what you updated through).
 
@@ -35,12 +35,20 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 
 **Universal red flag for every test below:** if you see `API Error: Extra usage is required for 1M context` during any skill invocation, the routing regressed — a skill is still forcing a model switch in the main session. File an issue with the skill name.
 
+## What changed in v0.15.0 — smoke checks for actionable-rule routing
+
+`/mn:save` now splits **recall** (Obsidian/claude-mem/memory) from **actionable rules** (`.claude/rules/`), see [CHANGELOG](./CHANGELOG.md#0150---2026-06-24). Run after `/plugin update mnemo@mnemo`.
+
+- **V4 — actionable rule → `.claude/rules/` (the new write path).** In a git project that has a `.claude/rules/` dir, run `/mn:save` with a rule phrased as never-X/always-Y tied to a file (e.g. "after touching `auth.py`, always validate the token first"). Assert the rule is **appended to — or created as — a `.claude/rules/<domain>.md`** whose `paths:` covers that file, and is **NOT** written to `memory/`, Obsidian, or CLAUDE.md (one kind → one home). Read the file back: valid YAML frontmatter, `paths:` present, rule under a sensible section. In a project with **no** `.claude/rules/` dir, the same save must **create the dir + file** (create-if-absent), not silently fall back to CLAUDE.md.
+- **V5 — recall item is untouched by the rule path.** Run `/mn:save "we decided X because Y"` (a recall decision). Assert the report shows `3.5 .claude/rules ⏭ skipped (recall item)` and the item lands in Obsidian/`memory/` as before — the rule branch must NOT fire for recall.
+- **V6 — `cascade.project_rules` toggle + `/mn:review` confirmation.** With `cascade.project_rules.enabled: false`, a rule save falls back to CLAUDE.md/`memory/` and leaves `.claude/rules/` untouched. With it on (default), run `/mn:review` after a session that learned a rule: the orchestrator must **surface the rule for y/n in Step 8** (not write the committed project file unattended); accepting delegates the write to memory-routing Step 3.5 (single code path).
+
 
 
 ## Prerequisites
 
 - **Obsidian running**, vault `main` (or whatever is in `~/.mnemo/config.json`)
-- **Plugin updated to v0.14.0** in the current session:
+- **Plugin updated to v0.15.0** in the current session:
   ```
   /plugin update mnemo
   ```

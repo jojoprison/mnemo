@@ -1,6 +1,6 @@
 ---
 name: memory-routing
-description: "Use whenever the user says 'remember this', 'save to memory', 'save this', 'запомни', 'запоминай', 'сохрани', 'помни', 'отложи в память', 'в память', 'в памяти', 'в мнемо', solved a bug worth remembering, made a non-obvious decision, or learned a gotcha. Routes each item to Obsidian + optional claude-mem + memory/ + CLAUDE.md with graceful degradation if a backend is unavailable."
+description: "Use whenever the user says 'remember this', 'save to memory', 'save this', 'запомни', 'запоминай', 'сохрани', 'помни', 'отложи в память', 'в память', 'в памяти', 'в мнемо', solved a bug worth remembering, made a non-obvious decision, or learned a gotcha. Routes recall items to Obsidian + optional claude-mem + memory/; routes an actionable rule (never-X / always-Y tied to code) to .claude/rules/ (path-scoped auto-inject), CLAUDE.md as fallback — all with graceful degradation if a backend is unavailable."
 user-invocable: false
 model: inherit
 ---
@@ -26,7 +26,11 @@ Determine what type of information is being saved:
 | **decision** | Obsidian Atom + optional claude-mem + memory/ | "We chose SCOPE over TextGrad for self-correction" |
 | **gotcha** | Obsidian Atom + memory/ + possibly CLAUDE.md | "execSync with shell=true is banned in antomate" |
 | **source** | Obsidian Source + optional claude-mem | External article, tool, research finding |
-| **rule** | CLAUDE.md (if error-preventing) + memory/ | "Never mark Gmail as read without explicit request" |
+| **actionable rule** | `.claude/rules/<domain>.md` (auto-inject, path-scoped) — Step 3.5 only | "After touching `sign_epl.py`, always gate the Kontur call on the flag" |
+
+> **Recall vs actionable rule — the fork this cascade turns on.** A *recall* item (fact / insight / decision / source) answers "what / why" and is **fetched on demand**. An *actionable rule* — "never do X / always do Y" tied to specific code — must **auto-surface** when a future agent opens the relevant file, *before* it repeats the mistake. Its home is `.claude/rules/` (native path-scoped auto-load, Step 3.5), **not** recall memory. Most saves are recall; route to `.claude/rules/` only when the rule would have prevented an error by appearing at the right moment.
+>
+> **Routing consequence — apply this to every step below.** A *recall* item flows through **Steps 1-4** normally. An *actionable rule* goes to **Step 3.5 only**: skip Steps 1-3 (Obsidian / claude-mem / memory/ are superseded by the auto-injecting rule file — don't double-write), and Step 4 (CLAUDE.md) fires only as the fallback if Step 3.5 declined (e.g. `project_rules` disabled). One kind → one home.
 
 ### Step 1: Obsidian (Primary — for the user)
 
@@ -131,9 +135,9 @@ curl -s -X POST http://{claude_mem_url}/api/memory/save \
 
 ### Step 3: memory/ (For Claude — error prevention)
 
-**Skip if:** `cascade.memory_dir.enabled` is false
+**Skip if:** `cascade.memory_dir.enabled` is false — **or this is an actionable rule** (it goes to Step 3.5; `.claude/rules/` supersedes a memory/ copy, never write both).
 
-Only write here if the information **prevents the coding agent from making errors** in future sessions:
+Only write here if the information **prevents the coding agent from making errors** in future sessions **and is not an actionable rule**:
 - Gotchas, commands, conventions
 - NOT business context (that's Obsidian's job)
 
@@ -155,16 +159,57 @@ The index is periodically re-slimmed by **autodream** (memory consolidation). Fu
 
 **On error:** Log `⚠️ memory/: skipped (directory not found)`, continue.
 
+### Step 3.5: `.claude/rules/` — actionable path-scoped rules (auto-inject)
+
+**Skip if:** `cascade.project_rules.enabled` is false (default **true**).
+
+**Fires only for an *actionable rule*** (Step 0) — never for recall items. The test: *would this rule have prevented an error if it had auto-surfaced the moment the agent opened the relevant file?* Yes → here. "What we did / why" → recall memory (Steps 1-3), not here.
+
+**Why `.claude/rules/` and not CLAUDE.md:** Claude Code natively auto-loads `.claude/rules/*.md`. A file **with** `paths:` frontmatter loads only when the agent touches a matching file (path-scoped, zero idle-context cost); a file **without** `paths:` loads every session (always-on). It is the granular evolution of the old "dump a rule into CLAUDE.md" branch (Step 4). Docs: https://code.claude.com/docs/en/memory.md (§ "Path-specific rules", "User-level rules"). **The load trigger is `paths:` — not `description:`** (that field is for humans skimming the dir; it does not affect loading).
+
+**1 — Pick the level:**
+- Rule is **specific to this repo** (names its files, domains, deploy quirks) → **project** `.claude/rules/` (committed in the repo).
+- Rule is **generic / cross-project** (a language convention, a git habit, a universal gotcha that applies in every repo) → **user-global** `~/.claude/rules/` (auto-applies on every project on this machine).
+
+**2 — Find or create the target file** (project shown; use `~/.claude/rules/` for global):
+
+```bash
+ls .claude/rules/*.md 2>/dev/null
+```
+
+- Read each file's `paths:` / domain. **Append** the rule to the file whose scope covers the code it governs (under the matching section, surgical insert).
+- **No file matches by meaning → create a new `<domain>.md`.** Don't wedge an unrelated rule into the nearest file (that's the wrong-abstraction smell at the doc level).
+- **`.claude/rules/` doesn't exist → create the dir *and* the file.** A first rule bootstraps the convention; do **not** silently fall back to CLAUDE.md just because the folder is missing.
+
+**3 — Frontmatter for a new file:**
+
+```yaml
+---
+paths:
+  - "src/<area>/**"          # globs for the files this rule governs → path-scoped auto-load
+  - "tests/<area>/**"
+description: "<one line, for humans skimming .claude/rules/ — NOT a load trigger>"
+---
+```
+
+Omit `paths:` only for an always-on rule (rare in a project — it costs context every session). A generic **global** rule usually omits `paths:` (it should always apply).
+
+**4 — Write it.** These are plain repo / dotfiles **outside** the Obsidian vault → use **Write/Edit**, never the Obsidian CLI/MCP (no vault graph to join, and `obsidian create content=` would shell-expand backticks). Match the file's existing section style; append surgically, don't reformat neighbors. **Verify the YAML** after writing — a broken-indent `paths:` entry silently drops the whole file from auto-load (real incident: a 0-indent list item under `paths:` made the rule never load).
+
+**Codex / AGENTS.md gotcha:** Codex does **not** read `.claude/rules/` — only `AGENTS.md` (nested, **32 KiB** hard limit, silent truncate past it). If the project has an assemble-AGENTS build-step (rules → `AGENTS.md`), the rule reaches Codex on rebuild — run it and confirm `wc -c AGENTS.md` stays `< 32768`. No build-step + Codex devs on the repo → also surface the critical rule into `AGENTS.md` by hand.
+
+**On error / not applicable:** Log `⚠️ .claude/rules: skipped (recall item / cascade.project_rules disabled)`, continue.
+
 ### Step 4: CLAUDE.md (Only critical error-preventing rules)
 
-**Skip if:** `cascade.claude_md.enabled` is false (default)
+**Skip if:** `cascade.claude_md.enabled` is false (default) — **or the item is an actionable rule already handled by Step 3.5** (`cascade.project_rules.enabled` true). This branch is the **fallback**, reached only when Step 3.5 declined (e.g. `project_rules` disabled).
 
 Only write here if the rule is:
 - 1-2 lines max
 - Violation would cause a real error or bad behavior
 - Not already covered by Obsidian or memory/
 
-This is almost never needed. Most things go to Obsidian + claude-mem.
+This is almost never needed. Most things go to Obsidian + claude-mem. **For any rule tied to code, prefer Step 3.5 (`.claude/rules/`)** — CLAUDE.md is the fallback only when you genuinely can't use a rules file (and Step 3.5 already creates the dir/file when missing, so that's rare).
 
 ### Step 5: Report
 
@@ -172,13 +217,30 @@ This is almost never needed. Most things go to Obsidian + claude-mem.
 💾 Memory saved:
 
 Content: "{short summary}"
-Type: {atom/molecule/source/decision/gotcha}
+Type: {atom/molecule/source/decision/gotcha/actionable rule}
 
 Backends:
-  1. Obsidian  ✅ → "Atom — {title}" in MOC — {name}
+  1. Obsidian   ✅ → "Atom — {title}" in MOC — {name}
   2. claude-mem ⏭  skipped (disabled)
-  3. memory/   ⏭  skipped (not error-preventing)
-  4. CLAUDE.md ⏭  skipped (not critical rule)
+  3. memory/    ⏭  skipped (not error-preventing)
+  3.5 .claude/rules ⏭  skipped (recall item, not an actionable rule)
+  4. CLAUDE.md  ⏭  skipped (not critical rule)
+```
+
+For an **actionable rule**, the rule branch is the only write (one kind → one home):
+
+```
+💾 Memory saved:
+
+Content: "after touching sign_epl.py, gate the Kontur call on the flag"
+Type: actionable rule
+
+Backends:
+  1. Obsidian   ⏭  skipped (rule, not recall)
+  2. claude-mem ⏭  skipped (rule, not recall)
+  3. memory/    ⏭  skipped (rule → .claude/rules supersedes a memory/ copy)
+  3.5 .claude/rules ✅ → .claude/rules/te5-frontend.md (path-scoped) — appended
+  4. CLAUDE.md  ⏭  skipped (Step 3.5 handled it)
 ```
 
 Or with failures:
@@ -195,15 +257,15 @@ Or with failures:
 
 ## Decision Matrix
 
-| Information type | Obsidian | claude-mem | memory/ | CLAUDE.md |
-|-----------------|----------|-----------|---------|-----------|
-| Fact (atomic) | ✅ Atom | Optional | ❌ | ❌ |
-| Insight (synthesized) | ✅ Molecule | Optional | ❌ | ❌ |
-| External source | ✅ Source | Optional | ❌ | ❌ |
-| Decision | ✅ Atom | Optional | ✅ if prevents errors | ❌ |
-| Gotcha | ✅ Atom | ✅ | ✅ | ✅ if critical |
-| Command/convention | ✅ Atom | ✅ | ✅ | ❌ |
-| Error-preventing rule | ❌ | ❌ | ✅ | ✅ |
+| Information type | Obsidian | claude-mem | memory/ | .claude/rules/ | CLAUDE.md |
+|-----------------|----------|-----------|---------|----------------|-----------|
+| Fact (atomic) | ✅ Atom | Optional | ❌ | ❌ | ❌ |
+| Insight (synthesized) | ✅ Molecule | Optional | ❌ | ❌ | ❌ |
+| External source | ✅ Source | Optional | ❌ | ❌ | ❌ |
+| Decision | ✅ Atom | Optional | ✅ if prevents errors | ❌ | ❌ |
+| Gotcha | ✅ Atom | ✅ | ✅ | ❌ (path-scoped + code-tied → classify as rule, row below) | rare |
+| Command/convention | ✅ Atom | ✅ | ✅ | ❌ | ❌ |
+| Actionable path-scoped rule | ❌ | ❌ | ❌ | ✅ **primary** | ⚠️ fallback only |
 
 ## Gotchas
 
@@ -213,6 +275,10 @@ Common failures in `references/gotchas.md`. Tool-routing rationale in `reference
 - **Don't duplicate Obsidian content in memory/** — different audiences. Obsidian is for the user (cite-able, searchable in vault); memory/ is for Claude (error prevention across sessions).
 - **claude-mem is optional** — many users won't have it running on :37777. Skip silently, don't warn.
 - **CLAUDE.md is almost never written to** — only 1-2 line rules that prevent actual errors. Target: <120 lines total to preserve prompt budget.
+- **Recall vs actionable rule is the routing fork (Step 3.5)** — recall ("what / why") is fetched on demand; an actionable rule ("never X / always Y" tied to code) must auto-surface when the agent opens the file. Misrouting a rule into recall = it never fires when it matters. Misrouting recall into `.claude/rules/` = idle context bloat. When unsure, ask "would this have *prevented* an error by appearing at the right file?"
+- **`.claude/rules/` ≠ CLAUDE.md** — native path-scoped auto-load. `paths:` is the load trigger (not `description:`); no `paths:` = always-on. A new rule **creates** the `<domain>.md` (and the dir) when none matches — don't wedge it into an unrelated file. Verify the YAML: a broken-indent `paths:` entry silently drops the whole file from loading.
+- **`.claude/rules/` files live outside the vault** — like `memory/` files, never `[[wikilink]]` them and never write them via the Obsidian CLI/MCP. Plain `Write`/`Edit`.
+- **Codex is blind to `.claude/rules/`** — it reads only `AGENTS.md` (nested, 32 KiB silent-truncate). For a repo with Codex devs, route the critical rule into the AGENTS.md build-step (or by hand) too, and keep `wc -c AGENTS.md < 32768`.
 - **Always check duplicates** before creating Obsidian notes — clobbering a note silently is worse than any write latency.
 - **Ghost notes generously** — wrap entities in `[[wikilinks]]` even when the target doesn't exist yet. Enables future entity discovery.
 - **Never `[[wikilink]]` a memory/ file — use inline code** — `memory/` files (`feedback-*.md`, `reference-*.md`, etc.) and project files (`CLAUDE.md`, `AGENTS.md`) live **outside** the Obsidian vault graph. Writing `[[memory/foo]]` or `[[foo.md]]` from a note creates a permanent unresolved link (a phantom ghost that pollutes `orphans`/`unresolved` reports forever). Reference them as `` `memory/foo.md` `` instead. If the memory file has a real vault counterpart (a MOC or Atom on the same topic), link THAT note — it strengthens the graph instead of dangling. See `references/tool-routing.md`.

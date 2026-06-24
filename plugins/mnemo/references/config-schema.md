@@ -37,10 +37,11 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
   "handoff_note":  "Meta — Session Handoff",
 
   "cascade": {
-    "obsidian":   { "enabled": true },
-    "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
-    "memory_dir": { "enabled": true },
-    "claude_md":  { "enabled": false }
+    "obsidian":      { "enabled": true },
+    "claude_mem":    { "enabled": false, "url": "http://127.0.0.1:37777" },
+    "memory_dir":    { "enabled": true },
+    "project_rules": { "enabled": true },
+    "claude_md":     { "enabled": false }
   },
 
   "memory": {
@@ -82,7 +83,8 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `cascade.claude_mem.enabled` | Enable optional claude-mem POSTs; keep false if claude-mem is disabled for CPU/RAM reasons | memory-routing |
 | `cascade.claude_mem.url` | claude-mem worker URL (default port 37777) | memory-routing |
 | `cascade.memory_dir.enabled` | Skip memory/ writes if false | memory-routing |
-| `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md (default false) | memory-routing |
+| `cascade.project_rules.enabled` | Route an **actionable path-scoped rule** (a "never X / always Y" lesson tied to code) into `.claude/rules/<domain>.md` (project) or `~/.claude/rules/` (cross-project) so it **auto-injects** when a future agent touches the matching files — Claude Code's native path-scoped rules. Fires only for actionable-rule saves (recall items are untouched); creates the file/dir when none matches. Default **true**. Set false to keep rules out of the cascade | memory-routing |
+| `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md — the **fallback** for `cascade.project_rules` (prefer `.claude/rules/`). Default false | memory-routing |
 | `memory.indexWarnKB` | Warn threshold (KB) for `memory/MEMORY.md` size. Claude Code auto-memory **hard-truncates the index ~24.4KB on load** → warn earlier. Default **22** | vault-health |
 | `review.staleDays.default` | Days before a note becomes a review candidate when its type has no specific entry. Default **30**. (`review.staleDays` may also be a bare integer — a single uniform threshold for every type.) | vault-health |
 | `review.staleDays.{type}` | Per-type staleness cadence (key = a taxonomy `type` you actually use: `atom`/`molecule`/`source`/`session`/`moc`). A fast-moving fact ages quicker than an architectural decision | vault-health |
@@ -104,7 +106,7 @@ This is deliberately **not** an absolute `review-by:` date. Computed-from-type p
 
 ## Defaults when fields are missing
 
-If the whole `cascade` section is absent, defaults are: obsidian=true, claude_mem=false, memory_dir=true, claude_md=false.
+If the whole `cascade` section is absent, defaults are: obsidian=true, claude_mem=false, memory_dir=true, project_rules=true, claude_md=false.
 
 If `vault` or `taxonomy` is missing, the skill that needs them asks the user and offers to run `/mnemo:setup`.
 
