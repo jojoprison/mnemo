@@ -19,7 +19,11 @@ Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault` and `l
 
 Input as argument: `/mn:ask "what did we decide about pricing strategy?"`
 
-If no argument, ask: "What would you like to find in your vault?"
+**User-invoked, no argument** → ask: "What would you like to find in your vault?"
+
+**Agent-invoked (proactive, mid-task)** → do NOT stop to ask the user. Derive the query yourself from the task at hand — the bug about to be fixed, the subsystem being entered, the decision being weighed — and search for that. The point of proactive recall is to consult memory *without* interrupting the user. If nothing relevant surfaces (Step 5), don't dump a "not found" wall — note it in one line and return to the task.
+
+**Anti-loop:** recall a given topic at most once per session. If the vault was already searched for this bug/subsystem this session, don't re-search — reuse what you found.
 
 ### Step 2: Extract Search Terms
 

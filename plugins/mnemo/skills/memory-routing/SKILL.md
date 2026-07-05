@@ -17,7 +17,11 @@ Obsidian is preferred but not required (skill degrades gracefully). Config at `~
 
 ### Step 0: Classify the Input
 
-Determine what type of information is being saved:
+**First — is this worth saving at all?** (Especially when saving proactively, unprompted.) Save only if a *future session would act differently* for knowing it: a solved bug + root cause, a non-obvious decision + why, a gotcha that bit you, a durable fact, an actionable rule. **Skip as a NOOP** — say "nothing worth persisting here" and stop — for routine steps, anything the repo/git already records, one-off chatter, or what a future agent would re-derive trivially. Saving noise pollutes recall; a lean vault is the asset.
+
+**Never persist secrets** — mask tokens / keys / passwords as `<REDACTED>` before writing (a note is durable and may sync).
+
+Then determine what type of information is being saved:
 
 | Type | Goes to | Example |
 |------|---------|---------|
@@ -239,6 +243,8 @@ Or with failures:
 
 ⚠️ Run /mn:save again after restarting Obsidian to complete sync.
 ```
+
+**After a *new* note is created** (not a plain append/update, not an actionable-rule write), offer to link it in: "New note created — run `/mn:connect` to surface related notes and cross-link it?" Don't auto-run — the user decides (or you do, if this was a proactive save mid-task). A fresh note that never gets connected becomes an orphan; this closes the save→connect loop.
 
 ## Decision Matrix
 

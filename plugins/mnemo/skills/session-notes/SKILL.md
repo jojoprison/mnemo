@@ -26,6 +26,8 @@ Tool-routing (MCP for writes, CLI for reads/search) in `${CLAUDE_PLUGIN_ROOT}/re
 
 ### Step 1: Summarize Current Session
 
+**Mid-task checkpoint vs end-of-session note.** If this is a mid-task checkpoint (a long run risks compaction and you're saving progress, not wrapping up) **and** a note for *this same session* already exists — match by the `session_id` you'd write in frontmatter (or the filename derived earlier this session) — **update that note in place** (`mcp__obsidian__str_replace` to refresh the summary and append new progress) plus refresh the handoff (Step 5). Do **not** create a second note for the same session — that fragments the record. Only a genuinely new session or a distinct topic gets a new note.
+
 Analyze the conversation: what was done, key decisions, commits/PRs created, findings.
 
 Derive a **planned filename**: `{session_prefix}{YYYY-MM-DD} {short descriptive topic}`. Topic should be specific enough to disambiguate from other sessions the same day (include PR number, Linear ticket, branch name, or primary keyword).
