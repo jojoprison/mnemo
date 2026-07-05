@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-07-06
+
+### Changed
+
+- **`/mn:review` trigger coverage** — added `'что осталось добить'`, `'что надо добить'`, `'что ещё надо добить'` to the `session-review` description (on top of `'что осталось'` / `'что ещё осталось'` / `'что добить до идеала'`), so the orchestrator fires on the "надо добить" phrasings too.
+
 ## [1.1.5] - 2026-07-05
 
 ### Fixed / Added — e2e-hardening (closes 3 gaps a live e2e pass found)
@@ -760,7 +766,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.5...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.6...HEAD
+[1.1.6]: https://github.com/jojoprison/mnemo/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/jojoprison/mnemo/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/jojoprison/mnemo/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/jojoprison/mnemo/compare/v1.1.2...v1.1.3
