@@ -109,7 +109,7 @@ Write `~/.mnemo/config.json`:
 }
 ```
 
-`hooks.stopNudge` ships **false** — flip it to `true` if you want the end-of-session save/session reminder (see `references/config-schema.md`). Everything works on these defaults even if the whole `hooks` block is omitted.
+`hooks.stopNudge` ships **false** — flip it to `true` if you want the end-of-session save/session reminder (see `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`). Everything works on these defaults even if the whole `hooks` block is omitted.
 
 ### Step 6: Create Handoff Note (only if missing)
 

@@ -30,6 +30,15 @@ Tool-routing (MCP for writes, CLI for reads/search) in `${CLAUDE_PLUGIN_ROOT}/re
 
 Analyze the conversation: what was done, key decisions, commits/PRs created, findings.
 
+**Ground the summary in facts — don't rely on conversation memory alone** (a note that claims "shipped X" when git shows no such commit is worse than no note). Before writing "what was done", cross-check against reality: `git log --oneline -15` + `git status --short` for real commits/changes, and — when the script is reachable — the session's actual tool/skill activity:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/session-scan.py" 2>/dev/null | head -30 \
+  || python3 "$(ls -d "$HOME/.claude/plugins/cache/"*"/mnemo/"*"/plugins/mnemo/scripts/session-scan.py" 2>/dev/null | head -1)" 2>/dev/null | head -30
+```
+
+Reconcile claimed outcomes with these before persisting — the same grounding `/mn:review` does, applied to the note `/mn:session` writes directly.
+
 Derive a **planned filename**: `{session_prefix}{YYYY-MM-DD} {short descriptive topic}`. Topic should be specific enough to disambiguate from other sessions the same day (include PR number, Linear ticket, branch name, or primary keyword).
 
 **Naming:** the topic must NOT contain `#`, `.`, or `/` — they break wikilinks (`#`→heading anchor) or the CLI (`.`→truncation). Write `PR 387`, not `PR #387`. See `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md` (naming rules).
