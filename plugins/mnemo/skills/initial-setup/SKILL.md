@@ -1,6 +1,6 @@
 ---
 name: initial-setup
-description: "Use on first install, when reconfiguring mnemo, or when the user says 'setup mnemo', 'mnemo not configured', 'change vault', 'reset config', 'мнемо настрой', 'настрой мнемо', or similar — also invoked automatically when any other mnemo skill detects a missing config. Interactive onboarding that creates ~/.mnemo/config.json (vault name, taxonomy, language preferences, cascade integrations)."
+description: "Use on first install, when reconfiguring mnemo, or when the user says 'setup mnemo', 'mnemo not configured', 'change vault', 'reset config', 'мнемо настрой', 'настрой мнемо', or similar — also invoked automatically when any other mnemo skill detects a missing config. Interactive onboarding that creates ~/.mnemo/config.json (vault name, taxonomy, links-section language, cascade defaults)."
 user-invocable: false
 model: haiku
 context: fork
@@ -47,7 +47,23 @@ Which note taxonomy do you use?
 > 1
 ```
 
-Map selection to taxonomy config.
+Map the selection to `config.taxonomy` — each entry is `{ "prefix": "…", "tag": "…" }`, and every prefix **must end in a separator** (` — `, `: `, or `/`). Always keep `session` and `moc` regardless of choice — they are *functional* types (`/mn:session` reads `taxonomy.session.prefix`; hub-linking uses `moc`), not just note archetypes.
+
+**[1] Zettelkasten** — use the full block shown in Step 5 below.
+
+**[2] PARA:**
+```json
+"taxonomy": {
+  "project":  { "prefix": "Project — ",  "tag": "project" },
+  "area":     { "prefix": "Area — ",     "tag": "area" },
+  "resource": { "prefix": "Resource — ", "tag": "resource" },
+  "archive":  { "prefix": "Archive — ",  "tag": "archive" },
+  "session":  { "prefix": "Session — ",  "tag": "session" },
+  "moc":      { "prefix": "MOC — ",      "tag": "moc" }
+}
+```
+
+**[3] Custom** — ask the user for each type's prefix + tag; enforce the separator rule on every prefix; still include `session` and `moc` (add them yourself if the user doesn't name them).
 
 ### Step 4: Links Section Name
 

@@ -56,15 +56,15 @@ These are NOT duplicates — same day, different topics. **Doing many sessions i
 
 Do not block creation on Level 2 matches — they're context, not conflicts.
 
-### Step 3: Create Session Note (MCP — mandatory)
+### Step 3: Create Session Note (MCP — primary; Codex fallback below)
 
-**Always use `mcp__obsidian__create` for creation.** Never CLI with inline `content=`.
+**In Claude, always use `mcp__obsidian__create` for creation.** Never CLI with inline `content=` (shell-injection). In Codex, where the Obsidian MCP isn't available, take the **Codex fallback** at the end of this step instead — the inline-`content=` ban still holds there.
 
 First, read the template (provides the exact structure to follow):
 
 ```bash
 cat "${CLAUDE_PLUGIN_ROOT}/assets/session-template.md" 2>/dev/null \
-  || cat "$(dirname "$0")/../../assets/session-template.md"
+  || cat "$(ls -d "$HOME/.claude/plugins/cache/"*"/mnemo/"*"/plugins/mnemo/assets/session-template.md" 2>/dev/null | head -1)"
 ```
 
 Then create the note, filling the template placeholders (`{Session Title}`, `{YYYY-MM-DD}`, `{project}`, etc.) with the current session's context:
@@ -76,9 +76,11 @@ mcp__obsidian__create(
 )
 ```
 
-Where `{session_prefix}` comes from `config.taxonomy.session.prefix`, `{links_section}` from `config.links_section`, and `{CLAUDE_SESSION_ID}` from the environment (empty string if not available).
+Where `{session_prefix}` comes from `config.taxonomy.session.prefix`, `{links_section}` from `config.links_section`, and the session id from `{CLAUDE_SESSION_ID}` — or `{CODEX_SESSION_ID}` under Codex — in the environment (empty string if neither is available).
 
 **Why MCP here:** frontmatter and body may contain any markdown — code blocks with backticks, `$(...)` samples, shell snippets. MCP passes `file_text` as a JSON parameter; no shell involved.
+
+**Codex fallback (no Obsidian MCP, no safe CLI create):** the human-readable Obsidian note is a Claude-path deliverable, and there is no shell-safe way to create it with a markdown body from Codex. So instead of failing silently or running an unsafe inline `content=`, write the filled summary to the local fallback memory — `~/.codex/memories/session-{YYYY-MM-DD}.md` — and tell the user the full vault note needs a Claude/Obsidian session. This degrades gracefully and preserves the content.
 
 ### Step 4: Verify MOC Link
 
@@ -150,13 +152,13 @@ Output summary:
 
 - **MCP for any write with markdown body** — non-negotiable, shell-safety
 - **CLI for read/search/index** — faster, indexed, unique functions
-- **No inline `obsidian create content="..."` with markdown** — banned
+- **No inline `obsidian create content="..."` with markdown** — banned: zsh expands backticks / `$(...)` in the body (real incident: nearly ran `make deploy-back`)
 - **Two-level duplicate check** — exact-read + same-day-search
 - **Include session_id in frontmatter** — disambiguates same-day sessions
 - **No session notes for trivial work** — but "trivial" = mechanical one-liners only (typo, single rename). A research / exploration / curiosity session counts as significant even with zero code; default to creating.
 - **Branch field optional** — research sessions don't have branches
 - **Handoff file: targeted `str_replace`, not blind append** — pending items shouldn't accumulate infinitely
-- **Links section is mandatory** — at least one MOC link
+- **Links section is mandatory** — at least one MOC link, else the note orphans (invisible to graph navigation)
 - **Ghost notes generously** — wrap projects, technologies, people in `[[wikilinks]]`
 
 ## Gotchas

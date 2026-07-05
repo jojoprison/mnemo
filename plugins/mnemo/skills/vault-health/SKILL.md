@@ -1,6 +1,6 @@
 ---
 name: vault-health
-description: "Use whenever the user mentions vault maintenance, orphans, broken links, 'is my vault clean', 'проверь vault', 'сироты', 'битые ссылки', 'здоровье базы знаний', 'здоровье памяти', 'здоровье обсидиана', or asks for vault statistics — or proactively after creating 3+ notes in a session, after mass note creation, or when health checks haven't run in a while; the longer between checks, the more invisible orphans accumulate."
+description: "Vault health audit — orphans, broken links, type-aware stale-review candidates, growth stats. Use whenever the user mentions vault maintenance, orphans, broken links, 'is my vault clean', 'проверь vault', 'сироты', 'битые ссылки', 'здоровье базы знаний', 'здоровье памяти', 'здоровье обсидиана', or asks for vault statistics — or proactively after creating 3+ notes in a session, after mass note creation, or when health checks haven't run in a while; the longer between checks, the more invisible orphans accumulate."
 user-invocable: false
 model: haiku
 context: fork

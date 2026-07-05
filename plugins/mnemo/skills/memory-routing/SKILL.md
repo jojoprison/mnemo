@@ -98,27 +98,12 @@ obsidian append file="{MOC}" vault="{vault}" content="- [[{note name}]]"
 
 **Skip if:** `cascade.claude_mem.enabled` is false. This is the default in new installs because many users intentionally disable claude-mem for CPU/RAM reasons.
 
-Auto-detect the installed claude-mem version so observations carry provenance (useful when filtering pre-v12 data from post-v12 data):
+Use the bundled script — it auto-detects the claude-mem version for provenance, builds the JSON safely (python3, so a summary containing quotes / backticks / `$(...)` can't break the request), and bakes in the v12.3.9 gotchas documented below:
 
 ```bash
-CM_VERSION=$(ls -1 ~/.claude/plugins/cache/thedotmack/claude-mem/ 2>/dev/null | sort -V | tail -1)
-
-# Build the observation text with embedded provenance (see "v12.3.9 gotcha" below).
-SUMMARY="{one-line summary of what was saved}"
-TEXT="${SUMMARY} [note: {note name if created} | vault: {vault} | cm: ${CM_VERSION:-unknown}]"
-
-curl -s -X POST http://{claude_mem_url}/api/memory/save \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"text\": \"${TEXT}\",
-    \"metadata\": {
-      \"type\": \"{type}\",
-      \"project\": \"{current project or 'general'}\",
-      \"obsidian_note\": \"{note name if created}\",
-      \"obsidian_vault\": \"{vault}\",
-      \"claude_mem_version\": \"${CM_VERSION:-unknown}\"
-    }
-  }"
+"${CLAUDE_PLUGIN_ROOT}/scripts/claude-mem-save.sh" \
+  "{claude_mem_url}" "{type}" "{current project or 'general'}" \
+  "{one-line summary of what was saved}" "{note name if created}" "{vault}"
 ```
 
 **API field name (v12.3.9):** the request body key is `text`, not `content`. Earlier versions accepted `content`; as of v12.3.9 the API returns `{"error": "text is required and must be non-empty"}` if you send `content`. Confirmed during v0.7.3 smoke test — verified in claude-mem source.

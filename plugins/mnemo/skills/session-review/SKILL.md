@@ -90,7 +90,8 @@ Cross-reference:
 ```bash
 TYPE={implementation|research|debugging|universal}
 REF_DIR="${CLAUDE_PLUGIN_ROOT}/references"
-[ -d "$REF_DIR" ] || REF_DIR="$(dirname "$0")/../../references"
+[ -d "$REF_DIR" ] || REF_DIR="$(ls -d "$HOME/.claude/plugins/cache/"*"/mnemo/"*"/plugins/mnemo/references" 2>/dev/null | head -1)"
+[ -d "$REF_DIR" ] || REF_DIR="./plugins/mnemo/references"
 
 echo "=== type-specific triggers ==="
 cat "${REF_DIR}/triggers-${TYPE}.md" 2>/dev/null || echo "(triggers file unavailable)"
