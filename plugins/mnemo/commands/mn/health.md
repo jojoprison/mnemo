@@ -2,6 +2,7 @@
 name: mn:health
 description: "Vault audit & analytics — orphans, broken links, stale notes, growth stats, tag distribution."
 user-invocable: true
+disable-model-invocation: true
 ---
 
 $ARGUMENTS

@@ -2,6 +2,7 @@
 name: mn:save
 description: "Memory routing cascade — save to Obsidian + claude-mem + memory/ with graceful degradation."
 user-invocable: true
+disable-model-invocation: true
 ---
 
 $ARGUMENTS

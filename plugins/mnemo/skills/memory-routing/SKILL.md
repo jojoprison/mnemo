@@ -1,6 +1,6 @@
 ---
 name: memory-routing
-description: "Use right after something worth keeping appears — you solved a tricky bug, made a non-obvious decision, or hit a gotcha — proactively, without being asked, so a future session doesn't relearn it. Also when the user says 'remember this', 'save this', 'запомни', 'запоминай', 'сохрани', 'помни', 'отложи в память', 'в память', 'в мнемо', or similar. Routes a recall item to Obsidian + optional claude-mem + memory/, or an actionable rule (never-X / always-Y tied to code) to .claude/rules/ (path-scoped auto-inject), CLAUDE.md as fallback — with graceful degradation if a backend is down."
+description: "Use right after something worth keeping appears — you solved a tricky bug, made a non-obvious decision, or hit a gotcha — proactively, without being asked, so a future session doesn't relearn it. Also when the user says 'remember this', 'save this', 'запомни', 'запоминай', 'сохрани', 'сохрани в память', 'сохрани в обсидиан', 'сохрани в базу знаний', 'помни', 'отложи в память', 'в мнемо', or similar. Routes a recall item to Obsidian + optional claude-mem + memory/, or an actionable rule (never-X / always-Y tied to code) to .claude/rules/ (path-scoped auto-inject), CLAUDE.md as fallback — with graceful degradation if a backend is down."
 user-invocable: false
 model: inherit
 ---

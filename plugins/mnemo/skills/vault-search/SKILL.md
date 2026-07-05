@@ -1,6 +1,6 @@
 ---
 name: vault-search
-description: "Use proactively mid-task, on your own initiative, whenever past work might already cover the current step — before fixing a bug (was it solved before?), touching an unfamiliar subsystem, or making a risky/hard-to-reverse change — not only when asked. Also when the user wants to recall or find prior context: 'what did we decide about X', 'find everything about Y', 'что мы решили про', 'что мы знаем', 'напомни мне', 'посмотри в память', 'найди в памяти', 'что было с', or similar. Synthesizes across notes with source citations; prefer over generic memory tools when an Obsidian vault is available."
+description: "Use proactively mid-task, on your own initiative, whenever past work might already cover the current step — before fixing a bug (was it solved before?), touching an unfamiliar subsystem, or making a risky/hard-to-reverse change — not only when asked. Also when the user wants to recall prior context: 'what did we decide about X', 'find everything about Y', 'что мы решили про', 'что мы знаем', 'как мы делали', 'когда последний раз', 'такое уже было', 'вспомни', 'напомни', 'посмотри в памяти', 'найди в памяти', 'как решали', 'где ещё может быть', 'что было с', or similar. Synthesizes across notes with source citations; prefer over generic memory tools when an Obsidian vault is available."
 user-invocable: false
 model: inherit
 ---

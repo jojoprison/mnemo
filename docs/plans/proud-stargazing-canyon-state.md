@@ -6,9 +6,9 @@
 **Governance:** это minor → 1.1.0 → апрув j получен 2026-07-05 («го на всё»). Финальный бамп манифеста — после trigger-eval-гейта.
 
 ## RIGHT NOW
-- focus: P0 ГОТОВ (лint green) → ждём /doctor от j → потом P1 (hooks + тела)
-- last: 7 descriptions переписаны (агент-ситуации вперёд), 8 алиасов скрыты (disable-model-invocation: true — подтверждён docs/en/skills:350 «description not in context, user slash still works»). Бюджет модели 3660→3492 (net −168, canonical richer). lint exit 0.
-- next: j прогоняет /doctor (сам не могу — интерактивная); затем P1
+- focus: P0+ ГОТОВ (descriptions + оба слоя redirect скрыты) → ждём /doctor → P1 (hooks + тела)
+- last: (1) +RU-триггеры от j во все 6 скиллов (canonical 3492→4143); (2) находка — mnemo держит ДВА слоя redirect (commands/mn/* = CC-слэш, skills/mn-* = Codex-слэш, оба name mn:ask); (3) disable-model-invocation докручен на 7 commands/mn/* (в P0 были только 8 skills/mn-*) → модель видит ТОЛЬКО 7 канонов. lint exit 0. Находка → memory/mnemo-proactive-roadmap.md + vault Molecule Visibility control.
+- next: j /doctor; затем P1. Открытый нюанс: Codex вероятно игнорит disable-model-invocation (прогнать); автокомплит-дубль CC command+skill — косметика dual-runtime, не трогаем.
 
 ## Acceptance (Definition of Done для 1.1.0)
 - GIVEN проактивный сценарий (агент перед фиксом бага / после решения бага) WHEN агент рассуждает THEN он сам зовёт /mn:ask resp. /mn:save (не ждёт команды юзера).
