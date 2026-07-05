@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-07-05
+
+### Changed
+
+- **Stop nudge now tracks `/mn:session` too, not just `/mn:save`** (`hooks/mnemo-stop-nudge.sh`). At session end (when `hooks.stopNudge` is on), if the session looks worth-saving but either the discrete save (`/mn:save`) **or** the session note (`/mn:session`) is missing, the nudge blocks once and names whichever is still needed — `/mn:save` pins facts as they happen, `/mn:session` writes the end-of-session narrative + handoff, so a complete wrap-up wants both. Both present → silent. Anti-loop governor and opt-in default (false) unchanged.
+
 ## [1.1.1] - 2026-07-05
 
 ### Added — proactive nudges via hooks + agent-initiated skill bodies
@@ -732,7 +738,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/jojoprison/mnemo/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/jojoprison/mnemo/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/jojoprison/mnemo/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/jojoprison/mnemo/compare/v0.16.0...v1.0.0
