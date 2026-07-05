@@ -13,7 +13,7 @@ Create a human-readable session summary note in Obsidian after significant work.
 
 Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault`, `taxonomy.session`, `links_section`, `handoff_note`. Schema in `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`.
 
-Tool-routing (MCP for writes, CLI for reads/search) in `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`. Frontmatter template in `assets/session-template.md`.
+Tool-routing (MCP for writes, CLI for reads/search) in `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`. Frontmatter template in `${CLAUDE_PLUGIN_ROOT}/assets/session-template.md`.
 
 ## When to Trigger
 
@@ -66,7 +66,8 @@ First, read the template (provides the exact structure to follow):
 
 ```bash
 cat "${CLAUDE_PLUGIN_ROOT}/assets/session-template.md" 2>/dev/null \
-  || cat "$(ls -d "$HOME/.claude/plugins/cache/"*"/mnemo/"*"/plugins/mnemo/assets/session-template.md" 2>/dev/null | head -1)"
+  || cat "$(ls -d "$HOME/.claude/plugins/cache/"*"/mnemo/"*"/plugins/mnemo/assets/session-template.md" 2>/dev/null | head -1)" 2>/dev/null \
+  || cat "$(ls -d "$HOME/.codex/plugins/cache/"*"/mnemo/"*"/assets/session-template.md" 2>/dev/null | head -1)"
 ```
 
 Then create the note, filling the template placeholders (`{Session Title}`, `{YYYY-MM-DD}`, `{project}`, etc.) with the current session's context:

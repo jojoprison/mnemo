@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.4] - 2026-07-05
+
+### Fixed
+
+- **Codex path-cascade in two secondary fallbacks** — `session-review` (REF_DIR) and `session-notes` (template read) now also glob `~/.codex/plugins/cache/…` before the final fallback, matching the primary cascade and `session-scan.py`. Under Codex without `CLAUDE_PLUGIN_ROOT` these had degraded to an empty ref/template (graceful, not a crash); now they resolve.
+- **`initial-setup` config template** — the generated `~/.mnemo/config.json` now includes the `hooks` block (`sessionStartNudge` / `stopNudge`) and the `cascade.project_rules` key, matching the documented schema. Everything already worked on defaults; this just makes the toggles discoverable to a new user.
+- Docs polish: `session-notes` bare `assets/session-template.md` pointer → `${CLAUDE_PLUGIN_ROOT}/…`; `TESTING.md` header refreshed to v1.1.3 with V13/V14 checks (Stop-nudge session scope, `/mn:review` new trigger phrasings).
+
 ## [1.1.3] - 2026-07-05
 
 ### Changed
@@ -744,7 +752,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.4...HEAD
+[1.1.4]: https://github.com/jojoprison/mnemo/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/jojoprison/mnemo/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/jojoprison/mnemo/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/jojoprison/mnemo/compare/v1.1.0...v1.1.1

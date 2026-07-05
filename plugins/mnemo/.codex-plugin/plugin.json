@@ -1,6 +1,6 @@
 {
   "name": "mnemo",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "Persistent memory layer for Codex and Claude Code via Obsidian: vault health, knowledge search, link discovery, session notes, memory routing, review orchestration, and setup.",
   "author": {
     "name": "jojoprison",

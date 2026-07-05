@@ -99,10 +99,17 @@ Write `~/.mnemo/config.json`:
     "obsidian": { "enabled": true },
     "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
     "memory_dir": { "enabled": true },
+    "project_rules": { "enabled": true },
     "claude_md": { "enabled": false }
+  },
+  "hooks": {
+    "sessionStartNudge": true,
+    "stopNudge": false
   }
 }
 ```
+
+`hooks.stopNudge` ships **false** — flip it to `true` if you want the end-of-session save/session reminder (see `references/config-schema.md`). Everything works on these defaults even if the whole `hooks` block is omitted.
 
 ### Step 6: Create Handoff Note (only if missing)
 
