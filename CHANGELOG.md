@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-07-05
+
+### Fixed / Added — e2e-hardening (closes 3 gaps a live e2e pass found)
+
+- **Last bare `references/` link** — `initial-setup` still had one `references/config-schema.md` without `${CLAUDE_PLUGIN_ROOT}/` (ironically added in 1.1.4's own hooks hint). Now qualified; a repo-wide grep confirms **zero** bare references across all skills.
+- **`/mn:session` now grounds its narrative** — `session-notes` Step 1 cross-checks "what was done" against `git log` / `git status` and `session-scan.py` before persisting, so a direct `/mn:session` can't fabricate status. This is the same grounding `/mn:review` already ran; previously only `session-review` invoked the scan.
+- **Committed trigger-eval** — `evals/trigger-eval.json` (6 proactive positives + 6 near-miss negatives) + `evals/README.md` make the description-trigger check reproducible, so a future `description:` edit can be regression-tested instead of trusted (baseline 12/12). Format is compatible with skill-creator's `run_loop.py`.
+
 ## [1.1.4] - 2026-07-05
 
 ### Fixed
@@ -752,7 +760,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.4...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.5...HEAD
+[1.1.5]: https://github.com/jojoprison/mnemo/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/jojoprison/mnemo/compare/v1.1.3...v1.1.4
 [1.1.3]: https://github.com/jojoprison/mnemo/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/jojoprison/mnemo/compare/v1.1.1...v1.1.2
