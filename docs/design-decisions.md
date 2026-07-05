@@ -24,7 +24,7 @@ mnemo saves two different kinds of thing, and they must land in different places
 **Deliberate boundaries:**
 
 - **`/mn:session` stays pure narrative.** Session notes record "what happened" for human recall; they are *not* a rules channel. Folding rule-routing into session-notes would blur two responsibilities and was rejected. The interactive "found an actionable rule → route it?" prompt lives in the **orchestrator** (`/mn:review`, Step 8) instead, where it can confirm before writing committed project files — and even then it delegates the write to `memory-routing` Step 3.5 rather than re-implementing it.
-- **Auto-route, but confirmed in the orchestrator.** A direct `/mn:save` of a rule routes automatically (the user explicitly asked to save). The *silent* auto-save inside `/mn:review` is the exception: because routing a rule creates/edits committed project files, the orchestrator surfaces it for a y/n instead of writing unattended.
+- **Auto-route on explicit save, confirmed in the orchestrator.** A direct `/mn:save` of a rule routes automatically (the user explicitly asked to save). `/mn:review` never writes unattended — since v0.16.0 *every* skill it wants to run goes through one Step 8 confirmation, and an actionable rule additionally gets its own explicit line item there, because routing it creates/edits committed project files.
 - **Codex caveat acknowledged, not solved here.** Codex reads only `AGENTS.md` (32 KiB, silent truncate), not `.claude/rules/`. mnemo routes to `.claude/rules/` and flags the AGENTS.md build-step as the user's responsibility — it does not own that assemble step.
 
 ## Non-goals (deliberately rejected)
