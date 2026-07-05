@@ -1,6 +1,6 @@
 ---
 name: mn:review
-description: "End-of-session orchestrator — auto-saves decisions, creates session notes, recommends remaining skills."
+description: "End-of-session orchestrator — audits the session, recommends save / session notes / remaining skills, asks before running anything."
 user-invocable: true
 ---
 

@@ -28,7 +28,7 @@ You work → mnemo remembers → Your vault grows → You find things later
 |-------|---------|-------------|
 | **save** | `/mn:save` | Routing cascade — sends a recall item to Obsidian (+ `memory/`, + claude-mem if enabled), or an actionable rule to `.claude/rules/` (path-scoped auto-inject), with graceful degradation |
 | **session** | `/mn:session` | Session summary note + cross-session handoff for the next session |
-| **review** | `/mn:review` | End-of-session orchestrator — audits the session, auto-runs save + session, recommends the rest |
+| **review** | `/mn:review` | End-of-session orchestrator — audits the session, recommends save + session + the rest, asks before running anything |
 | **ask** | `/mn:ask` | Search vault (+ Claude's `memory/` index), synthesize a cited answer, date each source by recency, and ground current-state answers in the project's git history |
 | **connect** | `/mn:connect` | Discover hidden connections between notes — suggests, never auto-applies |
 | **health** | `/mn:health` | Vault audit: orphans, broken links, type-aware review candidates (+ optional LLM lint), growth stats |
@@ -42,10 +42,10 @@ You work → mnemo remembers → Your vault grows → You find things later
 | Recall earlier context / past decisions | `/mn:ask` |
 | Just created notes — surface hidden links | `/mn:connect` |
 | End of work, **or before a long run risks context compaction** | `/mn:session` — writes the journey note + handoff |
-| One command to close a session | `/mn:review` — audits + auto-runs save & session + recommends the rest |
+| One command to close a session | `/mn:review` — audits + recommends save & session & the rest (one confirmation) |
 | Periodically / after 3+ new notes | `/mn:health` |
 
-`save` and `session` are complementary, not either/or: `save` pins discrete facts **as they happen**; `session` writes the narrative + handoff **at the end**. `review` orchestrates both — but its auto-run is gated by a significance judgment, so the loss-proof habit is `save` throughout **plus** an explicit `session`/`review` at the end.
+`save` and `session` are complementary, not either/or: `save` pins discrete facts **as they happen**; `session` writes the narrative + handoff **at the end**. `review` orchestrates both — but only with your confirmation, so the loss-proof habit is `save` throughout **plus** an explicit `session`/`review` at the end.
 
 ### Why Not Just Use Obsidian Plugins?
 
@@ -137,7 +137,7 @@ Routes a recall item to Obsidian (an Atom note) + `memory/` (Claude's future con
 /mn:review
 ```
 
-Analyzes your session, **auto-saves** decisions, **auto-creates** session notes, then asks about remaining skills (commit, connect, health).
+Analyzes your session, then offers one prioritized list — unsaved decisions (`/mn:save`), session notes (`/mn:session`), and the rest (commit, connect, health). Nothing runs without your pick.
 
 ### Session notes + handoff
 

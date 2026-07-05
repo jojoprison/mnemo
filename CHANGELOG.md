@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-07-05
+
+### Changed — `/mn:review` no longer auto-runs save + session
+
+Step 7 "Auto-Execute Core Skills" is gone. `/mn:review` still audits the session and extracts unsaved decisions/findings, but **nothing runs without one explicit confirmation** (Step 8): `/mn:save` and `/mn:session` now appear as top-priority line items in the single recommendation list instead of executing unattended. Rationale: the user invokes `/mn:review` deliberately — silently spawning two more skills takes the session out of their hands, and the SKILLS_INVOKED guard only sees Skill-tool invocations, so manual save/session work in flight could still be double-written.
+
+- **`session-review` SKILL.md**: Step 7 → "Prepare Core Skill Candidates (no auto-run)" — still extracts concrete payloads so the offer reads "3 unsaved decisions (X, Y, Z)", but only stages the invocation; Step 8 → one prioritized offer covering core + remaining skills; new "No auto-run" rule ("analysis is free, execution is confirmed"); frontmatter description updated (no longer advertises "without asking").
+- **Actionable-rule confirmation (v0.15.0) unchanged** — a rule still gets its own explicit y/n line item (it writes committed project files); now every other item is confirmed too, so the rule flow is no longer an "exception".
+- **Docs aligned**: README (skills table, when-to-use, quick-start), `docs/review.md` (overview, "Core-Skill Recommendations" section replaces "Auto-Execution (v0.5.9)", notes, related skills), `commands/mn/review.md` description, `docs/design-decisions.md` boundary bullet.
+
 ## [0.15.0] - 2026-06-24
 
 ### Added — actionable rules route to `.claude/rules/` (recall vs auto-inject split)
@@ -672,7 +682,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.15.0...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.16.0...HEAD
+[0.16.0]: https://github.com/jojoprison/mnemo/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/jojoprison/mnemo/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/jojoprison/mnemo/compare/v0.14.0...v0.14.1
 [0.14.0]: https://github.com/jojoprison/mnemo/compare/v0.13.0...v0.14.0

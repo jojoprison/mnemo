@@ -1,6 +1,6 @@
 ---
 name: session-review
-description: "End-of-session orchestrator. Auto-saves decisions (mnemo:memory-routing) and creates session notes (mnemo:session-notes) without asking. Then recommends remaining skills. Triggers on: 'что забыли', 'session review', 'что осталось', 'all done?', 'review', end of significant work. The ONLY command users need at session end — handles everything."
+description: "End-of-session orchestrator. Audits the session, then recommends core skills (mnemo:memory-routing, mnemo:session-notes) and the rest — always asks before running anything, never auto-runs. Triggers on: 'что забыли', 'session review', 'что осталось', 'all done?', 'review', end of significant work. The ONLY command users need at session end — one confirmation covers everything."
 user-invocable: false
 model: inherit
 ---
@@ -182,44 +182,40 @@ From CLAUDE.md, check mandatory steps:
 | Skills | {used/recommended} | |
 ```
 
-### Step 7: Auto-Execute Core Skills
+### Step 7: Prepare Core Skill Candidates (no auto-run)
 
-After the report, **automatically run** save + session without asking — these are the two skills that matter most and the user expects them to happen.
+**Never invoke save or session yourself without confirmation** — every skill run goes through the Step 8 offer. Here, only prepare the two core candidates with specific payloads so the offer is concrete ("3 decisions: X, Y, Z", not "maybe save something"):
 
-**Auto-run (no confirmation needed):**
-
-1. **mnemo:memory-routing** (save) — if unsaved decisions/findings detected, extract them and invoke:
+1. **mnemo:memory-routing** (save) — if unsaved decisions/findings are detected, extract them now and stage the invocation for Step 8:
    ```
    Skill(skill: "mnemo:memory-routing", args: "{extracted decisions and findings}")
    ```
-2. **mnemo:session-notes** (session) — if significant work was done, invoke (a research / exploration / personal-curiosity session counts as significant — never skip it for being "just curiosity" or "no code produced"):
+2. **mnemo:session-notes** (session) — if significant work was done, stage it (a research / exploration / personal-curiosity session counts as significant — never skip it for being "just curiosity" or "no code produced"):
    ```
    Skill(skill: "mnemo:session-notes", args: "")
    ```
 
-**Order matters:** save before session (decisions should be persisted before session note references them).
+**Order matters:** save before session (decisions should be persisted before the session note references them) — keep that order in the offer and in execution.
 
-**Actionable rules are the exception to silent auto-run.** When the save would route an actionable rule into `.claude/rules/` (memory-routing Step 3.5 — it **creates/edits committed project files**, not just a recall note), do **not** write it silently here. Extract the rule, then **surface it in Step 8 for confirmation** ("found an actionable rule → put it in `.claude/rules/<domain>` so it auto-injects? y/n"). Recall items (facts/decisions/findings) still auto-save without asking — only the project-file-writing rule branch needs the user's nod in the orchestrator flow.
+**Actionable rules get their own line item.** When a save would route an actionable rule into `.claude/rules/` (memory-routing Step 3.5 — it **creates/edits committed project files**, not just a recall note), surface it as a separate entry in Step 8 ("found an actionable rule → put it in `.claude/rules/<domain>` so it auto-injects? y/n") — never bundle it silently into a recall save.
 
-**Skip auto-run if:** the skill was already invoked this session (per SKILLS_INVOKED preprocessing).
+**Drop a candidate if:** the skill was already invoked this session (per SKILLS_INVOKED preprocessing) — acknowledge it in the report instead of re-offering.
 
-### Step 8: Offer Remaining Skills
+### Step 8: Offer Skills
 
-For everything else, ask the user:
+Present everything — core candidates from Step 7 first among equals, sorted by priority — and ask:
 
 ```
-Auto-completed:
-  ✅ /mn:save — 3 decisions saved
-  ✅ /mn:session — session note created
-
-Also recommended:
+Recommended:
 
   1. [CRITICAL] /commit — 5 uncommitted files
-  2. [HIGH] .claude/rules — 1 actionable rule learned ("gate Kontur on the flag") → route to .claude/rules/te5-frontend.md (auto-inject)?
-  3. [MEDIUM] /mn:connect — 2 new notes, find links?
-  4. [LOW] /mn:health — vault audit after mass creation?
+  2. [HIGH] /mn:save — 3 unsaved decisions (X, Y, Z)
+  3. [HIGH] /mn:session — significant work, no session note yet
+  4. [HIGH] .claude/rules — 1 actionable rule learned ("gate Kontur on the flag") → route to .claude/rules/te5-frontend.md (auto-inject)?
+  5. [MEDIUM] /mn:connect — 2 new notes, find links?
+  6. [LOW] /mn:health — vault audit after mass creation?
 
-Run any? (1,2,3,4 / A=all / N=skip)
+Run any? (1,2,3... / A=all / N=skip)
 ```
 
 When the user accepts a `.claude/rules` routing offer, invoke memory-routing with the extracted rule so Step 3.5 handles the file create/append (don't hand-write the file from here — keep one code path):
@@ -237,6 +233,7 @@ Skill(skill: "mnemo:memory-routing", args: "{the actionable rule, phrased as a n
 ## Rules
 
 - **Always thorough** — full analysis, no shortcuts
+- **No auto-run** — never invoke another skill without the user's explicit pick in Step 8; analysis is free, execution is confirmed
 - **BLUF** — score and critical items first
 - **Be specific** — "3 unsaved decisions: X, Y, Z" not "maybe save something"
 - **Don't nag** — skill already ran per SKILLS_INVOKED? Skip it

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The only command you need at session end. Analyzes everything, **auto-saves** unsaved decisions, **auto-creates** session notes, then recommends remaining skills. One command replaces manually running save + session + connect + health.
+The only command you need at session end. Analyzes everything, then presents one prioritized offer — unsaved decisions (`/mn:save`), session notes (`/mn:session`), and the remaining skills. **Nothing runs without your confirmation.** One command replaces manually running save + session + connect + health — you approve the batch once.
 
 ## Usage
 
@@ -91,34 +91,32 @@ Should use: /mn:session, /mn:save
 ### Score: 5/10
 ```
 
-## Auto-Execution (v0.5.9)
+## Core-Skill Recommendations (v0.16.0 — no auto-run)
 
-Review now **auto-runs** two core skills without asking:
+Review prepares two core candidates but **never runs them without asking** (auto-run removed in v0.16.0; it existed v0.5.9–v0.15.x):
 
-| Skill | When | What happens |
-|-------|------|-------------|
+| Skill | When offered | What happens if accepted |
+|-------|-------------|--------------------------|
 | `/mn:save` | Unsaved decisions/findings detected | Extracts and saves to Obsidian + claude-mem + memory/ |
 | `/mn:session` | Significant work done | Creates session note + handoff |
 
 **Skips** if the skill was already invoked this session (checked via JSONL preprocessing).
 
-After auto-run, asks about remaining skills:
+Everything lands in a single prioritized offer:
 ```
-Auto-completed:
-  ✅ /mn:save — 3 decisions saved
-  ✅ /mn:session — session note created
-
-Also recommended:
+Recommended:
   1. [CRITICAL] /commit — 5 uncommitted files
-  2. [MEDIUM] /mn:connect — 2 new notes, find links?
+  2. [HIGH] /mn:save — 3 unsaved decisions (X, Y, Z)
+  3. [HIGH] /mn:session — significant work, no session note yet
+  4. [MEDIUM] /mn:connect — 2 new notes, find links?
 
-Run any? (1,2 / A=all / N=skip)
+Run any? (1,2,3,4 / A=all / N=skip)
 ```
 
 ## Important Notes
 
 - **Always thorough** — no quick mode, full analysis every time
-- **Auto-executes save + session** — no need to run them manually
+- **Asks before running** — save + session are top recommendations, never silent auto-runs
 - **Inline execution** — runs in main conversation context, can invoke other skills
 - **BLUF** — score and critical items first, details below
 - **Won't nag** — skill already ran this session? Skips it
@@ -126,7 +124,7 @@ Run any? (1,2 / A=all / N=skip)
 
 ## Related Skills
 
-- `/mn:save` — auto-invoked by review when unsaved decisions detected
-- `/mn:session` — auto-invoked by review when session is significant
+- `/mn:save` — top review recommendation when unsaved decisions detected
+- `/mn:session` — top review recommendation when the session is significant
 - `/mn:health` — review recommends if new notes were created
 - `/mn:connect` — review recommends if new notes need linking
