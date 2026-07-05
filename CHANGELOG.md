@@ -6,6 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-07-05
+
+First stable release. **No skill/CLI behavior change from 0.16.0** — this milestone declares the `/mn:*` surface stable and codifies the release-governance policy below.
+
+### Added — versioning & approval gate
+
+`AGENTS.md ## Releasing` now codifies SemVer-from-1.0.0 with a per-digit release-autonomy rule, so version bumps stop happening unprompted:
+
+- **patch** (`1.0.z`) — bug fixes, doc/wording tweaks, internal refactors with no user-visible behavior change → an agent **may** cut it autonomously.
+- **minor** (`1.y.0`) — any new or changed user-visible behavior (new skill, flag, config key, reworked flow) → **requires the maintainer's explicit approval before the bump**; propose, don't self-approve.
+- **major** (`x.0.0`) — breaking changes → maintainer approval too.
+- When unsure which it is, treat it as minor and ask. The gate governs the *version bump*, not the work — implement and commit freely, stop at the manifest bump.
+
 ## [0.16.0] - 2026-07-05
 
 ### Changed — `/mn:review` no longer auto-runs save + session
@@ -682,7 +695,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v0.16.0...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/jojoprison/mnemo/compare/v0.16.0...v1.0.0
 [0.16.0]: https://github.com/jojoprison/mnemo/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/jojoprison/mnemo/compare/v0.14.1...v0.15.0
 [0.14.1]: https://github.com/jojoprison/mnemo/compare/v0.14.0...v0.14.1
