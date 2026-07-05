@@ -1,7 +1,7 @@
 ---
 name: mnemo:mn:save
 description: "Compatibility alias for mnemo:memory-routing when a user invokes /mnemo:mn:save by habit."
-user-invocable: true
+user-invocable: false
 disable-model-invocation: true
 model: inherit
 ---

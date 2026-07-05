@@ -1,7 +1,7 @@
 ---
 name: mn:session
 description: "Alias for mnemo:session-notes. Use when the user invokes /mn:session or asks mnemo to write session notes."
-user-invocable: true
+user-invocable: false
 disable-model-invocation: true
 model: inherit
 ---

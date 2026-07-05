@@ -1,7 +1,7 @@
 ---
 name: mn:review
 description: "Alias for mnemo:session-review. Use when the user invokes /mn:review or asks mnemo to close/review a session."
-user-invocable: true
+user-invocable: false
 disable-model-invocation: true
 model: inherit
 ---

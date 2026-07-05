@@ -1,7 +1,7 @@
 ---
 name: mnemo:mn:review
 description: "Compatibility alias for mnemo:session-review when a user invokes /mnemo:mn:review by habit."
-user-invocable: true
+user-invocable: false
 disable-model-invocation: true
 model: inherit
 ---

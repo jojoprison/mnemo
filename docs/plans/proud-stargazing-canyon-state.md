@@ -6,9 +6,10 @@
 **Governance:** это minor → 1.1.0 → апрув j получен 2026-07-05 («го на всё»). Финальный бамп манифеста — после trigger-eval-гейта.
 
 ## RIGHT NOW
-- focus: P0+ ГОТОВ (descriptions + оба слоя redirect скрыты) → ждём /doctor → P1 (hooks + тела)
-- last: (1) +RU-триггеры от j во все 6 скиллов (canonical 3492→4143); (2) находка — mnemo держит ДВА слоя redirect (commands/mn/* = CC-слэш, skills/mn-* = Codex-слэш, оба name mn:ask); (3) disable-model-invocation докручен на 7 commands/mn/* (в P0 были только 8 skills/mn-*) → модель видит ТОЛЬКО 7 канонов. lint exit 0. Находка → memory/mnemo-proactive-roadmap.md + vault Molecule Visibility control.
-- next: j /doctor; затем P1. Открытый нюанс: Codex вероятно игнорит disable-model-invocation (прогнать); автокомплит-дубль CC command+skill — косметика dual-runtime, не трогаем.
+- focus: P0++ ГОТОВ (видимость doc-blessed, workflow-verified) → 2 гейта на j перед мержем → P1 (hooks + тела)
+- last: workflow 5 агентов подтвердил идеальную структуру. Применено: 8 алиасов `skills/{mn-*,mnemo-mn-*}` → `user-invocable:false` (к disable-model-invocation:true) = «Hide individual skills», уходит дубль автокомплита. Каноны/команды уже верны. lint exit 0. Честная поправка: user-invocable:false бюджет НЕ чистит (его чистит disable-model-invocation, уже стоял) → выгода правки = только /-menu дубль.
+- next: 2 ГЕЙТА на j перед мержем 1.1.0: (1) перепрогнать /doctor на обновлённом плагине; (2) Codex-probe (игнорит ли user-invocable). Оба зелёные → можно к P1 (hooks+тела) и потом релиз.
+- gate-status: descriptions+visibility готовы; trigger-eval (P2) ещё не прогнан.
 
 ## Acceptance (Definition of Done для 1.1.0)
 - GIVEN проактивный сценарий (агент перед фиксом бага / после решения бага) WHEN агент рассуждает THEN он сам зовёт /mn:ask resp. /mn:save (не ждёт команды юзера).

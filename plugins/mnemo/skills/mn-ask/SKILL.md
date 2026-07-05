@@ -1,7 +1,7 @@
 ---
 name: mn:ask
 description: "Alias for mnemo:vault-search. Use when the user invokes /mn:ask or asks mnemo to search/recall vault context."
-user-invocable: true
+user-invocable: false
 disable-model-invocation: true
 model: inherit
 ---
