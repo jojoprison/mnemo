@@ -294,8 +294,11 @@ mnemo/
 │   │   ├── review-candidates.py     # type-aware staleness scan for /mn:health
 │   │   └── check-cm-version.sh      # claude-mem cache inspector
 │   └── hooks/                       # Harness hooks
-│       ├── hooks.json               # SessionStart async prewarm
-│       └── prewarm.sh               # Warms /mn:review caches non-blocking
+│       ├── hooks.json               # SessionStart prewarm + proactive nudges; Stop nudge
+│       ├── codex-hooks.json         # same nudges, Codex runtime
+│       ├── prewarm.sh               # Warms /mn:review caches non-blocking
+│       ├── mnemo-context.sh         # SessionStart nudge — memory exists (config-gated)
+│       └── mnemo-stop-nudge.sh      # Stop nudge — save before wrapping up (opt-in)
 ├── .claude-plugin/marketplace.json  # Claude Code marketplace entry
 ├── .agents/plugins/marketplace.json # Codex marketplace entry
 ├── .github/workflows/skill-lint.yml # CI: validates SKILL.md frontmatter + refs

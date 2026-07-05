@@ -28,14 +28,12 @@ mnemo is a dual-runtime Agent Skills plugin for Codex and Claude Code. Keep Clau
 
 ### Versioning & approval gate
 
-mnemo follows [SemVer](https://semver.org) from **1.0.0** (first stable). The digit that changes decides whether an agent may release on its own:
+mnemo follows [SemVer](https://semver.org) from **1.0.0** (first stable). **The default for every release is a patch bump (`1.1.z`) — even for new features.**
 
-- **patch** (`1.0.z`) — bug fixes, doc/wording tweaks, internal refactors with **no** user-visible behavior change. An agent **may** cut a patch release autonomously.
-- **minor** (`1.y.0`) — any new or changed user-visible behavior (new skill, new flag, reworked flow, new config key). **Requires the maintainer's explicit approval _before_ bumping** — propose the bump, do not self-approve.
-- **major** (`x.0.0`) — breaking changes. Same rule: maintainer approval first.
-- **When unsure which it is, treat it as minor → ask.** Never bump the minor or major digit without a green light; only the patch digit is self-serve.
+- **patch** (`1.1.z`) — the default for **everything**: bug fixes, docs, refactors, **and new skills / flags / user-visible behavior**. An agent may cut a patch release autonomously. When a change "feels like a minor", still ship it as a patch and just say so.
+- **minor** (`1.y.0`) / **major** (`x.0.0`) — the middle and first digits move **ONLY on the maintainer's explicit instruction** ("bump the minor now", "this one's a minor / major"). Never raise them on your own judgment, even when plain SemVer would call the change a minor. No instruction → it's a patch.
 
-This gate is about the *version bump*, not the work: implement and commit freely, but stop at the manifest bump for anything past a patch and get the nod.
+This gate is about the *version bump*, not the work: implement, commit, and cut patch releases freely; just never touch the minor/major digit unless the maintainer told you to in this conversation.
 
 ### Release steps
 

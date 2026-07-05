@@ -1,4 +1,4 @@
-# Testing — mnemo smoke tests (current: v0.15.0)
+# Testing — mnemo smoke tests (current: v1.1.1)
 
 Manual smoke tests for mnemo (the project has no automated test suite — these are the regression harness). Run after `/plugin update mnemo@mnemo` or `codex plugin install mnemo@mnemo`. Two layers below: the **6 per-skill checks** (version-agnostic — do the skills still behave) and the **"What changed in vX" feature checks** (grouped by the release that introduced each behavior — run the ones relevant to what you updated through).
 
@@ -43,7 +43,19 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 - **V5 — recall item is untouched by the rule path.** Run `/mn:save "we decided X because Y"` (a recall decision). Assert the report shows `3.5 .claude/rules ⏭ skipped (recall item)` and the item lands in Obsidian/`memory/` as before — the rule branch must NOT fire for recall.
 - **V6 — `cascade.project_rules` toggle + `/mn:review` confirmation.** With `cascade.project_rules.enabled: false`, a rule save falls back to CLAUDE.md/`memory/` and leaves `.claude/rules/` untouched. With it on (default), run `/mn:review` after a session that learned a rule: the orchestrator must **surface the rule for y/n in Step 8** (not write the committed project file unattended); accepting delegates the write to memory-routing Step 3.5 (single code path).
 
+## What changed in v1.1.0 — proactive descriptions + hidden aliases
 
+- **V7 — aliases hidden from the model.** After `/plugin update`, check the skill listing (or `/doctor`): the 8 alias skills (`mnemo:mn-*`, `mnemo:mnemo-mn-*`) must NOT appear in the model's skill listing (`disable-model-invocation: true`), and there's no duplicate `/mn:ask` in `/`-autocomplete. Users still invoke `/mn:*` via the commands; the 7 canonical skills show their new proactive descriptions.
+- **V8 — references resolve.** Trigger a skill that points at a reference (e.g. `/mn:ask` → gotchas). Paths are `${CLAUDE_PLUGIN_ROOT}/references/…` — the model can Read them (no bare `references/…` that fails from cwd).
+
+## What changed in v1.1.1 — proactive hooks + agent-initiated bodies
+
+- **V9 — SessionStart nudge (`hooks/mnemo-context.sh`).** With a configured vault, a new session's context includes the one-line mnemo nudge. Direct smoke: `bash hooks/mnemo-context.sh` → prints `hookSpecificOutput.additionalContext`; `HOME=/tmp/empty bash …` → `{"continue":true,"suppressOutput":true}` (silent unconfigured); `hooks.sessionStartNudge:false` → silent. **(smoke-passed 2026-07-05)**
+- **V10 — Stop nudge governor (`hooks/mnemo-stop-nudge.sh`, opt-in).** Default (`hooks.stopNudge` absent/false) → always `pass`, never blocks. With `hooks.stopNudge:true` + stdin `{"session_id":"x","transcript_path":"<file>"}` where the transcript has ≥3 fix/decision signals and no `mn:save` → `{"decision":"block",…}` ONCE; second call same session_id → `pass` (anti-loop); transcript with `mnemo:memory-routing` → `pass`; <3 signals → `pass`. **(smoke-passed 2026-07-05 — caught + fixed a `grep -c` double-zero bug)**
+- **V11 — agent-initiated recall (`/mn:ask` body).** Invoked proactively (not by the user), Step 1 derives the query from the task and does NOT ask "what would you like to find". Nothing found → one line, back to work; a topic is recalled at most once per session.
+- **V12 — worth-saving gate (`/mn:save` body).** Proactive save of trivial/routine content → NOOP ("nothing worth persisting"). Content with a secret → masked `<REDACTED>`. New note created → offers `/mn:connect` (does not auto-run).
+
+**Measured — trigger-eval (2026-07-05):** 12-prompt routing eval (6 proactive positives + 6 near-miss negatives) → **12/12** correct (recall 6/6, specificity 6/6) at the simulated-routing level; near-miss traps on shared words (`сохрани`/`здоровье`/`свяжись`/`поищи`) all held. Caveat: simulation of agent routing judgment, not a live CC trigger; n=1 per case. Follow-up (non-blocking): widen to ~5/skill + memory-routing↔council and vault-search↔vault-health boundary cases.
 
 ## Prerequisites
 
