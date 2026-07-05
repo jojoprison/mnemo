@@ -1,6 +1,6 @@
 ---
 name: link-discovery
-description: "Use automatically after creating any new Obsidian note to surface hidden connections with existing notes. Also use whenever the user asks 'find related notes', 'are there similar notes', 'connect this to others', or reviews a note for cross-references. Shows ranked suggestions with 'why relevant' explanations — does NOT auto-apply."
+description: "Use automatically right after a new Obsidian note is created — e.g. an mn:save or mn:session that created one (skip when mn:save only appended to an existing note) — to surface hidden connections with existing notes. Also when the user asks to 'find related notes', 'connect this to others', 'найди связи', 'сделай связи', 'свяжи заметки', 'свяжи память', 'свяжи базу знаний', 'свяжи обсидиан', 'перелинкуй', or similar. Shows ranked suggestions with 'why relevant' explanations — does NOT auto-apply."
 user-invocable: false
 model: sonnet
 context: fork
@@ -12,7 +12,7 @@ Analyze a note and discover connections to other notes in the vault that aren't 
 
 ## Prerequisites & config
 
-Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault` and `links_section`. Schema in `references/config-schema.md`.
+Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault` and `links_section`. Schema in `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`.
 
 ## Workflow
 
@@ -106,7 +106,7 @@ If user confirms:
 
 ## Gotchas
 
-Common failures in `references/gotchas.md`. Tool-routing rationale in `references/tool-routing.md`. Skill-specific rules:
+Common failures in `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`. Tool-routing rationale in `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`. Skill-specific rules:
 
 - **Max 5-7 suggestions** — don't overwhelm. If you find more, rank and present top-7.
 - **Don't suggest links to orphan notes** — they need their own fixing first (run `/mn:health` if interested).

@@ -1,6 +1,6 @@
 ---
 name: vault-health
-description: "Use whenever the user mentions vault maintenance, orphans, broken links, 'is my vault clean', 'проверь vault', or asks for vault statistics. Also invoke proactively after creating 3+ notes in one session, weekly, or after mass note creation — the longer between checks, the more invisible orphans accumulate."
+description: "Vault health audit — orphans, broken links, type-aware stale-review candidates, growth stats. Use whenever the user mentions vault maintenance, orphans, broken links, 'is my vault clean', 'проверь vault', 'сироты', 'битые ссылки', 'здоровье базы знаний', 'здоровье памяти', 'здоровье обсидиана', or asks for vault statistics — or proactively after creating 3+ notes in a session, after mass note creation, or when health checks haven't run in a while; the longer between checks, the more invisible orphans accumulate."
 user-invocable: false
 model: haiku
 context: fork
@@ -12,7 +12,7 @@ Run a comprehensive health check on the Obsidian vault: orphans, broken links, m
 
 ## Prerequisites & config
 
-Obsidian must be open; `obsidian` CLI on PATH. Config at `~/.mnemo/config.json` (required fields: `vault`, `taxonomy`, `links_section`) — schema in `references/config-schema.md`.
+Obsidian must be open; `obsidian` CLI on PATH. Config at `~/.mnemo/config.json` (required fields: `vault`, `taxonomy`, `links_section`) — schema in `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`.
 
 ## Workflow
 
@@ -49,7 +49,7 @@ obsidian unresolved vault="{vault}"
 
 Show `[[wikilinks]]` pointing to non-existent files. Ghost notes are NORMAL (entity discovery) — don't flag on raw count alone.
 
-**Actionable — top unresolved targets = missing hub notes** (via `obsidian eval`, authoritative; CLI `unresolved` can lag/lie — see `references/gotchas.md`):
+**Actionable — top unresolved targets = missing hub notes** (via `obsidian eval`, authoritative; CLI `unresolved` can lag/lie — see `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`):
 
 ```bash
 obsidian eval code="(()=>{const u=app.metadataCache.unresolvedLinks;const f={};Object.values(u).forEach(l=>Object.keys(l).forEach(t=>f[t]=(f[t]||0)+1));return JSON.stringify(Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,10));})()" vault="{vault}"
@@ -99,7 +99,7 @@ VAULT_PATH=$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/get-vault-path.sh" "{vault}")
 find "$VAULT_PATH" -name "*#*.md" -not -path "*/.obsidian/*" -not -path "*/.trash/*" 2>/dev/null | sed "s|$VAULT_PATH/||"
 ```
 
-Files with `#` in the name are **permanent orphans** — `[[Note #1]]` parses as `[[Note]]` + heading anchor `#1`, so nothing resolves to them (even existing links). Flag for rename (`#` → `—` or drop the `#`). Same for `.` mid-name (breaks CLI create). See `references/tool-routing.md` (naming rules).
+Files with `#` in the name are **permanent orphans** — `[[Note #1]]` parses as `[[Note]]` + heading anchor `#1`, so nothing resolves to them (even existing links). Flag for rename (`#` → `—` or drop the `#`). Same for `.` mid-name (breaks CLI create). See `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md` (naming rules).
 
 ### Step 7: Review Candidates (content-staleness, type-aware)
 
@@ -230,12 +230,12 @@ If flagged → recommend **autodream** (memory consolidation): slim the index in
 
 ## Gotchas
 
-Common failures in `references/gotchas.md`. Skill-specific rules:
+Common failures in `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`. Skill-specific rules:
 
 - `obsidian orphans` may return empty on small vaults — this is OK, not an error.
 - Reference notes (taxonomy docs, templates) aren't orphans even if few backlinks — they're meant to be lookups.
 - Ghost notes (unresolved wikilinks) are a **feature**, not a bug — they enable entity discovery. Don't flag on raw count; instead surface the **top targets** (Step 2 eval) — frequent ones = missing hub notes (actionable).
-- **CLI graph queries cache & can lie** — `orphans`/`unresolved`/`backlinks` lag writes and have shown a note as resolved AND broken at once. For critical checks use `obsidian eval` on `metadataCache` (see `references/gotchas.md`). Treat counts as advisory if notes were created this session.
+- **CLI graph queries cache & can lie** — `orphans`/`unresolved`/`backlinks` lag writes and have shown a note as resolved AND broken at once. For critical checks use `obsidian eval` on `metadataCache` (see `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`). Treat counts as advisory if notes were created this session.
 - **Do not auto-fix anything** — only report. User decides what to clean up. The **one** exception is `review.lint.autoStampReviewed` (default **true**): it lets the content-lint stamp `reviewed: {today}` on a **still-valid** note (Step 7.5) to close the snooze loop. That is the sole frontmatter write health can make — only the `reviewed:` field of a confirmed-valid note, never content, never anything else. It fires **only when the content lint itself is enabled** (`review.lint.enabled`, default **false**), so a default install still writes nothing; set `autoStampReviewed: false` to keep the lint suggest-only.
 - Step 5 uses filesystem grep (~3600x faster than per-file reads — 49ms vs 180s on a 999-note vault) — safe on any vault size.
 - **Review candidates (Step 7) are temporal, not structural** — don't conflate with orphans. A note can be both, either, or neither. The script is age-only by design (cheap, no graph dependency).

@@ -1,7 +1,8 @@
 ---
 name: mn:save
 description: "Alias for mnemo:memory-routing. Use when the user invokes /mn:save or asks mnemo to save a memory/decision."
-user-invocable: true
+user-invocable: false
+disable-model-invocation: true
 model: inherit
 ---
 

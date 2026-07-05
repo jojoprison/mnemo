@@ -1,6 +1,6 @@
 ---
 name: session-review
-description: "End-of-session orchestrator. Audits the session, then recommends core skills (mnemo:memory-routing, mnemo:session-notes) and the rest — always asks before running anything, never auto-runs. Triggers on: 'что забыли', 'session review', 'что осталось', 'all done?', 'review', end of significant work. The ONLY command users need at session end — one confirmation covers everything."
+description: "End-of-session orchestrator. Audits the session, then recommends core skills (mnemo:memory-routing, mnemo:session-notes) and the rest — always asks before running anything, never auto-runs. Triggers on 'что забыли', 'что осталось', 'session review', 'ревью сессии', 'сессия ревью', 'что добить до идеала', 'all done', end of significant work, or similar. The ONLY command users need at session end — one confirmation covers everything."
 user-invocable: false
 model: inherit
 ---
@@ -90,7 +90,8 @@ Cross-reference:
 ```bash
 TYPE={implementation|research|debugging|universal}
 REF_DIR="${CLAUDE_PLUGIN_ROOT}/references"
-[ -d "$REF_DIR" ] || REF_DIR="$(dirname "$0")/../../references"
+[ -d "$REF_DIR" ] || REF_DIR="$(ls -d "$HOME/.claude/plugins/cache/"*"/mnemo/"*"/plugins/mnemo/references" 2>/dev/null | head -1)"
+[ -d "$REF_DIR" ] || REF_DIR="./plugins/mnemo/references"
 
 echo "=== type-specific triggers ==="
 cat "${REF_DIR}/triggers-${TYPE}.md" 2>/dev/null || echo "(triggers file unavailable)"
@@ -119,7 +120,7 @@ From CLAUDE.md, check mandatory steps:
 |---------------|--------------|
 | Git flow | PR created? Correct format? Draft or ready? |
 | CI checks | Tests run? Lint passing? Type-check? |
-| Graph integrity | `obsidian unresolved`/`orphans` — **advisory** if notes were created this session (CLI cache lags writes 1-5s & can show a note resolved+broken at once; use `metadataCache` eval for truth — see `references/gotchas.md`). Don't raise false CRITICAL on fresh notes |
+| Graph integrity | `obsidian unresolved`/`orphans` — **advisory** if notes were created this session (CLI cache lags writes 1-5s & can show a note resolved+broken at once; use `metadataCache` eval for truth — see `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`). Don't raise false CRITICAL on fresh notes |
 | Memory routing | All required backends updated? (Obsidian, claude-mem, memory/) |
 | Session handoff | Handoff note updated in Obsidian? |
 | Task tracker | Linear/GitHub issue status moved? PR linked? |
@@ -239,7 +240,7 @@ Skill(skill: "mnemo:memory-routing", args: "{the actionable rule, phrased as a n
 - **Don't nag** — skill already ran per SKILLS_INVOKED? Skip it
 - **Don't hallucinate skills** — only recommend from auto-discovered list
 - **Project rules override** — CLAUDE.md > generic recommendations
-- **Execution order** — commit → review → ship → session → save
+- **Execution order** — commit → review → ship → save → session (save before session: decisions persist before the session note references them — matches Step 7)
 - **User's language** — match conversation
 - **Preprocessing fallback** — if JSONL/discovery failed, gather data with Bash at runtime
 - **Don't over-report** — unchecked plan AC is noise if code + tests pass

@@ -1,6 +1,6 @@
 ---
 name: session-notes
-description: "Use whenever significant work wraps up — a feature shipped, a bug fixed, a research thread finished, before the user steps away. Also triggers on 'записать сессию', 'session note', 'save session'. Creates a human-readable summary in Obsidian plus a handoff update so the next session picks up where you left off."
+description: "Use when significant work wraps up — a feature shipped, a bug fixed, a research thread finished, before the user steps away — and also mid-task as a checkpoint before a long run risks context compaction (it updates the same session note + handoff, never spawns a duplicate). Also on 'записать сессию', 'сохрани сессию', 'отложи сессию в память', 'сессию в обсидиан', 'закругляйся с сессией', 'session note', 'handoff', or similar. Writes a human-readable summary plus a handoff so the next session picks up where you left off."
 user-invocable: false
 model: inherit
 ---
@@ -11,9 +11,9 @@ Create a human-readable session summary note in Obsidian after significant work.
 
 ## Prerequisites & config
 
-Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault`, `taxonomy.session`, `links_section`, `handoff_note`. Schema in `references/config-schema.md`.
+Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault`, `taxonomy.session`, `links_section`, `handoff_note`. Schema in `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`.
 
-Tool-routing (MCP for writes, CLI for reads/search) in `references/tool-routing.md`. Frontmatter template in `assets/session-template.md`.
+Tool-routing (MCP for writes, CLI for reads/search) in `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`. Frontmatter template in `assets/session-template.md`.
 
 ## When to Trigger
 
@@ -30,7 +30,7 @@ Analyze the conversation: what was done, key decisions, commits/PRs created, fin
 
 Derive a **planned filename**: `{session_prefix}{YYYY-MM-DD} {short descriptive topic}`. Topic should be specific enough to disambiguate from other sessions the same day (include PR number, Linear ticket, branch name, or primary keyword).
 
-**Naming:** the topic must NOT contain `#`, `.`, or `/` — they break wikilinks (`#`→heading anchor) or the CLI (`.`→truncation). Write `PR 387`, not `PR #387`. See `references/tool-routing.md` (naming rules).
+**Naming:** the topic must NOT contain `#`, `.`, or `/` — they break wikilinks (`#`→heading anchor) or the CLI (`.`→truncation). Write `PR 387`, not `PR #387`. See `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md` (naming rules).
 
 ### Step 2: Duplicate Check (two-level, parallel)
 
@@ -56,15 +56,15 @@ These are NOT duplicates — same day, different topics. **Doing many sessions i
 
 Do not block creation on Level 2 matches — they're context, not conflicts.
 
-### Step 3: Create Session Note (MCP — mandatory)
+### Step 3: Create Session Note (MCP — primary; Codex fallback below)
 
-**Always use `mcp__obsidian__create` for creation.** Never CLI with inline `content=`.
+**In Claude, always use `mcp__obsidian__create` for creation.** Never CLI with inline `content=` (shell-injection). In Codex, where the Obsidian MCP isn't available, take the **Codex fallback** at the end of this step instead — the inline-`content=` ban still holds there.
 
 First, read the template (provides the exact structure to follow):
 
 ```bash
 cat "${CLAUDE_PLUGIN_ROOT}/assets/session-template.md" 2>/dev/null \
-  || cat "$(dirname "$0")/../../assets/session-template.md"
+  || cat "$(ls -d "$HOME/.claude/plugins/cache/"*"/mnemo/"*"/plugins/mnemo/assets/session-template.md" 2>/dev/null | head -1)"
 ```
 
 Then create the note, filling the template placeholders (`{Session Title}`, `{YYYY-MM-DD}`, `{project}`, etc.) with the current session's context:
@@ -76,9 +76,11 @@ mcp__obsidian__create(
 )
 ```
 
-Where `{session_prefix}` comes from `config.taxonomy.session.prefix`, `{links_section}` from `config.links_section`, and `{CLAUDE_SESSION_ID}` from the environment (empty string if not available).
+Where `{session_prefix}` comes from `config.taxonomy.session.prefix`, `{links_section}` from `config.links_section`, and the session id from `{CLAUDE_SESSION_ID}` — or `{CODEX_SESSION_ID}` under Codex — in the environment (empty string if neither is available).
 
 **Why MCP here:** frontmatter and body may contain any markdown — code blocks with backticks, `$(...)` samples, shell snippets. MCP passes `file_text` as a JSON parameter; no shell involved.
+
+**Codex fallback (no Obsidian MCP, no safe CLI create):** the human-readable Obsidian note is a Claude-path deliverable, and there is no shell-safe way to create it with a markdown body from Codex. So instead of failing silently or running an unsafe inline `content=`, write the filled summary to the local fallback memory — `~/.codex/memories/session-{YYYY-MM-DD}-{HHMM}.md` (include the time so two sessions the same day don't overwrite each other) — and tell the user the full vault note needs a Claude/Obsidian session. This degrades gracefully and preserves the content.
 
 ### Step 4: Verify MOC Link
 
@@ -136,7 +138,7 @@ obsidian orphans vault="{vault}"
 
 If the newly created note appears in orphans, it means no `## Связи` links or the MOC didn't get updated.
 
-⚠️ **`obsidian orphans` caches & lags writes 1-5s** — a note created moments ago via MCP may show as orphan falsely. If it appears right after creation, wait 2-3s and re-run, or verify authoritatively via `obsidian eval` (`metadataCache.resolvedLinks`/`unresolvedLinks`). See `references/gotchas.md`.
+⚠️ **`obsidian orphans` caches & lags writes 1-5s** — a note created moments ago via MCP may show as orphan falsely. If it appears right after creation, wait 2-3s and re-run, or verify authoritatively via `obsidian eval` (`metadataCache.resolvedLinks`/`unresolvedLinks`). See `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`.
 
 ### Step 7: Confirm
 
@@ -150,18 +152,18 @@ Output summary:
 
 - **MCP for any write with markdown body** — non-negotiable, shell-safety
 - **CLI for read/search/index** — faster, indexed, unique functions
-- **No inline `obsidian create content="..."` with markdown** — banned
+- **No inline `obsidian create content="..."` with markdown** — banned: zsh expands backticks / `$(...)` in the body (real incident: nearly ran `make deploy-back`)
 - **Two-level duplicate check** — exact-read + same-day-search
 - **Include session_id in frontmatter** — disambiguates same-day sessions
 - **No session notes for trivial work** — but "trivial" = mechanical one-liners only (typo, single rename). A research / exploration / curiosity session counts as significant even with zero code; default to creating.
 - **Branch field optional** — research sessions don't have branches
 - **Handoff file: targeted `str_replace`, not blind append** — pending items shouldn't accumulate infinitely
-- **Links section is mandatory** — at least one MOC link
+- **Links section is mandatory** — at least one MOC link, else the note orphans (invisible to graph navigation)
 - **Ghost notes generously** — wrap projects, technologies, people in `[[wikilinks]]`
 
 ## Gotchas
 
-Common failures (IPC hung, shell injection) in `references/gotchas.md`. Skill-specific rules:
+Common failures (IPC hung, shell injection) in `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`. Skill-specific rules:
 
 - **MCP `create` signature**: `path` (not `name`), `file_text` (not `content`). Path is relative to vault root, include `.md` extension.
 - **Always check duplicate before creating** — prevents clobbering same-day work. Two-level check in Step 2.

@@ -8,3 +8,6 @@
 # Python bytecode cache (auto-generated when scripts run/compile — never source)
 __pycache__/
 *.pyc
+
+# рабочие goal-state файлы — локальные, не в публичный плагин
+docs/plans/

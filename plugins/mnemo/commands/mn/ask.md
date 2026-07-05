@@ -2,6 +2,7 @@
 name: mn:ask
 description: "Search Obsidian vault — 'what did we decide about X', 'find everything about Y'. Synthesizes answers with citations."
 user-invocable: true
+disable-model-invocation: true
 ---
 
 $ARGUMENTS
