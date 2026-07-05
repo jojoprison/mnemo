@@ -11,7 +11,7 @@ Search across the entire vault, read relevant notes, and synthesize an answer wi
 
 ## Prerequisites & config
 
-Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault` and `links_section`. Full schema in `references/config-schema.md`. If missing, ask the user for vault name and save.
+Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault` and `links_section`. Full schema in `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`. If missing, ask the user for vault name and save.
 
 ## Workflow
 
@@ -131,7 +131,7 @@ If the user accepts the save, hand off to `/mn:save` (memory-routing) with the s
 
 ## Gotchas
 
-Common failures (Obsidian IPC, shell injection) are documented once in `references/gotchas.md`. Skill-specific rules:
+Common failures (Obsidian IPC, shell injection) are documented once in `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`. Skill-specific rules:
 
 - **Max 7 notes read** — don't blow context reading the entire vault. If the query is too broad, narrow it and re-search.
 - **Always cite sources** — every claim references a specific note. Hallucinated facts are worse than "not found".

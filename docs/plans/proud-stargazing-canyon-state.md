@@ -6,10 +6,14 @@
 **Governance:** это minor → 1.1.0 → апрув j получен 2026-07-05 («го на всё»). Финальный бамп манифеста — после trigger-eval-гейта.
 
 ## RIGHT NOW
-- focus: P0++ ГОТОВ (видимость doc-blessed, workflow-verified) → 2 гейта на j перед мержем → P1 (hooks + тела)
+- focus: аудит скиллов (skill-creator гайд, 10 агентов) ГОТОВ + дешёвые фиксы применены → P1 (hooks + тела + остаток аудит-фиксов)
+- audit-итог: все скиллы minor-gaps, 0 blockers; массово хорошо (imperative 9/9, gotchas 7/7, RU 7/7, why>ALLCAPS 8/9, тело<500 9/9); свежие descriptions НЕ переборщили (3 overtrigger-риска → под eval P2, не резать).
+- audit-фиксы ПРИМЕНЕНЫ (this wave): M5 bare `references/`→`${CLAUDE_PLUGIN_ROOT}/references/` (7 скиллов, реальный баг — не резолвились); M1 session-review порядок save→session (было противоречие Rules vs Step7); m4 commands/mn/save.md desc актуализирован (.claude/rules v0.15.0). lint exit 0.
+- audit-фиксы В P1 (не применены): M2 session-notes Codex-write-путь (j=Claude-first → пометить Claude-only ИЛИ temp-file+CLI); M3 memory-routing claude-mem POST→scripts/claude-mem-save.sh; M4 initial-setup taxonomy→config полный JSON (PARA/Custom); m1 дубли правил session-review; m2 ещё scripts-выносы; m3 $0-fallback session-review:93; m4-desc память-routing 4×сохрани ужать / vault-health lead-фраза / initial-setup honesty; m5 session-notes shorthand-why.
 - last: workflow 5 агентов подтвердил идеальную структуру. Применено: 8 алиасов `skills/{mn-*,mnemo-mn-*}` → `user-invocable:false` (к disable-model-invocation:true) = «Hide individual skills», уходит дубль автокомплита. Каноны/команды уже верны. lint exit 0. Честная поправка: user-invocable:false бюджет НЕ чистит (его чистит disable-model-invocation, уже стоял) → выгода правки = только /-menu дубль.
 - next: 2 ГЕЙТА на j перед мержем 1.1.0: (1) перепрогнать /doctor на обновлённом плагине; (2) Codex-probe (игнорит ли user-invocable). Оба зелёные → можно к P1 (hooks+тела) и потом релиз.
 - gate-status: descriptions+visibility готовы; trigger-eval (P2) ещё не прогнан.
+- 🧭 РЕШЕНИЕ j (2026-07-05): НЕ дробить релиз. Делаем 1.1.0 ЦЕЛИКОМ (descriptions+visibility + P1 хуки+тела + P2 eval), один релиз. НЕ релизить промежуточно. Порядок: дождаться аудита скиллов (workflow wu8ng2o16) → применить фиксы + P1 тела (одной волной) → P1 хуки → P2 trigger-eval гейт → релиз 1.1.0 (апрув на тег). /doctor юзер проверит ПОСЛЕ релиза+update.
 
 ## Acceptance (Definition of Done для 1.1.0)
 - GIVEN проактивный сценарий (агент перед фиксом бага / после решения бага) WHEN агент рассуждает THEN он сам зовёт /mn:ask resp. /mn:save (не ждёт команды юзера).

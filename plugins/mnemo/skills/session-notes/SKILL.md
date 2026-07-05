@@ -11,9 +11,9 @@ Create a human-readable session summary note in Obsidian after significant work.
 
 ## Prerequisites & config
 
-Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault`, `taxonomy.session`, `links_section`, `handoff_note`. Schema in `references/config-schema.md`.
+Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault`, `taxonomy.session`, `links_section`, `handoff_note`. Schema in `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`.
 
-Tool-routing (MCP for writes, CLI for reads/search) in `references/tool-routing.md`. Frontmatter template in `assets/session-template.md`.
+Tool-routing (MCP for writes, CLI for reads/search) in `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`. Frontmatter template in `assets/session-template.md`.
 
 ## When to Trigger
 
@@ -30,7 +30,7 @@ Analyze the conversation: what was done, key decisions, commits/PRs created, fin
 
 Derive a **planned filename**: `{session_prefix}{YYYY-MM-DD} {short descriptive topic}`. Topic should be specific enough to disambiguate from other sessions the same day (include PR number, Linear ticket, branch name, or primary keyword).
 
-**Naming:** the topic must NOT contain `#`, `.`, or `/` — they break wikilinks (`#`→heading anchor) or the CLI (`.`→truncation). Write `PR 387`, not `PR #387`. See `references/tool-routing.md` (naming rules).
+**Naming:** the topic must NOT contain `#`, `.`, or `/` — they break wikilinks (`#`→heading anchor) or the CLI (`.`→truncation). Write `PR 387`, not `PR #387`. See `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md` (naming rules).
 
 ### Step 2: Duplicate Check (two-level, parallel)
 
@@ -136,7 +136,7 @@ obsidian orphans vault="{vault}"
 
 If the newly created note appears in orphans, it means no `## Связи` links or the MOC didn't get updated.
 
-⚠️ **`obsidian orphans` caches & lags writes 1-5s** — a note created moments ago via MCP may show as orphan falsely. If it appears right after creation, wait 2-3s and re-run, or verify authoritatively via `obsidian eval` (`metadataCache.resolvedLinks`/`unresolvedLinks`). See `references/gotchas.md`.
+⚠️ **`obsidian orphans` caches & lags writes 1-5s** — a note created moments ago via MCP may show as orphan falsely. If it appears right after creation, wait 2-3s and re-run, or verify authoritatively via `obsidian eval` (`metadataCache.resolvedLinks`/`unresolvedLinks`). See `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`.
 
 ### Step 7: Confirm
 
@@ -161,7 +161,7 @@ Output summary:
 
 ## Gotchas
 
-Common failures (IPC hung, shell injection) in `references/gotchas.md`. Skill-specific rules:
+Common failures (IPC hung, shell injection) in `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`. Skill-specific rules:
 
 - **MCP `create` signature**: `path` (not `name`), `file_text` (not `content`). Path is relative to vault root, include `.md` extension.
 - **Always check duplicate before creating** — prevents clobbering same-day work. Two-level check in Step 2.

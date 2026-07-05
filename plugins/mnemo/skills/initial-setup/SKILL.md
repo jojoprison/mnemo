@@ -96,7 +96,7 @@ First check — skip this step entirely if the handoff note already exists:
 obsidian read file="{handoff_note}" vault="{vault}" 2>/dev/null | head -1
 ```
 
-If empty output, create via MCP (shell-safe for future edits that may contain code blocks — see `references/tool-routing.md`):
+If empty output, create via MCP (shell-safe for future edits that may contain code blocks — see `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`):
 
 ```
 mcp__obsidian__create(
@@ -122,7 +122,7 @@ Cross-session continuity file. Updated by mnemo:session.
 
 Offer: "Create a hub note for short-name navigation? E.g. `[[ProjectName]]` → its MOC."
 
-**Why:** Obsidian's resolver ignores frontmatter `aliases` for bare `[[Name]]` links (by design) — only a real file named `ProjectName.md` makes `[[ProjectName]]` resolve. See `references/tool-routing.md` ("Hub notes"). Without it, every short `[[ProjectName]]` reference is a broken ghost.
+**Why:** Obsidian's resolver ignores frontmatter `aliases` for bare `[[Name]]` links (by design) — only a real file named `ProjectName.md` makes `[[ProjectName]]` resolve. See `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md` ("Hub notes"). Without it, every short `[[ProjectName]]` reference is a broken ghost.
 
 If user confirms — via MCP:
 
@@ -144,7 +144,7 @@ aliases: [{short-name}]
 )
 ```
 
-Skip if a file with that name already exists (`obsidian read` returns content). Note name must not contain `#` / `.` / `/` (see `references/tool-routing.md` naming rules).
+Skip if a file with that name already exists (`obsidian read` returns content). Note name must not contain `#` / `.` / `/` (see `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md` naming rules).
 
 ### Step 7: Done
 
@@ -167,7 +167,7 @@ Try: /mn:health
 
 ## Gotchas
 
-Common failures in `references/gotchas.md`. Full config schema in `references/config-schema.md`. Skill-specific rules:
+Common failures in `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`. Full config schema in `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`. Skill-specific rules:
 
 - **Run once** — if `~/.mnemo/config.json` exists, show current values and ask before overwriting. User may just want to change one field, not rebuild everything.
 - **Verify Obsidian is open during vault name step** — the test `obsidian search query="test" vault={input}` fails-fast if the vault name is wrong or Obsidian isn't running.

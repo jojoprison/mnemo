@@ -12,7 +12,7 @@ Analyze a note and discover connections to other notes in the vault that aren't 
 
 ## Prerequisites & config
 
-Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault` and `links_section`. Schema in `references/config-schema.md`.
+Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault` and `links_section`. Schema in `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`.
 
 ## Workflow
 
@@ -106,7 +106,7 @@ If user confirms:
 
 ## Gotchas
 
-Common failures in `references/gotchas.md`. Tool-routing rationale in `references/tool-routing.md`. Skill-specific rules:
+Common failures in `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`. Tool-routing rationale in `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`. Skill-specific rules:
 
 - **Max 5-7 suggestions** — don't overwhelm. If you find more, rank and present top-7.
 - **Don't suggest links to orphan notes** — they need their own fixing first (run `/mn:health` if interested).

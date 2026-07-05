@@ -1,6 +1,6 @@
 ---
 name: mn:save
-description: "Memory routing cascade — save to Obsidian + claude-mem + memory/ with graceful degradation."
+description: "Routing cascade — a recall item to Obsidian + claude-mem + memory/, or an actionable rule (never-X / always-Y tied to code) to .claude/rules/, with graceful degradation."
 user-invocable: true
 disable-model-invocation: true
 ---

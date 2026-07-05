@@ -11,7 +11,7 @@ Save information to multiple memory backends with graceful degradation. Each bac
 
 ## Prerequisites & config
 
-Obsidian is preferred but not required (skill degrades gracefully). Config at `~/.mnemo/config.json` — full schema including `cascade.*` toggles in `references/config-schema.md`.
+Obsidian is preferred but not required (skill degrades gracefully). Config at `~/.mnemo/config.json` — full schema including `cascade.*` toggles in `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md`.
 
 ## Workflow
 
@@ -65,16 +65,16 @@ source: "{where this came from}"
 )
 ```
 
-**Why MCP:** content may contain code blocks with backticks or `$(...)` — CLI `obsidian create content="..."` would trigger zsh command substitution. See `references/tool-routing.md` for the full rule.
+**Why MCP:** content may contain code blocks with backticks or `$(...)` — CLI `obsidian create content="..."` would trigger zsh command substitution. See `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md` for the full rule.
 
-**Note quality rules** (details + tables in `references/tool-routing.md`):
+**Note quality rules** (details + tables in `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`):
 - **Naming:** never `#` / `.` / `/` / `.md` in the title — they break wikilinks (`#`→heading anchor) or the CLI (`.`→truncation). Sanitize before `create`. Use `—` or space.
 - **Atom title = a statement, not a topic** (Matuschak «title as API» / Умэсао): `Atom — Redis fail-open keeps reads alive when cache is down`, NOT `Atom — Redis`.
 - **Molecule = non-trivial synthesis** of ≥2 atoms (new insight not in either alone), not "linked two notes."
 - **Molecule handed off with `cites:` (e.g. from `/mn:ask` compounding):** when the caller passes `type: molecule` plus a `cites:` source list and a pre-built `{links_section}`, write `cites: [{sources}]` into frontmatter (right after `date:`) and use the caller's links block verbatim instead of generating a bare MOC link.
 - **Two link layers:** inline with context in the body («contradicts [[X]]», «builds on [[Y]]») + `{links_section}` for MOC/nav. A bare link without context is noise.
 - **Short project names** (`[[Diadoc]]`, `[[BTS Holding]]`) need a **hub note** — Obsidian doesn't resolve bare links via alias (by design). If `[[ShortName]]` is referenced and no `ShortName.md` exists, create it: a one-liner redirecting to `[[MOC — …]]`.
-- **Staleness is type-driven, not stamped here.** The `date` you write *is* the review anchor — `vault-health` derives review cadence from the note's `type` (config `review.staleDays`), so you don't add a review date. **Exception:** for a fast-rotting fact (a volatile API quirk, a "current as of" price) add an optional `ttl: <days>` to the frontmatter to age it faster than its type default. Don't add `reviewed:` — that's the snooze health/the user stamps later. See `references/config-schema.md` → "Optional per-note frontmatter".
+- **Staleness is type-driven, not stamped here.** The `date` you write *is* the review anchor — `vault-health` derives review cadence from the note's `type` (config `review.staleDays`), so you don't add a review date. **Exception:** for a fast-rotting fact (a volatile API quirk, a "current as of" price) add an optional `ttl: <days>` to the frontmatter to age it faster than its type default. Don't add `reviewed:` — that's the snooze health/the user stamps later. See `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md` → "Optional per-note frontmatter".
 
 **Add to MOC — MCP `str_replace` for targeted insert, or CLI for plain wikilinks:**
 
@@ -145,7 +145,7 @@ Only write here if the information **prevents the coding agent from making error
 - Claude Code: `~/.claude/projects/-{slugified-cwd}/memory/`, **not** `./memory/` in the project root.
 - Codex: `~/.codex/memories/`.
 
-Find the correct Claude path by reading the `MEMORY.md` already loaded in the conversation context when available. Use `~/.claude/memory/` only for cross-project Claude rules. See `references/gotchas.md` for why this matters.
+Find the correct Claude path by reading the `MEMORY.md` already loaded in the conversation context when available. Use `~/.claude/memory/` only for cross-project Claude rules. See `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md` for why this matters.
 
 **How to write — keep the index lean (autodream discipline):**
 
@@ -269,7 +269,7 @@ Or with failures:
 
 ## Gotchas
 
-Common failures in `references/gotchas.md`. Tool-routing rationale in `references/tool-routing.md`. Skill-specific rules:
+Common failures in `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`. Tool-routing rationale in `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`. Skill-specific rules:
 
 - **Graceful degradation is the point** — never fail completely. If Obsidian IPC is hung, skip it and save to enabled fallback backends. The user can retry when Obsidian recovers.
 - **Don't duplicate Obsidian content in memory/** — different audiences. Obsidian is for the user (cite-able, searchable in vault); memory/ is for Claude (error prevention across sessions).
@@ -281,5 +281,5 @@ Common failures in `references/gotchas.md`. Tool-routing rationale in `reference
 - **Codex is blind to `.claude/rules/`** — it reads only `AGENTS.md` (nested, 32 KiB silent-truncate). For a repo with Codex devs, route the critical rule into the AGENTS.md build-step (or by hand) too, and keep `wc -c AGENTS.md < 32768`.
 - **Always check duplicates** before creating Obsidian notes — clobbering a note silently is worse than any write latency.
 - **Ghost notes generously** — wrap entities in `[[wikilinks]]` even when the target doesn't exist yet. Enables future entity discovery.
-- **Never `[[wikilink]]` a memory/ file — use inline code** — `memory/` files (`feedback-*.md`, `reference-*.md`, etc.) and project files (`CLAUDE.md`, `AGENTS.md`) live **outside** the Obsidian vault graph. Writing `[[memory/foo]]` or `[[foo.md]]` from a note creates a permanent unresolved link (a phantom ghost that pollutes `orphans`/`unresolved` reports forever). Reference them as `` `memory/foo.md` `` instead. If the memory file has a real vault counterpart (a MOC or Atom on the same topic), link THAT note — it strengthens the graph instead of dangling. See `references/tool-routing.md`.
+- **Never `[[wikilink]]` a memory/ file — use inline code** — `memory/` files (`feedback-*.md`, `reference-*.md`, etc.) and project files (`CLAUDE.md`, `AGENTS.md`) live **outside** the Obsidian vault graph. Writing `[[memory/foo]]` or `[[foo.md]]` from a note creates a permanent unresolved link (a phantom ghost that pollutes `orphans`/`unresolved` reports forever). Reference them as `` `memory/foo.md` `` instead. If the memory file has a real vault counterpart (a MOC or Atom on the same topic), link THAT note — it strengthens the graph instead of dangling. See `${CLAUDE_PLUGIN_ROOT}/references/tool-routing.md`.
 - **MOC link mandatory** for typed Obsidian notes (Atom/Molecule/Source/Session).

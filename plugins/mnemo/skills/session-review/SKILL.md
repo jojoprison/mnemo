@@ -119,7 +119,7 @@ From CLAUDE.md, check mandatory steps:
 |---------------|--------------|
 | Git flow | PR created? Correct format? Draft or ready? |
 | CI checks | Tests run? Lint passing? Type-check? |
-| Graph integrity | `obsidian unresolved`/`orphans` — **advisory** if notes were created this session (CLI cache lags writes 1-5s & can show a note resolved+broken at once; use `metadataCache` eval for truth — see `references/gotchas.md`). Don't raise false CRITICAL on fresh notes |
+| Graph integrity | `obsidian unresolved`/`orphans` — **advisory** if notes were created this session (CLI cache lags writes 1-5s & can show a note resolved+broken at once; use `metadataCache` eval for truth — see `${CLAUDE_PLUGIN_ROOT}/references/gotchas.md`). Don't raise false CRITICAL on fresh notes |
 | Memory routing | All required backends updated? (Obsidian, claude-mem, memory/) |
 | Session handoff | Handoff note updated in Obsidian? |
 | Task tracker | Linear/GitHub issue status moved? PR linked? |
@@ -239,7 +239,7 @@ Skill(skill: "mnemo:memory-routing", args: "{the actionable rule, phrased as a n
 - **Don't nag** — skill already ran per SKILLS_INVOKED? Skip it
 - **Don't hallucinate skills** — only recommend from auto-discovered list
 - **Project rules override** — CLAUDE.md > generic recommendations
-- **Execution order** — commit → review → ship → session → save
+- **Execution order** — commit → review → ship → save → session (save before session: decisions persist before the session note references them — matches Step 7)
 - **User's language** — match conversation
 - **Preprocessing fallback** — if JSONL/discovery failed, gather data with Bash at runtime
 - **Don't over-report** — unchecked plan AC is noise if code + tests pass
