@@ -1,6 +1,6 @@
 ---
 name: session-notes
-description: "Use whenever significant work wraps up — a feature shipped, a bug fixed, a research thread finished, before the user steps away. Also triggers on 'записать сессию', 'session note', 'save session'. Creates a human-readable summary in Obsidian plus a handoff update so the next session picks up where you left off."
+description: "Use when significant work wraps up — a feature shipped, a bug fixed, a research thread finished, before the user steps away — and also mid-task as a checkpoint before a long run risks context compaction (it updates the same session note + handoff, never spawns a duplicate). Also on 'записать сессию', 'сохрани сессию', 'session note', 'handoff', or similar. Writes a human-readable summary plus a handoff so the next session picks up where you left off."
 user-invocable: false
 model: inherit
 ---

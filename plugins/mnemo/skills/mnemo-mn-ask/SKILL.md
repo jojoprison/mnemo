@@ -2,6 +2,7 @@
 name: mnemo:mn:ask
 description: "Compatibility alias for mnemo:vault-search when a user invokes /mnemo:mn:ask by habit."
 user-invocable: true
+disable-model-invocation: true
 model: inherit
 ---
 

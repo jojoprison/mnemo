@@ -1,6 +1,6 @@
 ---
 name: initial-setup
-description: "Use on first install, when reconfiguring mnemo, or when the user says 'setup mnemo', 'mnemo not configured', 'change vault', 'reset config', 'мнемо настрой'. Interactive onboarding that creates ~/.mnemo/config.json with vault name, taxonomy, language preferences, and cascade integration settings. Also invoked automatically when any other mnemo skill detects a missing config."
+description: "Use on first install, when reconfiguring mnemo, or when the user says 'setup mnemo', 'mnemo not configured', 'change vault', 'reset config', 'мнемо настрой', 'настрой мнемо', or similar — also invoked automatically when any other mnemo skill detects a missing config. Interactive onboarding that creates ~/.mnemo/config.json (vault name, taxonomy, language preferences, cascade integrations)."
 user-invocable: false
 model: haiku
 context: fork

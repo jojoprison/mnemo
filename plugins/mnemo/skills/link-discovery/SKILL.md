@@ -1,6 +1,6 @@
 ---
 name: link-discovery
-description: "Use automatically after creating any new Obsidian note to surface hidden connections with existing notes. Also use whenever the user asks 'find related notes', 'are there similar notes', 'connect this to others', or reviews a note for cross-references. Shows ranked suggestions with 'why relevant' explanations — does NOT auto-apply."
+description: "Use automatically right after creating a new Obsidian note — including just after mn:save or mn:session — to surface hidden connections with existing notes. Also when the user asks to 'find related notes', 'are there similar notes', 'connect this to others', 'найди связи', 'перелинкуй', 'связать заметки', or similar. Shows ranked suggestions with 'why relevant' explanations — does NOT auto-apply."
 user-invocable: false
 model: sonnet
 context: fork
