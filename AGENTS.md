@@ -26,6 +26,19 @@ mnemo is a dual-runtime Agent Skills plugin for Codex and Claude Code. Keep Clau
 
 ## Releasing
 
+### Versioning & approval gate
+
+mnemo follows [SemVer](https://semver.org) from **1.0.0** (first stable). The digit that changes decides whether an agent may release on its own:
+
+- **patch** (`1.0.z`) — bug fixes, doc/wording tweaks, internal refactors with **no** user-visible behavior change. An agent **may** cut a patch release autonomously.
+- **minor** (`1.y.0`) — any new or changed user-visible behavior (new skill, new flag, reworked flow, new config key). **Requires the maintainer's explicit approval _before_ bumping** — propose the bump, do not self-approve.
+- **major** (`x.0.0`) — breaking changes. Same rule: maintainer approval first.
+- **When unsure which it is, treat it as minor → ask.** Never bump the minor or major digit without a green light; only the patch digit is self-serve.
+
+This gate is about the *version bump*, not the work: implement and commit freely, but stop at the manifest bump for anything past a patch and get the nod.
+
+### Release steps
+
 - Bump the version in **all three** manifests together: `plugins/mnemo/.claude-plugin/plugin.json`, `plugins/mnemo/.codex-plugin/plugin.json`, and `.claude-plugin/marketplace.json`.
 - Add a dated section to `CHANGELOG.md` (Keep a Changelog format); keep the `[Unreleased]` section and the version compare-links at the bottom in sync.
 - **Always create and push an annotated git tag `vX.Y.Z` for every new version** — `git tag -a vX.Y.Z -m "…" && git push origin vX.Y.Z`. This is easy to forget; a missing tag breaks the CHANGELOG compare-links and skips the GitHub Release. `.github/workflows/release.yml` mirrors the tag's CHANGELOG section into a GitHub Release on push.
