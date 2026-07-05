@@ -1,0 +1,29 @@
+{
+  "description": "mnemo Codex hooks — proactive memory nudges (SessionStart context + opt-in Stop). Codex may ignore additionalContext/decision:block; degrades to a no-op safely.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "_P=\"${CLAUDE_PLUGIN_ROOT:-}\"; [ -n \"$_P\" ] || _P=$(ls -dt \"$HOME/.codex/plugins/cache/mnemo/mnemo\"/*/ 2>/dev/null | head -1); [ -n \"$_P\" ] || _P=$(ls -dt \"$HOME/.claude/plugins/cache/mnemo/mnemo\"/*/ 2>/dev/null | head -1); _P=\"${_P%/}\"; [ -f \"$_P/hooks/mnemo-context.sh\" ] && bash \"$_P/hooks/mnemo-context.sh\" || echo '{\"continue\":true,\"suppressOutput\":true}'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "_P=\"${CLAUDE_PLUGIN_ROOT:-}\"; [ -n \"$_P\" ] || _P=$(ls -dt \"$HOME/.codex/plugins/cache/mnemo/mnemo\"/*/ 2>/dev/null | head -1); [ -n \"$_P\" ] || _P=$(ls -dt \"$HOME/.claude/plugins/cache/mnemo/mnemo\"/*/ 2>/dev/null | head -1); _P=\"${_P%/}\"; [ -f \"$_P/hooks/mnemo-stop-nudge.sh\" ] && bash \"$_P/hooks/mnemo-stop-nudge.sh\" || echo '{\"continue\":true,\"suppressOutput\":true}'",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
