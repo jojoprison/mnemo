@@ -10,7 +10,7 @@
     {
       "name": "mnemo",
       "description": "7 memory skills for Claude Code and Codex via Obsidian CLI — vault audit, knowledge search, connection discovery, session notes with cross-session handoff, memory routing, review orchestration, interactive setup",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "source": "./plugins/mnemo",
       "category": "productivity",
       "keywords": [

@@ -6,6 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-05
+
+### Changed — proactive self-invocation + doc-blessed visibility
+
+mnemo's skills now describe *when an agent should reach for them mid-task on its own* (not only on an explicit user command), and the `/mn:*` surface is cleaned up to the pattern the official skill docs recommend.
+
+- **Proactive descriptions (7 canonical skills).** Each `description:` now leads with agent-situations — recall before re-fixing a recurring bug / entering an unfamiliar subsystem / a risky change (`/mn:ask`); save right after solving a bug or making a non-obvious decision (`/mn:save`) — followed by the user-phrase triggers, plus Russian keyword tails matching how the maintainer actually types.
+- **Visibility (docs "Hide individual skills" + CE pattern).** The 8 alias skills (`mn-*`, `mnemo-mn-*` — the Codex slash layer) are now `user-invocable: false` + `disable-model-invocation: true`, hidden from Claude entirely (removing the duplicate `/mn:ask` in autocomplete) while the files remain for Codex and programmatic `Skill()`. The 7 `commands/mn/*` gained `disable-model-invocation: true`, so the model's auto-invocation listing shows exactly the 7 rich canonical skills, not 15 thin redirects. Users still invoke `/mn:*` via the commands; Codex (which doesn't honor these Claude-Code fields) keeps its slash layer.
+
+### Fixed
+
+- **`references/` paths didn't resolve** — bare `references/X.md` (read relative to cwd, not the plugin root) → `${CLAUDE_PLUGIN_ROOT}/references/` across 7 skills, matching the scripts convention.
+- **`/mn:review` order contradiction** — Rules said `session → save` while Step 7 + the example said `save → session`; unified to `save → session`.
+- **claude-mem save block → `scripts/claude-mem-save.sh`** — the ~20-line inline bash (carrying the v12.3.9 `text`-not-`content` / dropped-`project` gotcha) is now a script that builds the JSON via python3, so a summary containing quotes / backticks / `$(...)` can no longer break or execute the request. Guarded with `set -u` + a cache-dir check so a missing claude-mem degrades gracefully instead of aborting.
+- **`/mn:session` had no Codex write path** — the vault note needs the Obsidian MCP (Claude-only) and there's no shell-safe CLI create, so the path is now Claude-primary with a graceful Codex fallback (summary to a timestamped `~/.codex/memories/` file) + `CODEX_SESSION_ID`.
+- **`/mn:setup` taxonomy config** — full JSON now shown for PARA and Custom (was only Zettelkasten); `session`/`moc` documented as functional types kept in every taxonomy.
+- **Overtrigger tightening** — `/mn:ask` no longer fires on every bugfix (scoped to recurring/previously-seen bugs); `/mn:connect` skips a `mn:save` that only appended to an existing note. Fragile `$0`-based path fallbacks replaced with cache-glob candidates.
+
 ## [1.0.0] - 2026-07-05
 
 First stable release. **No skill/CLI behavior change from 0.16.0** — this milestone declares the `/mn:*` surface stable and codifies the release-governance policy below.
@@ -695,7 +713,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/jojoprison/mnemo/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/jojoprison/mnemo/compare/v0.16.0...v1.0.0
 [0.16.0]: https://github.com/jojoprison/mnemo/compare/v0.15.0...v0.16.0
 [0.15.0]: https://github.com/jojoprison/mnemo/compare/v0.14.1...v0.15.0
