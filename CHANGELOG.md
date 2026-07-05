@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-07-05
+
+### Added — proactive nudges via hooks + agent-initiated skill bodies
+
+Descriptions raise the odds an agent reaches for mnemo; hooks add a deterministic *delivery* layer (the model still decides — **deterministic delivery ≠ deterministic effect**). See [design-decisions](docs/design-decisions.md#proactive-nudges-via-hooks-v111).
+
+- **SessionStart nudge** (`hooks/mnemo-context.sh`, `hooks.sessionStartNudge` default **true**) — a one-line "mnemo memory exists; recall with `/mn:ask` before non-trivial work, save with `/mn:save` as you go", gated on a configured vault (silent otherwise), so the agent reaches for memory on its own initiative.
+- **Stop nudge** (`hooks/mnemo-stop-nudge.sh`, `hooks.stopNudge` default **false**, opt-in) — if a session looks worth-saving (fix/decision signals) but `/mn:save` never ran, it blocks the stop **once** (anti-loop governor, keyed by session_id) to prompt a save. Opt-in because a blocking Stop hook can loop for arbitrary users of a public plugin; the default install never blocks.
+- **`hooks/codex-hooks.json`** — mirrors both nudges for Codex (confirmed: Codex consumes plugin hooks; degrades to a safe no-op if it ignores `additionalContext`/`decision:block`). `hooks/hooks.json` was extended, not replaced — the async `prewarm.sh` is preserved.
+- **Agent-initiated skill bodies** — `/mn:ask` derives its query from the task when invoked proactively (doesn't stop to ask the user) with a once-per-topic anti-loop; `/mn:save` gained a worth-saving gate (NOOP for trivia), secret masking (`<REDACTED>`), and a save→connect offer on new notes; `/mn:session` mid-task checkpoint updates the *same* note (dedupe by `session_id`) instead of spawning a duplicate.
+- **Config keys** `hooks.sessionStartNudge` / `hooks.stopNudge` documented in `config-schema.md` + `config.example.json`.
+
+Measured: a 12-prompt trigger-eval (6 proactive positives + 6 near-miss negatives) routed **12/12** correctly at the simulated-routing level (`TESTING.md` V9–V12). Caveat: simulation of routing judgment, not a live trigger.
+
+### Fixed
+
+- **`claude-mem-save.sh` aborted on a missing plugin cache** — `set -euo pipefail` killed the version-detect (`ls` non-zero) before the `unknown` fallback and the POST, breaking graceful degradation. Now `set -u` + an explicit cache-dir guard (the `check-cm-version.sh` pattern).
+- Code comments in `claude-mem-save.sh` and `.gitignore` translated to English (this is a public plugin).
+
 ## [1.1.0] - 2026-07-05
 
 ### Changed — proactive self-invocation + doc-blessed visibility
@@ -713,7 +732,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/jojoprison/mnemo/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/jojoprison/mnemo/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/jojoprison/mnemo/compare/v0.16.0...v1.0.0
 [0.16.0]: https://github.com/jojoprison/mnemo/compare/v0.15.0...v0.16.0
