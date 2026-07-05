@@ -1,6 +1,6 @@
 ---
 name: link-discovery
-description: "Use automatically right after creating a new Obsidian note — including just after mn:save or mn:session — to surface hidden connections with existing notes. Also when the user asks to 'find related notes', 'connect this to others', 'найди связи', 'сделай связи', 'свяжи заметки', 'свяжи память', 'свяжи базу знаний', 'свяжи обсидиан', 'перелинкуй', or similar. Shows ranked suggestions with 'why relevant' explanations — does NOT auto-apply."
+description: "Use automatically right after a new Obsidian note is created — e.g. an mn:save or mn:session that created one (skip when mn:save only appended to an existing note) — to surface hidden connections with existing notes. Also when the user asks to 'find related notes', 'connect this to others', 'найди связи', 'сделай связи', 'свяжи заметки', 'свяжи память', 'свяжи базу знаний', 'свяжи обсидиан', 'перелинкуй', or similar. Shows ranked suggestions with 'why relevant' explanations — does NOT auto-apply."
 user-invocable: false
 model: sonnet
 context: fork

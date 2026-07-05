@@ -6,7 +6,7 @@
 #   - поле полезной нагрузки — "text", НЕ "content";
 #   - metadata.project молча дропается при HTTP-вызове → провенанс дублируется в text,
 #     чтобы фильтрация pre/post-v12 работала. Детали: references/gotchas.md.
-set -euo pipefail
+set -u  # НЕ -e -o pipefail: отсутствие плагин-кэша не должно убивать скрипт (graceful, как check-cm-version.sh)
 
 URL="${1:?url required}"
 TYPE="${2:?type required}"
@@ -16,7 +16,10 @@ NOTE="${5:-}"
 VAULT="${6:-}"
 
 # Автодетект версии claude-mem (для провенанса — отделить pre-v12 данные от post-v12).
-CM_VERSION=$(ls -1 ~/.claude/plugins/cache/thedotmack/claude-mem/ 2>/dev/null | sort -V | tail -1)
+# Guard как в check-cm-version.sh: нет кэша → "unknown", не падаем (contract: claude-mem может быть не установлен).
+CACHE="$HOME/.claude/plugins/cache/thedotmack/claude-mem"
+CM_VERSION="unknown"
+[ -d "$CACHE" ] && CM_VERSION=$(ls -1 "$CACHE" 2>/dev/null | sort -V | tail -1)
 CM_VERSION="${CM_VERSION:-unknown}"
 
 # Сборка JSON через python3 — надёжное экранирование (summary/note могут нести кавычки, $(...), бэктики).

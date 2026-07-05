@@ -80,7 +80,7 @@ Where `{session_prefix}` comes from `config.taxonomy.session.prefix`, `{links_se
 
 **Why MCP here:** frontmatter and body may contain any markdown — code blocks with backticks, `$(...)` samples, shell snippets. MCP passes `file_text` as a JSON parameter; no shell involved.
 
-**Codex fallback (no Obsidian MCP, no safe CLI create):** the human-readable Obsidian note is a Claude-path deliverable, and there is no shell-safe way to create it with a markdown body from Codex. So instead of failing silently or running an unsafe inline `content=`, write the filled summary to the local fallback memory — `~/.codex/memories/session-{YYYY-MM-DD}.md` — and tell the user the full vault note needs a Claude/Obsidian session. This degrades gracefully and preserves the content.
+**Codex fallback (no Obsidian MCP, no safe CLI create):** the human-readable Obsidian note is a Claude-path deliverable, and there is no shell-safe way to create it with a markdown body from Codex. So instead of failing silently or running an unsafe inline `content=`, write the filled summary to the local fallback memory — `~/.codex/memories/session-{YYYY-MM-DD}-{HHMM}.md` (include the time so two sessions the same day don't overwrite each other) — and tell the user the full vault note needs a Claude/Obsidian session. This degrades gracefully and preserves the content.
 
 ### Step 4: Verify MOC Link
 
