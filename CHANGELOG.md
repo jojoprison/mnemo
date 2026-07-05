@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-07-05
+
+### Changed
+
+- **`/mn:review` trigger coverage** — added `'что ещё осталось'` and `'что ещё тут осталось'` to the `session-review` description so the orchestrator fires on those phrasings too (previously only `'что осталось'`).
+
 ## [1.1.2] - 2026-07-05
 
 ### Changed
@@ -738,7 +744,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/jojoprison/mnemo/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/jojoprison/mnemo/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/jojoprison/mnemo/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/jojoprison/mnemo/compare/v1.0.0...v1.1.0

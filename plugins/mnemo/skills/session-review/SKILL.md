@@ -1,6 +1,6 @@
 ---
 name: session-review
-description: "End-of-session orchestrator. Audits the session, then recommends core skills (mnemo:memory-routing, mnemo:session-notes) and the rest — always asks before running anything, never auto-runs. Triggers on 'что забыли', 'что осталось', 'session review', 'ревью сессии', 'сессия ревью', 'что добить до идеала', 'all done', end of significant work, or similar. The ONLY command users need at session end — one confirmation covers everything."
+description: "End-of-session orchestrator. Audits the session, then recommends core skills (mnemo:memory-routing, mnemo:session-notes) and the rest — always asks before running anything, never auto-runs. Triggers on 'что забыли', 'что осталось', 'что ещё осталось', 'что ещё тут осталось', 'session review', 'ревью сессии', 'сессия ревью', 'что добить до идеала', 'all done', end of significant work, or similar. The ONLY command users need at session end — one confirmation covers everything."
 user-invocable: false
 model: inherit
 ---
