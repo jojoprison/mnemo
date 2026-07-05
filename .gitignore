@@ -9,5 +9,6 @@
 __pycache__/
 *.pyc
 
-# рабочие goal-state файлы — локальные, не в публичный плагин
+# working goal-state files — local, not part of the public plugin
 docs/plans/
+.claude/loop-gate
