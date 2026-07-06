@@ -43,6 +43,20 @@ obsidian search query="{term4}" vault="{vault}"
 
 Collect all unique matching notes. Deduplicate.
 
+### Step 3a: Structured property search (leverage typed Properties + Bases)
+
+Fulltext (Step 3) finds notes by keyword; **typed Properties let you ENUMERATE precisely**. When the query is filterable/countable — "what's open / still live", "all sessions about X", "sources I disagreed with", "notes citing [[Y]]", "everything of type Z" — also run Obsidian's **property-search syntax** (precise, not fuzzy):
+
+```bash
+obsidian search query="[status:open]" vault="{vault}"         # by property value
+obsidian search query="[type:session] june" vault="{vault}"   # property + keyword
+obsidian search query="[disagreements]" vault="{vault}"       # property is present
+```
+
+Operators: `[prop:value]` (equals), `[prop]` (present), `[prop:null]` (empty); combine with keywords / `OR`. This queries the SAME typed Properties your Bases render, so recall matches the computed indexes instead of guessing by keyword.
+
+**Canonical computed indexes.** If the vault has a control-panel Base (e.g. `Base — Vault Control Panel.base`, with views over `status` / `type` / `date` / `tags`), READ it first to learn the live views, then reproduce the relevant filter as a property search above. A `.base` file is plain YAML — read it like any note. Prefer this deterministic path for "what's live / what's pending / how many X" over fuzzy keyword guessing.
+
 ### Step 3b: Also check Claude's memory/ index (not just Obsidian)
 
 Obsidian = user-facing knowledge; **`memory/`** (MEMORY.md + topic files) = Claude-facing technical context (gotchas, decisions, sessions) in a separate store. For recall queries ("what did we decide / how did we do X"), also scan the project's memory index — the `MEMORY.md` already loaded in context — for the search terms. If the topic looks older and the index links a **`MEMORY-archive-index.md`**, read that too. Each matching row links a topic file (`{name}.md` in the same `memory/` dir) — read it for detail and cite as `[memory/{file}]`. Why two layers + how memory is arranged: `~/.claude/memory/autodream-principles.md`.
