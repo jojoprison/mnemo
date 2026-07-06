@@ -36,6 +36,15 @@ import sys
 
 DATE_HEADER = re.compile(r'^## (\d{4}-\d{2}-\d{2})')
 OPEN_TODO = re.compile(r'\[ \]')
+# A block can be LIVE via prose in its header, not only via a `- [ ]` checkbox
+# (e.g. "— В ПРОЦЕССЕ", "— WAITING FEEDBACK", "(PENDING ответ)"). Keep those hot too,
+# else a genuinely-open item silently drops into cold storage. Header-level only —
+# a body "Pending:" section is too noisy (most done blocks carry one).
+HEADER_PENDING = re.compile(
+    r'В ПРОЦЕССЕ|НЕ закры|не закрыт|незакры|жд[еёo]м|отложено'
+    r'|WAITING|PENDING|IN PROGRESS|TODO|BLOCKED',
+    re.IGNORECASE,
+)
 GUARD_MARK = 'SIZE-GUARD'
 
 
@@ -98,8 +107,10 @@ def main(argv=None):
     hot, cold = [], []
     for b in blocks:
         d = block_date(b)
-        # HOT if: undated, recent, or carries a live pending checkbox. COLD otherwise.
-        keep = (d is None) or (d >= cutoff) or bool(OPEN_TODO.search(b))
+        header = b.split('\n', 1)[0]
+        # HOT if: undated, recent, carries a live `- [ ]` checkbox, OR its header signals
+        # still-open (prose). COLD only when none of these hold (provably safe to cool).
+        keep = (d is None) or (d >= cutoff) or bool(OPEN_TODO.search(b)) or bool(HEADER_PENDING.search(header))
         (hot if keep else cold).append(b)
 
     danger = [b for b in cold if OPEN_TODO.search(b)]  # must be empty by construction
