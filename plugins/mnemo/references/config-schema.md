@@ -48,6 +48,11 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
     "indexWarnKB": 22
   },
 
+  "handoff": {
+    "maxKB": 40,
+    "keepDays": 14
+  },
+
   "review": {
     "staleDays": {
       "default": 30,
@@ -93,6 +98,8 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `hooks.sessionStartNudge` | Inject a one-line "mnemo memory is available — recall with `/mn:ask` before non-trivial work, save with `/mn:save` as you go" nudge at SessionStart, so the agent reaches for memory on its own initiative, not only when asked. Gated on a configured `vault`. Default **true**; set false to silence | hooks/mnemo-context.sh |
 | `hooks.stopNudge` | At session end, if the session looks worth-saving (fix/decision signals) but `/mn:save` **and/or** `/mn:session` never ran, **block the stop once** with a reason listing whichever is missing, so the agent wraps up cleanly (save pins discrete facts; session writes the narrative + handoff). Because a blocking Stop hook can loop for arbitrary users, this is **opt-in, default false**; an anti-loop governor blocks at most once per session | hooks/mnemo-stop-nudge.sh |
 | `memory.indexWarnKB` | Warn threshold (KB) for `memory/MEMORY.md` size. Claude Code auto-memory **hard-truncates the index ~24.4KB on load** → warn earlier. Default **22** | vault-health |
+| `handoff.maxKB` | Size ceiling (KB) for the handoff note before `scripts/handoff-archive.py` rotates CLOSED old blocks into `<handoff_note> Archive` (cold). The handoff is a live index, not a store; un-rotated it becomes a token bomb read every session. Default **40** | session |
+| `handoff.keepDays` | Blocks newer than this stay hot regardless of status; older **and** closed (no open `- [ ]`) move to the archive. Default **14** | session |
 | `review.staleDays.default` | Days before a note becomes a review candidate when its type has no specific entry. Default **30**. (`review.staleDays` may also be a bare integer — a single uniform threshold for every type.) | vault-health |
 | `review.staleDays.{type}` | Per-type staleness cadence (key = a taxonomy `type` you actually use: `atom`/`molecule`/`source`/`session`/`moc`). A fast-moving fact ages quicker than an architectural decision | vault-health |
 | `review.lint.enabled` | Run the content-lint deep pass (LLM re-reads candidates, emits still-valid/update-needed/contradicts verdicts). Default **false** — it reads note bodies and costs tokens | vault-health |
