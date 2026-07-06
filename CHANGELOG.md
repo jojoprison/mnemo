@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.9] - 2026-07-06
+
+### Added
+
+- **Structured property-search recall** (`vault-search` Step 3a) — `/mn:ask` now queries the typed-Properties layer, not just fuzzy fulltext. For filterable/countable questions ("what's open", "all sessions about X", "sources I disagreed with", "notes citing Y") it runs Obsidian's property-search syntax (`[status:open]`, `[type:session]`, `[disagreements]`, `[prop:null]`) — precise enumeration that matches the vault's Bases. Also teaches recall to READ a control-panel `.base` file (plain YAML) as a canonical computed index and reproduce its filter, preferring that deterministic path over keyword guessing. Complements the Bases-first convention added in 1.1.8.
+
 ## [1.1.8] - 2026-07-06
 
 ### Added
