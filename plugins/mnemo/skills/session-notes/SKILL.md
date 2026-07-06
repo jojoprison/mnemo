@@ -142,6 +142,18 @@ mcp__obsidian__str_replace(
 
 If handoff note doesn't exist, create it via `mcp__obsidian__create` (same structure as `initial-setup` Step 6).
 
+**Size-guard — keep the handoff thin (run every session):**
+
+The handoff is a LIVE index, not an archive. After updating it, run the archival helper so closed history doesn't accumulate into a multi-MB token bomb (it no-ops when the note is at/under `handoff.maxKB`):
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/handoff-archive.py" \
+  --vault-path "$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/get-vault-path.sh" "{vault}")" \
+  --handoff "{handoff_note}" --max-kb {handoff.maxKB:-40} --keep-days {handoff.keepDays:-14} --execute
+```
+
+Keeps HOT: entries with an open `- [ ]` + the last `keepDays`. Moves CLOSED older entries verbatim to `{handoff_note} Archive` (cold, not read at session start; a `.bak-<date>` is written for undo). Their durable detail already lives in the linked `Session — …` notes. Mirrors the MEMORY.md size-guard (thin hot index + cold archive + header pointer). If the vault path can't be resolved (Obsidian absent), skip — degrade gracefully.
+
 ### Step 6: Orphan Check
 
 ```bash
@@ -169,7 +181,7 @@ Output summary:
 - **Include session_id in frontmatter** — disambiguates same-day sessions
 - **No session notes for trivial work** — but "trivial" = mechanical one-liners only (typo, single rename). A research / exploration / curiosity session counts as significant even with zero code; default to creating.
 - **Branch field optional** — research sessions don't have branches
-- **Handoff file: targeted `str_replace`, not blind append** — pending items shouldn't accumulate infinitely
+- **Handoff = thin live index, not an archive** — targeted `str_replace`, not blind append. Named ceiling: when it exceeds `handoff.maxKB` (default 40KB), `scripts/handoff-archive.py` (Step 5) rotates CLOSED blocks older than `handoff.keepDays` into `{handoff_note} Archive` (cold); open `- [ ]` + recent stay hot. Prevents multi-MB token-bomb accumulation.
 - **Links section is mandatory** — at least one MOC link, else the note orphans (invisible to graph navigation)
 - **Ghost notes generously** — wrap projects, technologies, people in `[[wikilinks]]`
 

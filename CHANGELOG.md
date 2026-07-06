@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.7] - 2026-07-06
+
+### Added
+
+- **Handoff size-guard + auto-archive** (`scripts/handoff-archive.py`) — the `session-notes` handoff is a live index, not a store; left un-rotated it grows into a multi-MB log that is a token bomb read every session and buries live pending items under months of closed history. Step 5 now runs the helper each `/mn:session`: blocks with an open `- [ ]` **or** within the last `handoff.keepDays` (default 14) stay hot; CLOSED older blocks move verbatim into `<handoff_note> Archive` (cold, not read at session start; a `.bak-<date>` backup is written for undo). No-ops under `handoff.maxKB` (default 40). Never archives a block with an open checkbox. Mirrors the existing `memory.indexWarnKB` MEMORY.md discipline (thin hot index + cold archive + header pointer).
+- **Config:** `handoff.maxKB` (default 40) and `handoff.keepDays` (default 14).
+
 ## [1.1.6] - 2026-07-06
 
 ### Changed
