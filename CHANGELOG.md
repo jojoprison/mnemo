@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.10] - 2026-07-06
+
+### Fixed
+
+- **handoff-archive.py dropped prose-live blocks into cold** — the "keep hot" test only checked for `- [ ]` checkboxes, so a block whose still-open state lived in its header prose ("— В ПРОЦЕССЕ", "— WAITING FEEDBACK", "(PENDING ответ)") could be archived while genuinely live (a real drop-off found in adversarial verification). Added a header-level pending detector (`В ПРОЦЕССЕ` / `НЕ закрыто` / `ждём` / `отложено` / `WAITING` / `PENDING` / `IN PROGRESS` / `TODO` / `BLOCKED`) to the keep-hot rule — **header-only**, since a body `Pending:` section is too noisy (most completed blocks carry one). A block now cools only when past the keep-days cutoff AND has no open checkbox AND no header pending-marker.
+
 ## [1.1.9] - 2026-07-06
 
 ### Added
