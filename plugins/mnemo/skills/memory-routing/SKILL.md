@@ -79,6 +79,7 @@ source: "{where this came from}"
 - **Two link layers:** inline with context in the body («contradicts [[X]]», «builds on [[Y]]») + `{links_section}` for MOC/nav. A bare link without context is noise.
 - **Short project names** (`[[Diadoc]]`, `[[BTS Holding]]`) need a **hub note** — Obsidian doesn't resolve bare links via alias (by design). If `[[ShortName]]` is referenced and no `ShortName.md` exists, create it: a one-liner redirecting to `[[MOC — …]]`.
 - **Staleness is type-driven, not stamped here.** The `date` you write *is* the review anchor — `vault-health` derives review cadence from the note's `type` (config `review.staleDays`), so you don't add a review date. **Exception:** for a fast-rotting fact (a volatile API quirk, a "current as of" price) add an optional `ttl: <days>` to the frontmatter to age it faster than its type default. Don't add `reviewed:` — that's the snooze health/the user stamps later. See `${CLAUDE_PLUGIN_ROOT}/references/config-schema.md` → "Optional per-note frontmatter".
+- **Load-bearing `[[links]]` go OUTSIDE code fences** — a wikilink inside a ` ``` ` block is NOT parsed into the graph (by design), so it's silently lost to backlinks. Agents emit code blocks constantly — keep navigable links in prose. Full vault conventions (Bases-first computed indexes, schema self-policing, concurrent-edit safety): `${CLAUDE_PLUGIN_ROOT}/references/vault-conventions.md`.
 
 **Add to MOC — MCP `str_replace` for targeted insert, or CLI for plain wikilinks:**
 

@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.8] - 2026-07-06
+
+### Added
+
+- **Vault conventions reference** (`references/vault-conventions.md`) — verified best practices (deep-research 2026-07-06: Obsidian official Help + kepano) for an AI-agent-maintained vault, wired into `memory-routing`: (1) load-bearing `[[links]]` must stay OUTSIDE code fences (links in ` ``` ` blocks are not parsed into the graph — a real agent blind spot); (2) compute indexes with Bases over typed Properties instead of hand-maintaining index notes that drift/bloat; (3) property types are self-policed (Obsidian does not enforce them globally); (4) concurrent human+agent edits have no native merge-conflict safety — use targeted `str_replace`, never blind overwrite. Baseline (atomic notes, near-flat root, File Recovery as the only local undo) confirmed canonical.
+
 ## [1.1.7] - 2026-07-06
 
 ### Added
