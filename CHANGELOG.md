@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.1.11] - 2026-07-17
+
+### Fixed
+
+- **handoff-archive.py corrupted the live handoff on every `--execute` run** — production incident (16-17.07: glued `## 2026-03-25…## 2026-07-16…` headers in the hot handoff, frontmatter/guard eaten, 5+ stray duplicate headers piling up in the archive). Two root causes: (1) *loop-variable shadowing* — the per-block `header = b.split('\n', 1)[0]` overwrote the document header parsed earlier, so every rewrite began the file with the LAST block's first line (no trailing newline) glued straight onto the first hot block, while the orphaned dated header left behind was counted as a fresh block by the next run and re-archived — hence the accumulating duplicates; (2) *unnormalized join* — `''.join(blocks)` glued any block lacking its trailing `\n` (typically the file's last block) onto the next `## header`, in both the handoff and the archive. Fixed by renaming the loop variable (`first_line`) and joining through a newline-guaranteeing `joined()` helper.
+- **First automated regression tests in the repo** — `scripts/test-handoff-archive.py` (stdlib-only unittest + subprocess, no framework): doc-header survival + zero glued headers, archive-append normalization with a missing trailing newline, and byte-stable idempotency of repeated runs. Run directly: `python3 scripts/test-handoff-archive.py`.
+- **CHANGELOG compare-links backfilled** — versions 1.1.7–1.1.10 shipped without their compare-links (and without git tags; tags `v1.1.7`–`v1.1.10` are created retroactively with this release).
+
 ## [1.1.10] - 2026-07-06
 
 ### Fixed
@@ -791,7 +799,12 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.6...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.11...HEAD
+[1.1.11]: https://github.com/jojoprison/mnemo/compare/v1.1.10...v1.1.11
+[1.1.10]: https://github.com/jojoprison/mnemo/compare/v1.1.9...v1.1.10
+[1.1.9]: https://github.com/jojoprison/mnemo/compare/v1.1.8...v1.1.9
+[1.1.8]: https://github.com/jojoprison/mnemo/compare/v1.1.7...v1.1.8
+[1.1.7]: https://github.com/jojoprison/mnemo/compare/v1.1.6...v1.1.7
 [1.1.6]: https://github.com/jojoprison/mnemo/compare/v1.1.5...v1.1.6
 [1.1.5]: https://github.com/jojoprison/mnemo/compare/v1.1.4...v1.1.5
 [1.1.4]: https://github.com/jojoprison/mnemo/compare/v1.1.3...v1.1.4

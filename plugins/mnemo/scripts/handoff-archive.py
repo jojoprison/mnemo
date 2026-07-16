@@ -72,6 +72,16 @@ def kb(chunks):
     return sum(len(c.encode('utf-8')) for c in chunks) / 1024
 
 
+def joined(chunks):
+    """Join blocks guaranteeing each ends with a newline.
+
+    A block missing its trailing `\\n` (typically the last block of the file)
+    would otherwise glue the next `## YYYY-MM-DD` header onto its tail — the
+    corrupted-handoff class fixed in v1.1.11.
+    """
+    return ''.join(c if c.endswith('\n') else c + '\n' for c in chunks)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--vault-path', required=True, help='absolute path to the Obsidian vault')
@@ -107,10 +117,14 @@ def main(argv=None):
     hot, cold = [], []
     for b in blocks:
         d = block_date(b)
-        header = b.split('\n', 1)[0]
+        # NB: do NOT name this `header` — that shadowed the parsed doc header and
+        # made every --execute run rewrite the handoff with the LAST block's first
+        # line as the file header (glued `## date## date`, eaten frontmatter/guard,
+        # stray header copies piling up in the archive). Fixed in v1.1.11.
+        first_line = b.split('\n', 1)[0]
         # HOT if: undated, recent, carries a live `- [ ]` checkbox, OR its header signals
         # still-open (prose). COLD only when none of these hold (provably safe to cool).
-        keep = (d is None) or (d >= cutoff) or bool(OPEN_TODO.search(b)) or bool(HEADER_PENDING.search(header))
+        keep = (d is None) or (d >= cutoff) or bool(OPEN_TODO.search(b)) or bool(HEADER_PENDING.search(first_line))
         (hot if keep else cold).append(b)
 
     danger = [b for b in cold if OPEN_TODO.search(b)]  # must be empty by construction
@@ -144,13 +158,13 @@ def main(argv=None):
         fm = re.match(r'^(---\n.*?\n---\n)', header, re.S)
         new_header = header[:fm.end()] + guard + header[fm.end():] if fm else guard + header
 
-    open(handoff_path, 'w', encoding='utf-8').write(new_header + ''.join(hot))
+    open(handoff_path, 'w', encoding='utf-8').write(new_header + joined(hot))
 
     if os.path.isfile(archive_path):
         prev = open(archive_path, encoding='utf-8').read()
         pm = re.search(r'^## \d{4}-\d{2}-\d{2}', prev, re.M)
         a_hdr, a_body = (prev[:pm.start()], prev[pm.start():]) if pm else (prev, '')
-        open(archive_path, 'w', encoding='utf-8').write(a_hdr + ''.join(cold) + a_body)
+        open(archive_path, 'w', encoding='utf-8').write(a_hdr + joined(cold) + a_body)
     else:
         a_hdr = (
             '---\ntype: meta\ntags: [meta, handoff, archive, cold]\n---\n\n'
@@ -159,7 +173,7 @@ def main(argv=None):
             f'Detail lives in the linked `Session — …` notes; this is a verbatim chronological backstop. '
             f'Fresh / open items stay in hot [[{a.handoff}]].\n\n'
         )
-        open(archive_path, 'w', encoding='utf-8').write(a_hdr + ''.join(cold))
+        open(archive_path, 'w', encoding='utf-8').write(a_hdr + joined(cold))
 
     print(f'archived {len(cold)} blocks -> {archive_name} | handoff now {os.path.getsize(handoff_path) / 1024:.0f}KB '
           f'| backup {os.path.basename(handoff_path)}.bak-{stamp}')
