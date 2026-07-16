@@ -62,6 +62,11 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 - **V13 — Stop nudge tracks `/mn:session` too (v1.1.2).** Covered by V10 above: with `hooks.stopNudge:true` and worth-saving signals, the nudge now blocks on either missing `/mn:save` **or** `/mn:session` (both present → silent).
 - **V14 — `/mn:review` trigger phrasings (v1.1.3).** The `session-review` description now fires on `'что ещё осталось'` / `'что ещё тут осталось'` in addition to `'что осталось'`. Type one mid-session → the orchestrator should engage.
 
+## What changed in v1.1.11 — handoff-archive corruption fix + first automated tests
+
+- **V15 — automated regression suite (v1.1.11).** `python3 scripts/test-handoff-archive.py` → 3 tests OK. This is the fastest check for the whole class: doc-header survival, zero glued `## date## date` headers, archive-append normalization, idempotent repeated runs.
+- **V16 — live handoff integrity after `/mn:session` (v1.1.11).** After a session where the size-guard actually archived blocks: the handoff still starts with its original header (frontmatter/guard, exactly one `SIZE-GUARD` line), `grep -c 'research##'`-style glued headers = 0, and the archive gained each cold block exactly once (no duplicate stray headers accumulating run-over-run).
+
 ## Prerequisites
 
 - **Obsidian running**, vault `main` (or whatever is in `~/.mnemo/config.json`)
