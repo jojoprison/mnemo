@@ -376,13 +376,28 @@ class SkillLintTests(unittest.TestCase):
             # marker must sit right after the H1, ahead of Portable paths, so it loads first
             self.assertLess(body.index(marker), body.index("## Portable paths"), skill)
 
-    def test_shared_hook_manifest_has_no_unsupported_async_handlers(self) -> None:
-        hooks = json.loads((REPO_ROOT / "plugins/mnemo/hooks/hooks.json").read_text())
-        self.assertEqual(set(hooks), {"hooks"})
-        for groups in hooks["hooks"].values():
-            for group in groups:
-                for handler in group.get("hooks", []):
-                    self.assertNotIn("async", handler)
+    def test_runtime_hook_manifests_compose_without_duplicate_events(self) -> None:
+        plugin = REPO_ROOT / "plugins/mnemo"
+        shared = json.loads((plugin / "hooks/hooks.json").read_text())
+        claude_only = json.loads((plugin / "hooks/claude-hooks.json").read_text())
+        claude_manifest = json.loads((plugin / ".claude-plugin/plugin.json").read_text())
+        codex_manifest = json.loads((plugin / ".codex-plugin/plugin.json").read_text())
+
+        self.assertEqual(set(shared), {"hooks"})
+        self.assertEqual(set(shared["hooks"]), {"SessionStart", "Stop"})
+        self.assertEqual(set(claude_only), {"hooks"})
+        self.assertEqual(set(claude_only["hooks"]), {"UserPromptExpansion"})
+        self.assertTrue(set(shared["hooks"]).isdisjoint(claude_only["hooks"]))
+        self.assertEqual(
+            claude_manifest["hooks"],
+            ["./hooks/hooks.json", "./hooks/claude-hooks.json"],
+        )
+        self.assertNotIn("hooks", codex_manifest)
+        for manifest in (shared, claude_only):
+            for groups in manifest["hooks"].values():
+                for group in groups:
+                    for handler in group.get("hooks", []):
+                        self.assertNotIn("async", handler)
 
 
 class HookCompatibilityTests(unittest.TestCase):
@@ -492,6 +507,18 @@ class HookCompatibilityTests(unittest.TestCase):
                 env={"HOME": tmp + "/nowhere", "PATH": os.environ.get("PATH", "")},
             )
             self.assertIn("/mn:save", json.loads(no_config.stdout)["systemMessage"])
+
+            malformed = subprocess.run(
+                ["bash", str(script)],
+                input="{not-json",
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            malformed_payload = json.loads(malformed.stdout)
+            self.assertTrue(malformed_payload["continue"])
+            self.assertTrue(malformed_payload["suppressOutput"])
 
     def test_prewarm_uses_codex_session_id_from_minimal_hook_input(self) -> None:
         script = REPO_ROOT / "plugins/mnemo/hooks/prewarm.sh"

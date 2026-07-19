@@ -17,7 +17,7 @@ Checks:
 13. Claude and Codex keep their intentional runtime namespace contract.
 14. Skill bodies never route generated markdown through inline Obsidian CLI writes.
 15. Skill bodies route every dynamic Obsidian CLI operation through the argv adapter.
-16. Shared hook handlers avoid Codex-unsupported async declarations.
+16. Shared hooks use only documented Codex events; Claude-only hooks are additive.
 
 Exit codes:
   0 — all SKILL.md valid
@@ -39,6 +39,18 @@ MAX_LINES = 500
 SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 CANONICAL_SKILLS = {"ask", "save", "session", "review", "connect", "setup", "health"}
 OPENAI_INTERFACE_FIELDS = {"display_name", "short_description", "default_prompt"}
+CODEX_HOOK_EVENTS = {
+    "PreToolUse",
+    "PermissionRequest",
+    "PostToolUse",
+    "PreCompact",
+    "PostCompact",
+    "UserPromptSubmit",
+    "SubagentStart",
+    "SubagentStop",
+    "Stop",
+    "SessionStart",
+}
 STALE_INTERNAL_NAMES = {
     "vault-search",
     "memory-routing",
@@ -214,7 +226,7 @@ def check_mnemo_contract() -> list[str]:
     if os.path.exists(legacy_commands):
         issues.append("legacy commands/ facade must be removed; canonical skills own the UI")
     if os.path.exists(os.path.join(plugin_dir, "hooks", "codex-hooks.json")):
-        issues.append("forked Codex hook manifest must be removed; both runtimes share hooks/hooks.json")
+        issues.append("forked Codex hook manifest must be removed; Codex uses hooks/hooks.json")
 
     for name in sorted(CANONICAL_SKILLS):
         skill_path = os.path.join(skills_dir, name, "SKILL.md")
@@ -272,6 +284,11 @@ def check_mnemo_contract() -> list[str]:
         issues.append("Claude displayName must preserve the public 'mnemo' brand")
     if codex_manifest.get("name") != "mnemo":
         issues.append("Codex plugin namespace must remain 'mnemo'")
+    expected_claude_hooks = ["./hooks/hooks.json", "./hooks/claude-hooks.json"]
+    if claude_manifest.get("hooks") != expected_claude_hooks:
+        issues.append(f"Claude manifest hooks must be exactly {expected_claude_hooks}")
+    if "hooks" in codex_manifest:
+        issues.append("Codex manifest must use default hooks/hooks.json discovery")
     if claude_market.get("plugins", [{}])[0].get("name") != "mnemo":
         issues.append("Claude marketplace install ID must remain 'mnemo'")
     if codex_market.get("plugins", [{}])[0].get("name") != "mnemo":
@@ -289,29 +306,46 @@ def check_mnemo_contract() -> list[str]:
 
     hooks_path = os.path.join(plugin_dir, "hooks", "hooks.json")
     hooks = load_json(hooks_path)
+    claude_hooks_path = os.path.join(plugin_dir, "hooks", "claude-hooks.json")
+    claude_hooks = load_json(claude_hooks_path)
     unexpected_hook_keys = sorted(set(hooks) - {"hooks"})
     if unexpected_hook_keys:
         issues.append(
             "shared hooks manifest must keep a legacy-compatible top level; "
             f"unexpected keys: {', '.join(unexpected_hook_keys)}"
         )
-    hook_commands = command_hook_commands(hooks)
+    shared_events = set(hooks.get("hooks", {}))
+    unsupported_events = sorted(shared_events - CODEX_HOOK_EVENTS)
+    if unsupported_events:
+        issues.append(
+            "shared hooks manifest contains Codex-unsupported events: "
+            + ", ".join(unsupported_events)
+        )
+    if shared_events != {"SessionStart", "Stop"}:
+        issues.append("shared hooks manifest must define exactly SessionStart and Stop")
+    if set(claude_hooks) != {"hooks"}:
+        issues.append("Claude-only hooks manifest must contain only the hooks key")
+    claude_events = set(claude_hooks.get("hooks", {}))
+    if claude_events != {"UserPromptExpansion"}:
+        issues.append("Claude-only hooks manifest must define exactly UserPromptExpansion")
+    if shared_events & claude_events:
+        issues.append("hook events must be defined once, never duplicated across manifests")
+
+    hook_commands = command_hook_commands(hooks) + command_hook_commands(claude_hooks)
     if not hook_commands:
         issues.append("shared hooks manifest must define command hooks")
     for command in hook_commands:
         if "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}" not in command:
             issues.append(
-                "every shared hook command must resolve PLUGIN_ROOT with "
+                "every hook command must resolve PLUGIN_ROOT with "
                 "CLAUDE_PLUGIN_ROOT fallback"
             )
-    for event, matchers in hooks.get("hooks", {}).items():
-        for matcher in matchers:
-            for handler in matcher.get("hooks", []):
-                if "async" in handler:
-                    issues.append(
-                        f"{event}: hook handler must not declare async; Codex skips "
-                        "unsupported async handlers"
-                    )
+    for manifest in (hooks, claude_hooks):
+        for event, matchers in manifest.get("hooks", {}).items():
+            for matcher in matchers:
+                for handler in matcher.get("hooks", []):
+                    if "async" in handler:
+                        issues.append(f"{event}: hook handler must not declare async")
 
     for relative in ("skills/setup/SKILL.md", "references/config-schema.md"):
         path = os.path.join(plugin_dir, relative)

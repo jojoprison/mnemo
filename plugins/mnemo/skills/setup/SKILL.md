@@ -88,6 +88,19 @@ What heading do you use for note cross-references?
 > 1
 ```
 
+### Step 4.5: Cross-runtime Recall (opt-in)
+
+```
+Let Codex read this project's Claude memory, and Claude read this project's Codex memory?
+
+[1] No (default — Obsidian + the active runtime only)
+[2] Yes (read-only, exact git-project match, no copying or syncing)
+
+> 1
+```
+
+Map the choice to `recall.runtimeMemory.enabled`. This is intentionally **off by default** because runtime memory may contain agent-generated or sensitive local context. Enabling it adds a bounded read-only overlay to `ask`; it does not create symlinks, share writers, scan transcripts, or change where either runtime stores memory. `globalSources: "explicit"` still requires the user to ask for global/cross-project memory in that specific query.
+
 ### Step 5: Save Config
 
 Write `~/.mnemo/config.json`:
@@ -111,6 +124,15 @@ Write `~/.mnemo/config.json`:
     "project_rules": { "enabled": true },
     "claude_md": { "enabled": false }
   },
+  "recall": {
+    "codeGraph": null,
+    "runtimeMemory": {
+      "enabled": false,
+      "globalSources": "explicit",
+      "maxHits": 5,
+      "maxExcerptBytes": 12288
+    }
+  },
   "hooks": {
     "sessionStartNudge": true,
     "stopNudge": false,
@@ -120,6 +142,8 @@ Write `~/.mnemo/config.json`:
 ```
 
 `hooks.stopNudge` ships **false** — flip it to `true` if you want the end-of-session save/session reminder (see `<mnemo-root>/references/config-schema.md`). `hooks.invocationEcho` (Claude Code only, default true) prints a `🧠 mnemo: /mn:<skill> → skill body loaded` confirmation when a `/mn:*` command expands. Everything works on these defaults even if the whole `hooks` block is omitted.
+
+Use the Step 4.5 answer for `recall.runtimeMemory.enabled`; the JSON above shows the safe default. If an existing config is being edited, preserve every unrelated field and change only the requested setting.
 
 ### Step 6: Create Handoff Note (only if missing)
 

@@ -29,6 +29,7 @@ The directory and `name` must match and use lowercase letters, digits, and singl
    ```bash
    python3 scripts/lint-skills.py
    python3 scripts/test-runtime-compat.py
+   python3 scripts/test-runtime-memory.py
    python3 scripts/test-handoff-archive.py
    claude plugin validate plugins/mnemo --strict
    python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo

@@ -32,10 +32,10 @@ You work → mnemo remembers → Your vault grows → You find things later
 | **save** | `/mn:save` | Routing cascade — sends a recall item to Obsidian (+ the active runtime's local memory when applicable, + optional claude-mem), or an actionable project rule, with graceful degradation |
 | **session** | `/mn:session` | Session summary note + cross-session handoff for the next session |
 | **review** | `/mn:review` | End-of-session orchestrator — audits the session, recommends save + session + the rest, asks before running anything |
-| **ask** | `/mn:ask` | Search vault (+ the active runtime's local memory), synthesize a cited answer, date each source by recency, and ground current-state answers in the project's git history |
+| **ask** | `/mn:ask` | Search the vault + active runtime memory (+ optional verified counterpart memory), synthesize a cited answer, date sources, and ground current-state answers in git history |
 | **connect** | `/mn:connect` | Discover hidden connections between notes — suggests, never auto-applies |
 | **health** | `/mn:health` | Vault audit: orphans, broken links, type-aware review candidates (+ optional LLM lint), growth stats |
-| **setup** | `/mn:setup` | Interactive onboarding — vault name, taxonomy, language |
+| **setup** | `/mn:setup` | Interactive onboarding — vault, taxonomy, language, optional cross-runtime recall |
 
 ### When to Use Which
 
@@ -56,7 +56,8 @@ Obsidian plugins run inside Obsidian. mnemo runs inside your coding agent — **
 
 ### Highlights
 
-- **One canonical surface across Claude Code and Codex** (v1.2.0; hook-parser compatibility hardened in v1.2.1) — the same seven implementations now register directly as `/mn:*` in Claude Code and as `$mnemo:*` with matching `mn:*` picker labels in Codex. Legacy command routers and alias skill copies are gone; shared hooks, portable runtime discovery, private caches, and argv-safe Obsidian access keep both runtimes aligned without duplicated behavior.
+- **Cross-runtime recall without synchronization** (v1.2.3) — opt-in `recall.runtimeMemory` lets Codex see verified Claude project memory and Claude see project-scoped Codex memory. It is a bounded read-only overlay: exact git-repository proof, no transcript scan, symlink, shared writer, mirror, daemon, or duplicate store. Obsidian remains authoritative; native memory is cited as untrusted secondary evidence.
+- **One canonical surface across Claude Code and Codex** (v1.2.0; hook-parser compatibility hardened in v1.2.1) — the same seven implementations now register directly as `/mn:*` in Claude Code and as `$mnemo:*` with matching `mn:*` picker labels in Codex. Legacy command routers and alias skill copies are gone; runtime-composed hooks, portable runtime discovery, private caches, and argv-safe Obsidian access keep both runtimes aligned without duplicated behavior.
 - **Knowledge compounds + self-snoozing lint + research gaps** (v0.14.0) — three opt-in, on-philosophy distillations from a full audit of Karpathy's "LLM Wiki" pattern. `/mn:ask` can fold a real synthesis **back into the vault as a Molecule** (sources pre-linked) so explorations accumulate; `review.lint.autoStampReviewed` lets the lint stamp `reviewed:` on still-valid notes to close the snooze loop; `/mn:health` surfaces **research-gap candidates** (populous topic with no MOC, recurring external with no Source note). All opt-in: a default install writes nothing (the content lint is off), the compounding save is user-confirmed, and the lone auto-write — the `reviewed:` stamp — only fires once you turn the lint on.
 - **Recall grounded in live code** (v0.13.0) — for "is this still true / what changed" questions inside a git project, `/mn:ask` cross-checks the repo's recent commits and flags any note a newer commit may have outdated. Optional code-knowledge-graph backend via `recall.codeGraph` (Graphify / Sourcegraph / ast-grep…), off by default.
 - **Recency-aware recall** (v0.12.0) — `/mn:ask` now dates every source it cites (git last-commit when the vault is a repo, else file mtime + `reviewed`/`date` frontmatter) and flags an answer that rests on stale notes.
@@ -88,6 +89,7 @@ Both runtimes invoke the same seven canonical skill directories directly. Claude
 - **CLI-first, argv-safe** — indexed reads/search still use `obsidian` CLI ([70,000x cheaper](https://x.com/kepano)), but dynamic vault/note/query values go through a `shell=False` adapter; markdown writes use MCP
 - **Config-driven** — vault name, taxonomy, rules in `config.json`
 - **Non-destructive** — skills report and suggest, never auto-delete or overwrite
+- **Federated, not synchronized** — each runtime keeps its native memory; optional counterpart recall is exact-project, read-only, and fail-closed
 - **Any taxonomy** — works with Zettelkasten, PARA, Atom/Molecule, or your own system
 
 → Full rationale and **non-goals** (features deliberately not shipped — auto-ingest, web-search imputation, `hot.md` — each with how to add it): [docs/design-decisions.md](docs/design-decisions.md).
@@ -156,7 +158,7 @@ Creates a session summary in Obsidian and updates the handoff file for the next 
 /mn:ask "what did we decide about pricing strategy?"
 ```
 
-Synthesized answers with citations to specific notes — across the vault and the active runtime's local memory.
+Synthesized answers with citations across the vault and active runtime memory. With `recall.runtimeMemory.enabled: true`, the other runtime's memory for the exact same git repository joins as bounded read-only evidence — nothing is copied or synchronized.
 
 ### Discover hidden links
 
@@ -216,11 +218,19 @@ cp config.example.json ~/.mnemo/config.json
     "staleDays": { "default": 30, "atom": 60, "molecule": 120, "source": 180, "session": 90, "moc": 365 },
     "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku", "autoStampReviewed": true }
   },
-  "recall": { "codeGraph": null }
+  "recall": {
+    "codeGraph": null,
+    "runtimeMemory": {
+      "enabled": false,
+      "globalSources": "explicit",
+      "maxHits": 5,
+      "maxExcerptBytes": 12288
+    }
+  }
 }
 ```
 
-All fields are optional. Skills ask on first use. `review.*` tunes `/mn:health` staleness per note type plus the optional content lint — see [config-schema.md](plugins/mnemo/references/config-schema.md).
+All fields are optional. Skills ask on first use. `review.*` tunes `/mn:health`; `recall.runtimeMemory` is the off-by-default, read-only Claude↔Codex project-memory overlay — see [config-schema.md](plugins/mnemo/references/config-schema.md).
 
 ### Custom Taxonomy
 
@@ -284,6 +294,7 @@ mnemo/
 │   │   └── session-template.md
 │   ├── scripts/                     # Shell & Python helpers
 │   │   ├── safe-read.py             # argv-safe dynamic reads/index queries (no shell interpolation)
+│   │   ├── runtime-memory.py         # bounded read-only Claude↔Codex recall adapter
 │   │   ├── cache_utils.py           # private atomic helper caches (0700/0600)
 │   │   ├── claude-mem-save.py       # shell-safe optional claude-mem HTTP adapter
 │   │   ├── session-scan.py          # JSONL parser (Claude + Codex) with incremental cache
@@ -292,7 +303,8 @@ mnemo/
 │   │   ├── handoff-archive.py       # size-guard rotation: closed old handoff blocks → cold archive
 │   │   └── check-cm-version.sh      # claude-mem cache inspector
 │   └── hooks/                       # Harness hooks
-│       ├── hooks.json               # SessionStart prewarm + nudges; expansion echo; Stop nudge
+│       ├── hooks.json               # Codex-safe shared SessionStart + Stop baseline
+│       ├── claude-hooks.json        # additive Claude-only UserPromptExpansion echo
 │       ├── prewarm.sh               # Codex-compatible SessionStart cache warmup
 │       ├── mnemo-context.sh         # SessionStart nudge — memory exists (config-gated)
 │       ├── mnemo-skill-echo.sh      # /mn:* expansion echo — visible skill-load confirmation
@@ -303,6 +315,7 @@ mnemo/
 ├── .github/workflows/release.yml    # CI: mirror CHANGELOG section → GitHub Release on tag
 ├── scripts/lint-skills.py           # Dual-runtime structural linter
 ├── scripts/test-runtime-compat.py   # Claude/Codex regression tests
+├── scripts/test-runtime-memory.py   # cross-runtime scope/security/bounds tests
 ├── scripts/test-handoff-archive.py  # Handoff archive regression tests
 ├── docs/codex.md                    # Codex install, invocation, runtime differences
 ├── AGENTS.md · CONTRIBUTING.md · CHANGELOG.md · TESTING.md · LICENSE
@@ -342,10 +355,10 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 | **save** | `/mn:save` | Каскад роутинга — отправляет факт/решение/находку в Obsidian (+ локальную память активного runtime, когда уместно, + опциональный claude-mem), с graceful degradation |
 | **session** | `/mn:session` | Сессионная заметка + cross-session handoff для следующей сессии |
 | **review** | `/mn:review` | Оркестратор конца сессии — аудит, единый список рекомендаций и подтверждение перед любым запуском |
-| **ask** | `/mn:ask` | Поиск по vault (+ локальная память активного runtime), синтез ответа с цитатами, датировка источников по свежести + заземление ответов про текущее состояние в git-истории проекта |
+| **ask** | `/mn:ask` | Поиск по vault + памяти активного runtime (+ опционально проверенная память второго runtime), синтез с цитатами и сверка актуальности по git |
 | **connect** | `/mn:connect` | Находит скрытые связи между заметками — предлагает, не применяет сам |
 | **health** | `/mn:health` | Аудит vault: orphans, битые ссылки, type-aware кандидаты на ревью (+ опц. LLM-линт), статистика роста |
-| **setup** | `/mn:setup` | Интерактивный онбординг — имя vault, таксономия, язык |
+| **setup** | `/mn:setup` | Интерактивный онбординг — vault, таксономия, язык, опциональный cross-runtime recall |
 
 ### Когда что использовать
 
@@ -366,7 +379,8 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 
 ### Ключевые возможности
 
-- **Одна каноническая поверхность в Claude Code и Codex** (v1.2.0; совместимость hook-парсера усилена в v1.2.1) — те же семь реализаций напрямую регистрируются как `/mn:*` в Claude Code и как `$mnemo:*` с совпадающими UI-именами `mn:*` в Codex. Старые command-router’ы и alias-копии удалены; общие hooks, portable discovery, приватные кеши и argv-safe доступ к Obsidian держат оба runtime синхронными без дублирования логики.
+- **Cross-runtime recall без синхронизации** (v1.2.3) — opt-in `recall.runtimeMemory` даёт Codex видеть проверенную проектную память Claude, а Claude — project-scoped память Codex. Это ограниченный read-only слой с точным доказательством git-репозитория: без transcript scan, symlink, общего writer, зеркала, демона и второй копии. Obsidian остаётся главным источником, runtime-memory цитируется как недоверенное вторичное свидетельство.
+- **Одна каноническая поверхность в Claude Code и Codex** (v1.2.0; совместимость hook-парсера усилена в v1.2.1) — те же семь реализаций напрямую регистрируются как `/mn:*` в Claude Code и как `$mnemo:*` с совпадающими UI-именами `mn:*` в Codex. Старые command-router’ы и alias-копии удалены; hooks компонуются по runtime, а portable discovery, приватные кеши и argv-safe доступ к Obsidian держат обе среды синхронными без дублирования логики.
 - **Знание накапливается + самоснузящийся линт + research-гэпы** (v0.14.0) — три opt-in, на-философии вывода из полного аудита паттерна Карпати «LLM Wiki». `/mn:ask` может свернуть настоящий синтез **обратно в vault как Molecule** (источники уже слинкованы), чтобы исследования накапливались; `review.lint.autoStampReviewed` позволяет линту штамповать `reviewed:` на still-valid заметках, замыкая петлю снуза; `/mn:health` показывает **research-gap кандидатов** (популярный топик без MOC, частый внешний источник без Source-заметки). Всё opt-in: дефолтная установка ничего не пишет (контент-линт выключен), сохранение синтеза — по подтверждению, а единственная авто-запись (штамп `reviewed:`) срабатывает только когда ты включишь линт.
 - **Recall, заземлённый в живом коде** (v0.13.0) — на вопросы «актуально ли / что изменилось» внутри git-проекта `/mn:ask` сверяется со свежими коммитами репо и флажит заметки, которые новый коммит мог устаревшить. Опц. code-graph бэкенд через `recall.codeGraph` (Graphify / Sourcegraph / ast-grep…), выключен по умолчанию.
 - **Recall со свежестью** (v0.12.0) — `/mn:ask` теперь датирует каждый цитируемый источник (git last-commit если vault под git, иначе mtime файла + frontmatter `reviewed`/`date`) и помечает ответ, опирающийся на устаревшие заметки.
@@ -441,7 +455,7 @@ Codex:       $mnemo:health
 /mn:ask "что мы решили по ценообразованию?"
 ```
 
-Синтезирует ответ из нескольких заметок с цитатами — по vault и локальной памяти активного runtime.
+Синтезирует ответ с цитатами по vault и памяти активного runtime. При `recall.runtimeMemory.enabled: true` добавляет bounded read-only память второго runtime для того же git-репозитория — ничего не копирует и не синхронизирует.
 
 ### Скрытые связи
 
@@ -477,7 +491,7 @@ mkdir -p ~/.mnemo
 cp config.example.json ~/.mnemo/config.json
 ```
 
-Все поля опциональны. Скиллы спросят при первом запуске. Полная схема — в `plugins/mnemo/references/config-schema.md`.
+Все поля опциональны. Скиллы спросят при первом запуске. Cross-runtime recall выключен по умолчанию; включение: `recall.runtimeMemory.enabled: true`. Полная схема и security-границы — в `plugins/mnemo/references/config-schema.md`.
 
 ## Непрерывность между сессиями
 
@@ -512,10 +526,10 @@ cp config.example.json ~/.mnemo/config.json
 | **save** | `/mn:save` | 路由级联 —— 将事实/决策/发现发送到 Obsidian（+ 适用时写入当前运行时的本地记忆，+ 可选 claude-mem），并支持优雅降级 |
 | **session** | `/mn:session` | 会话摘要笔记 + 跨会话上下文传递 |
 | **review** | `/mn:review` | 会话结束编排器 —— 审计会话、统一推荐，并在运行任何技能前请求确认 |
-| **ask** | `/mn:ask` | 搜索 vault（+ 当前运行时的本地记忆），综合带引用的答案，按时效标注来源，并用项目 git 历史为"当前状态"类回答提供依据 |
+| **ask** | `/mn:ask` | 搜索 vault + 当前运行时记忆（+ 可选且已验证的另一运行时记忆），综合引用并用 git 核验当前状态 |
 | **connect** | `/mn:connect` | 发现笔记之间隐藏的联系 —— 仅建议，不自动应用 |
 | **health** | `/mn:health` | Vault 审计：孤立笔记、断链、按类型的复查候选（+ 可选 LLM lint）、增长统计 |
-| **setup** | `/mn:setup` | 交互式引导配置 —— vault 名称、分类法、语言 |
+| **setup** | `/mn:setup` | 交互式引导配置 —— vault、分类法、语言、可选跨运行时回忆 |
 
 ### 何时用哪个
 
@@ -536,7 +550,8 @@ Obsidian 插件在 Obsidian 内部运行。mnemo 在你的编码代理 —— **
 
 ### 功能亮点
 
-- **Claude Code 与 Codex 共用唯一规范入口**（v1.2.0；v1.2.1 加强 hook 解析器兼容性）—— 同一套七个实现现在在 Claude Code 中直接注册为 `/mn:*`，在 Codex 中注册为 `$mnemo:*`，并显示对应的 `mn:*` 选择器标签。旧 command router 与 alias 技能副本已移除；共享 hooks、可移植运行时发现、私有缓存和 argv-safe Obsidian 访问让两个运行时保持一致且不重复逻辑。
+- **跨运行时回忆，无需同步**（v1.2.3）—— 可选的 `recall.runtimeMemory` 让 Codex 读取已验证的 Claude 项目记忆，也让 Claude 读取项目范围内的 Codex 记忆。这是有界只读层：严格匹配同一 git 仓库，不扫描 transcript，不用 symlink、共享写入器、镜像、daemon 或重复存储。Obsidian 仍是权威来源；运行时记忆仅作为带出处的不可信次级证据。
+- **Claude Code 与 Codex 共用唯一规范入口**（v1.2.0；v1.2.1 加强 hook 解析器兼容性）—— 同一套七个实现现在在 Claude Code 中直接注册为 `/mn:*`，在 Codex 中注册为 `$mnemo:*`，并显示对应的 `mn:*` 选择器标签。旧 command router 与 alias 技能副本已移除；按运行时组合的 hooks、可移植运行时发现、私有缓存和 argv-safe Obsidian 访问让两个运行时保持一致且不重复逻辑。
 - **知识复利 + 自我延后的 lint + 研究缺口**（v0.14.0）—— 对 Karpathy "LLM Wiki" 模式做完整审计后提炼出的三个可选、契合理念的增强。`/mn:ask` 可将真正的综合**作为 Molecule 写回 vault**（来源已预先链接），让探索得以累积；`review.lint.autoStampReviewed` 让 lint 给仍然有效的笔记盖上 `reviewed:`，闭合延后回路；`/mn:health` 会提示**研究缺口候选**（笔记众多却无 MOC 的主题、被频繁引用却无 Source 笔记的外部实体）。全部可选：默认安装不写入任何内容（内容 lint 默认关闭），综合写回需用户确认，唯一的自动写入（`reviewed:` 标记）仅在你开启 lint 后才发生。
 - **基于实时代码的回忆**（v0.13.0）—— 在 git 项目内回答"是否仍然成立/有何变化"类问题时，`/mn:ask` 会对照仓库最近的提交，标记可能已被新提交过时的笔记。可选代码知识图谱后端 `recall.codeGraph`（Graphify / Sourcegraph / ast-grep…），默认关闭。
 - **带时效的回忆**（v0.12.0）—— `/mn:ask` 现在为每个引用来源标注更新时间（vault 是 git 仓库则用 git last-commit，否则用文件 mtime + `reviewed`/`date` frontmatter），并标记基于陈旧笔记的答案。
@@ -611,7 +626,7 @@ Codex:       $mnemo:health
 /mn:ask "我们对定价策略做了什么决定？"
 ```
 
-从多个笔记中综合答案，附带引用 —— 跨 vault 与当前运行时的本地记忆。
+从 vault 与当前运行时记忆中综合带引用的答案。启用 `recall.runtimeMemory.enabled: true` 后，还会加入同一 git 仓库的另一运行时记忆作为有界只读证据；不会复制或同步任何内容。
 
 ### 发现隐藏联系
 
@@ -647,7 +662,7 @@ mkdir -p ~/.mnemo
 cp config.example.json ~/.mnemo/config.json
 ```
 
-所有字段可选。技能会在首次使用时询问。完整 schema 见 `plugins/mnemo/references/config-schema.md`。
+所有字段可选。技能会在首次使用时询问。跨运行时回忆默认关闭；通过 `recall.runtimeMemory.enabled: true` 启用。完整 schema 与安全边界见 `plugins/mnemo/references/config-schema.md`。
 
 ## 跨会话连续性
 

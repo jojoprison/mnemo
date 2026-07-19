@@ -19,6 +19,7 @@ Run once after installing the plugin.
 | Vault name | Which Obsidian vault to use | `main` |
 | Taxonomy | Note type prefixes and tags | Atom/Molecule/PARA/Custom |
 | Links section | Heading for cross-references | `## Links`, `## Связи` |
+| Cross-runtime recall | Opt-in read-only visibility into the same project's Claude/Codex local memory | Off (default) / On |
 
 ## Onboarding Flow
 
@@ -28,8 +29,9 @@ Run once after installing the plugin.
 1. What's your Obsidian vault name? → main
 2. Which taxonomy? → [1] Atom/Molecule (Zettelkasten)
 3. Links section heading? → [1] ## Связи
-4. Config saved to ~/.mnemo/config.json
-5. Handoff note created in vault
+4. Cross-runtime recall? → [1] No (default)
+5. Config saved to ~/.mnemo/config.json
+6. Handoff note created in vault
 
 Your skills:
   /mn:health    — vault audit & analytics
@@ -55,9 +57,20 @@ Try: /mn:health
     "moc": { "prefix": "MOC — ", "tag": "moc" }
   },
   "links_section": "## Связи",
-  "handoff_note": "Meta — Session Handoff"
+  "handoff_note": "Meta — Session Handoff",
+  "recall": {
+    "codeGraph": null,
+    "runtimeMemory": {
+      "enabled": false,
+      "globalSources": "explicit",
+      "maxHits": 5,
+      "maxExcerptBytes": 12288
+    }
+  }
 }
 ```
+
+Cross-runtime recall is off by default. Turning it on does not synchronize files: `ask` performs a bounded read-only lookup only after proving the same git repository. Global Claude topic files remain per-query explicit.
 
 ## Optional: Memory Cascade
 

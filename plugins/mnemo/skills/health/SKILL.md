@@ -40,6 +40,18 @@ Script emits three lines: `version: X`, `stale: N`, `path: ...`. Interpret:
 - `version < 12` → warn: "claude-mem v{version} is behind v12 — you're missing file-read gate, tier routing, and knowledge agents. Run `/plugin update claude-mem`."
 - Empty path → claude-mem not installed. Skip the section entirely.
 
+### Step 0.5: Cross-runtime Recall Status (conditional, read-only)
+
+When `recall.runtimeMemory.enabled` is `true`, report whether the other runtime's project memory can be mapped safely. Run only the helper's metadata-projection status probe: it decodes and retains project/scope metadata only (bounded raw bytes may be streamed past to locate later headers), and it never returns or summarizes counterpart body content during a health audit:
+
+```bash
+python3 "<mnemo-root>/scripts/runtime-memory.py" status <<'JSON'
+{"runtime":"{claude|codex}"}
+JSON
+```
+
+Pass the active runtime. `available` means the helper proved an exact same-repository mapping; `unavailable` is not corruption and must not trigger repair, copying, broad scans, or claude-mem startup. Omit the report line when the feature is disabled.
+
 ### Step 1: Orphan Detection
 
 ```bash
@@ -185,6 +197,7 @@ These are **suggestions, never auto-created** (same non-destructive stance as th
 📊 Vault Health Report ({date})
 
 ⚠️ claude-mem: {warning or "v12.3.9, clean"}
+🔄 Cross-runtime recall: {Claude memory available | Codex memory available | enabled, counterpart unavailable ({reason})}
 
 Total: {N} notes
   Atoms: {N} | Molecules: {N} | Sources: {N}
@@ -231,11 +244,11 @@ Total: {N} notes
 
 Omit the `🔬 Content lint` block entirely when `review.lint.enabled` is false. Omit the `🌱 Research-gap candidates` block when Step 8.5 found nothing. The still-valid line above shows the default (`autoStampReviewed: true` — the note was stamped); with `autoStampReviewed: false` render it as `→ still-valid (recommend reviewed: {today})` instead, since nothing was written.
 
-Both Claude-specific lines are conditional: skip the `⚠️ claude-mem` line if Step 0 found nothing to warn about, and omit **both** it and the `🧠 Claude memory/ index` line entirely in Codex.
+Both Claude-specific lines are conditional: skip the `⚠️ claude-mem` line if Step 0 found nothing to warn about, and omit **both** it and the `🧠 Claude memory/ index` line entirely in Codex. The `🔄 Cross-runtime recall` line is runtime-neutral and appears only when Step 0.5 says the opt-in feature is enabled.
 
 ### Step 10: Claude memory/ index health (autodream check)
 
-**Claude Code only.** In Codex, skip this step and omit its report line; never scan `~/.claude/projects/` as a proxy for Codex memory. Codex local memory lives under `~/.codex/memories/`, is not governed by Claude's auto-memory truncation behavior, and is outside this health audit.
+**Claude Code only.** In Codex, skip this step and omit its report line; never scan `~/.claude/projects/` broadly as a proxy for Codex memory. Step 0.5 may verify one exact counterpart mapping without reading memory content, but Codex local memory lives under `~/.codex/memories/`, is not governed by Claude's auto-memory truncation behavior, and remains outside this size audit.
 
 In Claude Code, separate from the Obsidian vault, an **always-loaded** index lives at `memory/MEMORY.md`. Claude Code auto-memory **hard-truncates this index at ~24.4 KB on load** — beyond that, trailing rows silently vanish from Claude's context. So warn *early* (before the cliff), not at some lax size. Threshold is configurable via `config.json` → `memory.indexWarnKB` (default **22**):
 
@@ -259,6 +272,7 @@ Common failures in `<mnemo-root>/references/gotchas.md`. Skill-specific rules:
 - Ghost notes (unresolved wikilinks) are a **feature**, not a bug — they enable entity discovery. Don't flag on raw count; instead surface the **top targets** (Step 2 eval) — frequent ones = missing hub notes (actionable).
 - **CLI graph queries cache & can lie** — `orphans`/`unresolved`/`backlinks` lag writes and have shown a note as resolved AND broken at once. For critical checks use `obsidian eval` on `metadataCache` (see `<mnemo-root>/references/gotchas.md`). Treat counts as advisory if notes were created this session.
 - **Do not auto-fix anything** — only report. User decides what to clean up. The **one** exception is `review.lint.autoStampReviewed` (default **true**): it lets the content-lint stamp `reviewed: {today}` on a **still-valid** note (Step 7.5) to close the snooze loop. That is the sole frontmatter write health can make — only the `reviewed:` field of a confirmed-valid note, never content, never anything else. It fires **only when the content lint itself is enabled** (`review.lint.enabled`, default **false**), so a default install still writes nothing; set `autoStampReviewed: false` to keep the lint suggest-only.
+- **Counterpart unavailable is informational** — Step 0.5 is a bounded status probe, not a repair trigger. Never infer another project, start a daemon, create a symlink, or copy runtime memory to make it pass.
 - Step 5 uses filesystem grep (~3600x faster than per-file reads — 49ms vs 180s on a 999-note vault) — safe on any vault size.
 - **Review candidates (Step 7) are temporal, not structural** — don't conflate with orphans. A note can be both, either, or neither. The script is age-only by design (cheap, no graph dependency).
 - **Content-lint verdicts (Step 7.5) are triage-grade** — time-based staleness is a *proxy*, not the signal (a 6-month-old note may be perfectly valid; "not read ≠ not valuable"). On `haiku` especially, contradiction/update calls have false positives. Surface them as questions, never as facts, and never act on them automatically. The whole point of `reviewed:` is to let a quick human confirm and silence a false flag.
