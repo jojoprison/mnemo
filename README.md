@@ -285,7 +285,7 @@ mnemo/
 │   ├── scripts/                     # Shell & Python helpers
 │   │   ├── safe-read.py             # argv-safe dynamic reads/index queries (no shell interpolation)
 │   │   ├── cache_utils.py           # private atomic helper caches (0700/0600)
-│   │   ├── claude-mem-save.py        # shell-safe optional claude-mem HTTP adapter
+│   │   ├── claude-mem-save.py       # shell-safe optional claude-mem HTTP adapter
 │   │   ├── session-scan.py          # JSONL parser (Claude + Codex) with incremental cache
 │   │   ├── skills-discover.py       # Auto-discovery across Claude/Codex skill paths
 │   │   ├── review-candidates.py     # type-aware staleness scan for /mn:health
