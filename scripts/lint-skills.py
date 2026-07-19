@@ -289,6 +289,12 @@ def check_mnemo_contract() -> list[str]:
 
     hooks_path = os.path.join(plugin_dir, "hooks", "hooks.json")
     hooks = load_json(hooks_path)
+    unexpected_hook_keys = sorted(set(hooks) - {"hooks"})
+    if unexpected_hook_keys:
+        issues.append(
+            "shared hooks manifest must keep a legacy-compatible top level; "
+            f"unexpected keys: {', '.join(unexpected_hook_keys)}"
+        )
     hook_commands = command_hook_commands(hooks)
     if not hook_commands:
         issues.append("shared hooks manifest must define command hooks")

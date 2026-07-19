@@ -1,5 +1,4 @@
 {
-  "description": "mnemo hooks — prewarm caches + proactive memory nudges",
   "hooks": {
     "SessionStart": [
       {

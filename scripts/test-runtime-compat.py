@@ -369,6 +369,7 @@ class SkillLintTests(unittest.TestCase):
 
     def test_shared_hook_manifest_has_no_unsupported_async_handlers(self) -> None:
         hooks = json.loads((REPO_ROOT / "plugins/mnemo/hooks/hooks.json").read_text())
+        self.assertEqual(set(hooks), {"hooks"})
         for groups in hooks["hooks"].values():
             for group in groups:
                 for handler in group.get("hooks", []):

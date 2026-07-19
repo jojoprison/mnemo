@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-07-19
+
+### Fixed
+
+- **Backward-compatible Codex hook discovery** — removed optional top-level metadata from the shared `hooks/hooks.json`, so older Codex plugin parsers that accept only the `hooks` object load mnemo's lifecycle hooks without an `unknown field` startup error. Current Codex and Claude Code use the same hook definitions and behavior as before.
+
 ## [1.2.0] - 2026-07-19
 
 ### Added
@@ -828,7 +834,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/jojoprison/mnemo/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/jojoprison/mnemo/compare/v1.1.11...v1.2.0
 [1.1.11]: https://github.com/jojoprison/mnemo/compare/v1.1.10...v1.1.11
 [1.1.10]: https://github.com/jojoprison/mnemo/compare/v1.1.9...v1.1.10
