@@ -1,0 +1,4 @@
+interface:
+  display_name: "mn:session"
+  short_description: "Write a durable session note and handoff"
+  default_prompt: "Use $mnemo:session to capture this completed work as a session note."

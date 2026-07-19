@@ -1,0 +1,4 @@
+interface:
+  display_name: "mn:review"
+  short_description: "Review the session and propose memory actions"
+  default_prompt: "Use $mnemo:review to audit this session and propose the right closing actions."

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SessionStart nudge — remind the agent that mnemo memory exists, so it reaches for
-# /mn:ask and /mn:save on its own initiative rather than only on an explicit command.
+# the ask and save skills on its own initiative rather than only on an explicit command.
 #
 # Deterministic DELIVERY (a hook always fires) ≠ deterministic EFFECT (the model still
 # decides whether to call the skill). This is a short, factual nudge — not an order.
@@ -10,11 +10,27 @@
 set -u
 
 CONFIG="${HOME}/.mnemo/config.json"
-silent() { echo '{"continue":true,"suppressOutput":true}'; exit 0; }
+is_codex_runtime() {
+  [ -n "${PLUGIN_ROOT:-}${CODEX_THREAD_ID:-}${CODEX_SESSION_ID:-}" ]
+}
+silent() {
+  if is_codex_runtime; then
+    echo '{"continue":true}'
+  else
+    echo '{"continue":true,"suppressOutput":true}'
+  fi
+  exit 0
+}
 
 [ -f "$CONFIG" ] || silent
 
-OUT=$(python3 - "$CONFIG" <<'PY' 2>/dev/null
+if is_codex_runtime; then
+  RUNTIME="codex"
+else
+  RUNTIME="claude"
+fi
+
+OUT=$(python3 - "$CONFIG" "$RUNTIME" <<'PY' 2>/dev/null
 import json, sys
 try:
     cfg = json.load(open(sys.argv[1]))
@@ -26,14 +42,23 @@ if cfg.get("hooks", {}).get("sessionStartNudge", True) is False:
 vault = cfg.get("vault", "")
 if not vault:
     sys.exit(1)
+is_codex = sys.argv[2] == "codex"
+ask = "$mnemo:ask" if is_codex else "/mn:ask"
+save = "$mnemo:save" if is_codex else "/mn:save"
 msg = (
     f"mnemo memory is set up here (vault: {vault}). Reach for it on your own initiative, "
-    "not only when asked: before non-trivial work, recall prior context with /mn:ask "
+    f"not only when asked: before non-trivial work, recall prior context with {ask} "
     "(especially before re-fixing a recurring bug or touching an unfamiliar area); "
-    "capture findings, decisions, and gotchas as they happen with /mn:save so a future "
+    f"capture findings, decisions, and gotchas as they happen with {save} so a future "
     "session doesn't relearn them."
 )
-print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": msg}}, ensure_ascii=False))
+payload = {
+    "hookSpecificOutput": {
+        "hookEventName": "SessionStart",
+        "additionalContext": msg,
+    }
+}
+print(json.dumps(payload, ensure_ascii=False))
 PY
 )
 

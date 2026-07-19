@@ -13,7 +13,7 @@ valid). The threshold is, in precedence order:
   1. per-note `ttl: <days>` in frontmatter (dosu-style soft contract), else
   2. `review.staleDays.<type>` from ~/.mnemo/config.json, else
   3. `review.staleDays.default` (or a bare integer `review.staleDays`), else
-  4. 30 (matches the legacy hardcoded vault-health behavior).
+  4. 30 (matches the legacy hardcoded health behavior).
 
 A note with `reviewed` newer than `today - threshold` is NOT a candidate —
 that is the guilt-debt fix: confirming a note resets its clock instead of it

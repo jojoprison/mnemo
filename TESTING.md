@@ -1,15 +1,36 @@
-# Testing — mnemo smoke tests (current: v1.1.3)
+# Testing — mnemo smoke tests (current: v1.2.0)
 
-Manual smoke tests for mnemo (the project has no automated test suite — these are the regression harness). Run after `/plugin update mnemo@mnemo` or `codex plugin install mnemo@mnemo`. Two layers below: the **6 per-skill checks** (version-agnostic — do the skills still behave) and the **"What changed in vX" feature checks** (grouped by the release that introduced each behavior — run the ones relevant to what you updated through).
+mnemo has an automated structural/runtime regression gate plus manual end-to-end smoke tests. Run the automated gate after every skill, manifest, hook, or helper change; run the relevant manual checks after `/plugin update mnemo@mnemo` or `codex plugin add mnemo@mnemo`.
+
+## Automated gate
+
+```bash
+python3 scripts/lint-skills.py
+python3 scripts/test-runtime-compat.py
+python3 scripts/test-handoff-archive.py
+claude plugin validate plugins/mnemo --strict
+python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
+```
+
+The first three commands are repository-owned regression tests. The last two are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. All five must pass before release.
+
+The manual suite below has two layers: the **6 per-skill checks** (version-agnostic — do the workflows still behave?) and the **"What changed in vX" feature checks** (run the groups relevant to your change).
 
 ## Status
 
 - **Last full per-skill pass:** v0.7.3 — 7/7 clean on 2026-04-24 (large opus-4-7[1m] session; universal red flag never fired; two claude-mem v12.3.9 API bugs found in Check #4, patched in v0.7.4).
 - **Feature checks v0.10–v0.14** added 2026-06-21 (this is the checklist; not yet run end-to-end on a fresh install). The v0.14.0 write-path check (V3) is the highest priority — it is the first frontmatter write `/mn:health` can make.
 
+## What changed in v1.2.0 — canonical dual-runtime surface
+
+- **R1 — exact inventory.** Claude Code discovers exactly `/mn:ask`, `/mn:save`, `/mn:session`, `/mn:review`, `/mn:connect`, `/mn:setup`, and `/mn:health`; Codex discovers exactly the corresponding `$mnemo:*` IDs with `mn:*` picker labels. No command routers or compatibility aliases appear.
+- **R2 — one implementation each.** Every runtime resolves the same seven `skills/<name>/SKILL.md` bodies. Claude-only presentation comes from its `mn` manifest namespace; Codex-only presentation comes from `agents/openai.yaml`, never copied workflow text.
+- **R3 — runtime hooks.** In fresh Claude and Codex sessions, SessionStart injects the runtime-native ask/save nudge, synchronous prewarm does not block startup, and the opt-in Stop nudge blocks at most once with the correct native invocation syntax.
+- **R4 — safe degradation.** With claude-mem disabled or fully absent, both runtimes continue through Obsidian and their own local-memory fallback without starting or repairing claude-mem. Dynamic vault values remain JSON/argv data, and handoff/archive paths cannot escape the resolved vault.
+
 ## What changed in v0.7.3
 
-Model routing was rewritten to prevent mid-session model switches from triggering `API Error: Extra usage is required for 1M context` on Max plans. Four skills now run in isolated forked subagents (`context: fork` + `haiku` or `sonnet`); the remaining four inherit the session model (`model: inherit`). See [CHANGELOG](./CHANGELOG.md#073---2026-04-24).
+Model routing was rewritten to prevent mid-session model switches from triggering `API Error: Extra usage is required for 1M context` on Max plans. Three current skills run in isolated forked subagents (`context: fork` + `haiku` or `sonnet`); the remaining four inherit the session model (`model: inherit`). See [CHANGELOG](./CHANGELOG.md#073---2026-04-24).
 
 ## What changed in v0.7.4
 
@@ -41,43 +62,39 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 
 - **V4 — actionable rule → `.claude/rules/` (the new write path).** In a git project that has a `.claude/rules/` dir, run `/mn:save` with a rule phrased as never-X/always-Y tied to a file (e.g. "after touching `auth.py`, always validate the token first"). Assert the rule is **appended to — or created as — a `.claude/rules/<domain>.md`** whose `paths:` covers that file, and is **NOT** written to `memory/`, Obsidian, or CLAUDE.md (one kind → one home). Read the file back: valid YAML frontmatter, `paths:` present, rule under a sensible section. In a project with **no** `.claude/rules/` dir, the same save must **create the dir + file** (create-if-absent), not silently fall back to CLAUDE.md.
 - **V5 — recall item is untouched by the rule path.** Run `/mn:save "we decided X because Y"` (a recall decision). Assert the report shows `3.5 .claude/rules ⏭ skipped (recall item)` and the item lands in Obsidian/`memory/` as before — the rule branch must NOT fire for recall.
-- **V6 — `cascade.project_rules` toggle + `/mn:review` confirmation.** With `cascade.project_rules.enabled: false`, a rule save falls back to CLAUDE.md/`memory/` and leaves `.claude/rules/` untouched. With it on (default), run `/mn:review` after a session that learned a rule: the orchestrator must **surface the rule for y/n in Step 8** (not write the committed project file unattended); accepting delegates the write to memory-routing Step 3.5 (single code path).
+- **V6 — `cascade.project_rules` toggle + `/mn:review` confirmation.** With `cascade.project_rules.enabled: false`, a rule save falls back to CLAUDE.md/`memory/` and leaves `.claude/rules/` untouched. With it on (default), run `/mn:review` after a session that learned a rule: the orchestrator must **surface the rule for y/n in Step 8** (not write the committed project file unattended); accepting delegates the write to save Step 3.5 (single code path).
 
-## What changed in v1.1.0 — proactive descriptions + hidden aliases
+## Proactive description checks — introduced in v1.1.0, current surface in v1.2.0
 
-- **V7 — aliases hidden from the model.** After `/plugin update`, check the skill listing (or `/doctor`): the 8 alias skills (`mnemo:mn-*`, `mnemo:mnemo-mn-*`) must NOT appear in the model's skill listing (`disable-model-invocation: true`), and there's no duplicate `/mn:ask` in `/`-autocomplete. Users still invoke `/mn:*` via the commands; the 7 canonical skills show their new proactive descriptions.
-- **V8 — references resolve.** Trigger a skill that points at a reference (e.g. `/mn:ask` → gotchas). Paths are `${CLAUDE_PLUGIN_ROOT}/references/…` — the model can Read them (no bare `references/…` that fails from cwd).
+- **V7 — one canonical surface.** After loading the current plugin, Claude Code lists exactly seven `/mn:*` skills and Codex lists exactly seven `mn:*` UI labels backed by `$mnemo:*` IDs. There are no `commands/`, alias skills, `/mnemo:*`, or `/mnemo:mn:*` duplicates.
+- **V8 — references resolve portably.** Trigger a skill that points at a shared reference or script. `<mnemo-root>` must resolve from the loaded `SKILL.md` path in Codex and from `${CLAUDE_PLUGIN_ROOT}` in Claude Code; no versioned cache hunting and no literal `<mnemo-root>` may reach a shell.
 
 ## What changed in v1.1.1 — proactive hooks + agent-initiated bodies
 
 - **V9 — SessionStart nudge (`hooks/mnemo-context.sh`).** With a configured vault, a new session's context includes the one-line mnemo nudge. Direct smoke: `bash hooks/mnemo-context.sh` → prints `hookSpecificOutput.additionalContext`; `HOME=/tmp/empty bash …` → `{"continue":true,"suppressOutput":true}` (silent unconfigured); `hooks.sessionStartNudge:false` → silent. **(smoke-passed 2026-07-05)**
 - **V10 — Stop nudge governor (`hooks/mnemo-stop-nudge.sh`, opt-in).** Default (`hooks.stopNudge` absent/false) → always `pass`, never blocks. With `hooks.stopNudge:true` + stdin `{"session_id":"x","transcript_path":"<file>"}` and ≥3 fix/decision signals: **neither** `mn:save` nor `mn:session` in the transcript → `block` listing both ONCE; **only** `mn:save` present → `block` listing `/mn:session`; **only** `mn:session` present → `block` listing `/mn:save`; **both** present → `pass`; second call same session_id → `pass` (anti-loop); <3 signals → `pass`. **(smoke-passed 2026-07-05 — save+session tracking; earlier caught + fixed a `grep -c` double-zero bug)**
 - **V11 — agent-initiated recall (`/mn:ask` body).** Invoked proactively (not by the user), Step 1 derives the query from the task and does NOT ask "what would you like to find". Nothing found → one line, back to work; a topic is recalled at most once per session.
-- **V12 — worth-saving gate (`/mn:save` body).** Proactive save of trivial/routine content → NOOP ("nothing worth persisting"). Content with a secret → masked `<REDACTED>`. New note created → offers `/mn:connect` (does not auto-run).
+- **V12 — worth-saving gate (`/mn:save` body).** Proactive save of trivial/routine content → NOOP ("nothing worth persisting"). Content with a secret → masked `<REDACTED>`. An explicit user save that creates a note offers `/mn:connect`; a proactive mid-task save delegates to connect immediately, but connect still never applies links without confirmation.
 
-**Measured — trigger-eval (2026-07-05):** 12-prompt routing eval (6 proactive positives + 6 near-miss negatives) → **12/12** correct (recall 6/6, specificity 6/6) at the simulated-routing level; near-miss traps on shared words (`сохрани`/`здоровье`/`свяжись`/`поищи`) all held. Caveat: simulation of agent routing judgment, not a live CC trigger; n=1 per case. Follow-up (non-blocking): widen to ~5/skill + memory-routing↔council and vault-search↔vault-health boundary cases.
+**Measured — trigger-eval (2026-07-05):** 12-prompt routing eval (6 proactive positives + 6 near-miss negatives) → **12/12** correct (recall 6/6, specificity 6/6) at the simulated-routing level; near-miss traps on shared words (`сохрани`/`здоровье`/`свяжись`/`поищи`) all held. Caveat: simulation of agent routing judgment, not a live CC trigger; n=1 per case. Follow-up (non-blocking): widen to ~5/skill + save↔council and ask↔health boundary cases.
 
 ## What changed in v1.1.2 / v1.1.3 — Stop-nudge scope + review triggers
 
 - **V13 — Stop nudge tracks `/mn:session` too (v1.1.2).** Covered by V10 above: with `hooks.stopNudge:true` and worth-saving signals, the nudge now blocks on either missing `/mn:save` **or** `/mn:session` (both present → silent).
-- **V14 — `/mn:review` trigger phrasings (v1.1.3).** The `session-review` description now fires on `'что ещё осталось'` / `'что ещё тут осталось'` in addition to `'что осталось'`. Type one mid-session → the orchestrator should engage.
+- **V14 — `/mn:review` trigger phrasings (v1.1.3).** The `review` description now fires on `'что ещё осталось'` / `'что ещё тут осталось'` in addition to `'что осталось'`. Type one mid-session → the orchestrator should engage.
 
 ## What changed in v1.1.11 — handoff-archive corruption fix + first automated tests
 
-- **V15 — automated regression suite (v1.1.11).** `python3 scripts/test-handoff-archive.py` → 3 tests OK. This is the fastest check for the whole class: doc-header survival, zero glued `## date## date` headers, archive-append normalization, idempotent repeated runs.
+- **V15 — automated regression suite.** `python3 scripts/test-handoff-archive.py` → 5 tests OK. This is the fastest check for the whole class: doc-header survival, zero glued `## date## date` headers, archive-append normalization, idempotent repeated runs, and vault containment for handoff/archive paths.
 - **V16 — live handoff integrity after `/mn:session` (v1.1.11).** After a session where the size-guard actually archived blocks: the handoff still starts with its original header (frontmatter/guard, exactly one `SIZE-GUARD` line), `grep -c 'research##'`-style glued headers = 0, and the archive gained each cold block exactly once (no duplicate stray headers accumulating run-over-run).
 
 ## Prerequisites
 
 - **Obsidian running**, vault `main` (or whatever is in `~/.mnemo/config.json`)
-- **Plugin updated to v0.15.0** in the current session:
+- **Plugin updated to the current manifest version** in a fresh runtime session:
   ```
-  /plugin update mnemo
-  ```
-  Verify:
-  ```bash
-  ls ~/.claude/plugins/cache/mnemo/mnemo/ ~/.claude/plugins/cache/claude-mnemo/mnemo/ 2>/dev/null
-  # expected: 0.14.0 (older version dirs can be deleted once confirmed working). Source of truth: ~/.claude/plugins/installed_plugins.json
+  claude plugin update mnemo@mnemo
+  codex plugin add mnemo@mnemo
   ```
 - **claude-mem plugin optional**. If `cascade.claude_mem.enabled=false`, `/mn:health` Step 0 and `/mn:save` claude-mem POST should skip silently.
 
@@ -90,13 +107,13 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 ```
 
 **Expect:**
-- **Step 0 respects claude-mem config** — if `cascade.claude_mem.enabled=false`, it skips silently; if enabled, it surfaces version/stale-cache state.
+- **Step 0 is Claude-only and respects claude-mem config** — Codex never scans `~/.claude/`; in Claude, disabled means a silent skip and enabled surfaces version/stale-cache state.
 - **Steps 1-4 execute in parallel** (you'll see 4 Bash tool calls in a single assistant message).
-- **Step 5 is instant** (~50ms) — uses `grep -rL` against vault filesystem, not per-file `obsidian read`.
+- **Step 5 is instant** (~50ms) — uses one `safe-read.py missing-links` filesystem pass, not per-file `obsidian read`.
 - Final report shows: vault size, note counts by type, orphans, missing `## Связи`, stale notes, top hubs.
 
 **Red flags:**
-- Step 5 takes >5 seconds → `get-vault-path.sh` failed or vault filesystem scan is slow
+- Step 5 takes >5 seconds → vault-path resolution or the filesystem scan is slow
 - "claude-mem" section missing even though the plugin is installed → `check-cm-version.sh` path resolution broken
 - References to "Obsidian must be open" gotcha inline in the skill body → reference files didn't extract (shouldn't happen since linter passed, but verify)
 
@@ -110,25 +127,25 @@ Try a recall-style query you know is in your vault:
 
 **Expect:**
 - Skill triggers (pushy description changes in v0.7.1 should make this reliable).
-- Step 3 fires **multiple `obsidian search` calls in parallel** (one message, many tools).
+- Step 3 fires multiple `safe-read.py search` calls in parallel (indexed Obsidian CLI underneath, no dynamic shell interpolation).
 - Step 4 reads up to 7 notes **in parallel**.
 - Answer cites specific notes with source labels like `[Source: Session — X]`.
 
 **Red flag:** skill runs searches sequentially (one at a time) → parallelism rule didn't land.
 
-### 3. `/mn:connect` — single-grep performance
+### 3. `/mn:connect` — single-pass performance
 
 ```
 /mn:connect "Atom — mnemo ask стоит расширить knowledge-agent для глобальных вопросов"
 ```
 
 **Expect:**
-- Step 3 runs **one `grep -rlE` with all concepts OR'd** against `$(obsidian vault vault="main" | awk '/^path/{print $2}')` — not N separate `obsidian search` calls.
-- Backlinks check runs in parallel with grep (two tool calls, one message).
+- Step 3 runs **one `safe-read.py grep-concepts` literal scan** — not N separate `obsidian search` calls and not a generated regex/shell command.
+- Backlinks check runs through the helper in parallel with the scan (two tool calls, one message).
 - Total time ~1-2 seconds for 7 concepts.
 - Output: ranked list of 5-7 candidate notes with "why relevant" blurbs. Does NOT auto-apply.
 
-**Red flag:** you see 7 separate `obsidian search` calls → single-grep fix didn't land.
+**Red flag:** a vault-derived name/concept/query appears directly inside an `obsidian ...` shell command → the argv-safety contract regressed.
 
 ### 4. `/mn:save` — claude-mem metadata enrichment
 
@@ -179,11 +196,12 @@ Try a recall-style query you know is in your vault:
 After installing through Codex:
 
 ```bash
+python3 scripts/test-runtime-compat.py
 python3 plugins/mnemo/scripts/session-scan.py
-python3 plugins/mnemo/scripts/skills-discover.py | tail -5
+CODEX_CI=1 python3 plugins/mnemo/scripts/skills-discover.py
 ```
 
-Expected: both commands exit 0. `session-scan.py` should find the current Codex rollout JSONL when run inside an active Codex session, or print a graceful fallback if none exists.
+Expected: all commands exit 0. Discovery contains exactly seven mnemo IDs — `mnemo:ask`, `connect`, `health`, `review`, `save`, `session`, and `setup` — with no `mn:*`, `mnemo:mn:*`, or Claude-only skills. `session-scan.py` finds the current Codex rollout JSONL inside an active task, or prints a graceful fallback if none exists.
 
 ## CI verification (Optional — in browser)
 
@@ -192,7 +210,7 @@ Open <https://github.com/jojoprison/mnemo/actions>. Last run should show **Skill
 ## If something breaks
 
 1. Note **which skill** and **what output differed** from "Expect" above.
-2. Check cache: `ls ~/.claude/plugins/cache/mnemo/mnemo/ ~/.claude/plugins/cache/claude-mnemo/mnemo/ 2>/dev/null` — if only an old version is there, the update didn't take effect. Try `/plugin update mnemo@mnemo` again or restart Claude Code.
+2. Check the active runtime's installed plugin version. If the update did not take effect, run `claude plugin update mnemo@mnemo` or reinstall it through Codex, then start a fresh session.
 3. Check CI: if GitHub Actions is red, the linter found an issue.
 4. Open a fresh session with the same failure, tag Claude: "smoke test failed on `/mn:X`, expected Y, got Z" — we'll debug from there.
 

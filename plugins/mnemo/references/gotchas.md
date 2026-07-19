@@ -16,9 +16,9 @@ Common failure modes and their fixes. Any mnemo skill can reference this file in
 
 ## Obsidian must be open
 
-All `obsidian` CLI commands and all `mcp__obsidian__*` tools require the running Obsidian app. Skills don't probe for this on every step — they fail-fast on the first IPC call and gracefully fall back when possible (e.g., memory-routing skips Obsidian and continues to claude-mem + memory/).
+All `obsidian` CLI commands and all `mcp__obsidian__*` tools require the running Obsidian app. Skills don't probe for this on every step — they fail-fast on the first IPC call and gracefully fall back when possible (e.g., save skips Obsidian and continues to claude-mem + memory/).
 
-If a skill is supposed to only write (not search/read), check whether it can proceed offline: `memory-routing` and `save`-flavored skills degrade gracefully, search/connect/health skills can't.
+If a skill is supposed to only write (not search/read), check whether it can proceed offline: `save` and `save`-flavored skills degrade gracefully, search/connect/health skills can't.
 
 ## `/plugin update` — stale Stop hooks
 
@@ -38,36 +38,34 @@ ls ~/.claude/plugins/cache/thedotmack/claude-mem/
 # Should be ONE folder = current version. Multiple folders = restart windows.
 ```
 
-## Shell injection via `obsidian create content="..."`
+## Shell injection via dynamic Obsidian CLI arguments
 
-**Don't** pass markdown with code blocks through `obsidian create content="..."` or `obsidian append content="..."` from Bash. zsh expands backticks and `$(...)` inside double-quoted strings — a real 2026-04-21 incident accidentally ran `make deploy-back` on production because a session note contained a bash code block.
+**Don't** pass generated markdown through `obsidian create content="..."` or `obsidian append content="..."` from Bash. Also don't paste a vault-derived note name, query, concept, prefix, or path into a read/index command. zsh expands backticks, `$()`, and variables inside generated double-quoted literals; a generated `"` can close the argument and expose shell separators. A real 2026-04-21 incident accidentally ran `make deploy-back` on production because a session note contained a bash code block.
 
 **Use instead:**
 - `mcp__obsidian__create(path=..., file_text=...)` — content passes as JSON, shell uninvolved
 - `mcp__obsidian__str_replace` / `mcp__obsidian__insert` for edits
+- `<mnemo-root>/scripts/safe-read.py ACTION <<'JSON' ... JSON` for dynamic reads/index queries — strict action allowlist + argv (`shell=False`) + safe JS literals
 
-**Safe CLI uses:** `obsidian search`, `obsidian read`, `obsidian orphans`, `obsidian backlinks`, `obsidian tags`, `obsidian vault`, plain-wikilink appends with no backticks.
+**Direct CLI is safe only when the entire command is a static, human-authored literal.** Canonical skills use `safe-read.py` even for `search`, `read`, `orphans`, `backlinks`, `tags`, and `vault`, because their vault/query/note arguments are dynamic. Generated wikilink appends still go through MCP.
 
 ## claude-mem worker not responding on 127.0.0.1:37777
 
-`memory-routing` pings the local claude-mem worker when saving observations. If the port doesn't respond:
+`save` pings the local claude-mem worker when saving observations. If the port doesn't respond:
 
 - **Most common cause:** claude-mem plugin isn't installed, or worker hasn't started yet after session boot (takes 5-10s).
 - **Less common:** port collision. Reserved port per global CLAUDE.md — another process shouldn't be on 37777.
 
 **Skill behavior:** log `⚠️ claude-mem: skipped (port 37777 not responding)` and continue with the other backends. Never fail the whole save.
 
-## memory/ is NOT `./memory/`
+## Runtime memory is NOT `./memory/`
 
-`memory-routing` writes Claude-facing memory files. The target directory is:
+`save` writes agent-facing memory files to the active runtime's user store:
 
-```
-~/.claude/projects/-{slugified-cwd}/memory/
-```
+- Claude Code: `~/.claude/projects/-{slugified-cwd}/memory/`
+- Codex: `~/.codex/memories/`
 
-**Never** write to `./memory/` in the project root — that puts auto-memory files into git.
-
-Find the correct slug from the `MEMORY.md` path already loaded in the conversation context, or slugify the cwd (`/` → `-`, leading `-` kept).
+**Never** write to `./memory/` in the project root — that puts agent memory files into git. In Claude Code, find the correct slug from the `MEMORY.md` path already loaded in context, or slugify the cwd (`/` → `-`, leading `-` kept). In Codex, use its fixed memories directory.
 
 ## "Unable to connect" specifically on `mcp__obsidian__*` calls
 
@@ -80,14 +78,18 @@ Same root cause as CLI IPC hung — restart Obsidian. MCP and CLI share the same
 **Authoritative check — `obsidian eval` on `metadataCache`:**
 
 ```bash
-# Top broken (unresolved) targets — candidates for missing hub notes:
-obsidian eval code="(()=>{const u=app.metadataCache.unresolvedLinks;const f={};Object.values(u).forEach(l=>Object.keys(l).forEach(t=>f[t]=(f[t]||0)+1));return JSON.stringify(Object.entries(f).sort((a,b)=>b[1]-a[1]).slice(0,10));})()" vault="main"
+# Top broken targets:
+python3 "<mnemo-root>/scripts/safe-read.py" top-unresolved <<'JSON'
+{"vault":"main"}
+JSON
 
-# Real backlink count for one note (does [[X]] actually resolve to it?):
-obsidian eval code="(()=>{let n=0;for(const f of app.vault.getMarkdownFiles()){const rl=app.metadataCache.resolvedLinks[f.path]||{};for(const k in rl)if(k.endsWith('TARGET.md'))n++;}return n;})()" vault="main"
+# Real backlink count for one note:
+python3 "<mnemo-root>/scripts/safe-read.py" resolved-backlink-count <<'JSON'
+{"target":"TARGET.md","vault":"main"}
+JSON
 ```
 
-Treat CLI graph counts as **advisory** if notes were created/edited in the same session. `vault-health` and `session-review` should prefer `eval` for critical resolution checks.
+Treat CLI graph counts as **advisory** if notes were created/edited in the same session. `health` and `review` should prefer `eval` for critical resolution checks.
 
 ## Forbidden chars in note names (`#` `.` `/`)
 

@@ -1,4 +1,4 @@
-# mnemo:session — Session Notes + Cross-Session Handoff
+# mn:session — Session Notes + Cross-Session Handoff
 
 ## Overview
 
@@ -63,6 +63,6 @@ When the next session starts, it reads `Meta — Session Handoff`:
 
 ## Related Skills
 
-- `/mn:review` — often runs session as part of its execution chain
+- `/mn:review` — recommends session when significant work lacks a note, then waits for confirmation
 - `/mn:health` — verify session note isn't an orphan
 - `/mn:connect` — discover connections for the new session note

@@ -1,0 +1,4 @@
+interface:
+  display_name: "mn:health"
+  short_description: "Audit vault links, staleness, and structure"
+  default_prompt: "Use $mnemo:health to audit the configured vault and report maintenance needs."

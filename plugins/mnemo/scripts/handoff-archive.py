@@ -16,14 +16,19 @@ archive + header pointer), applied to a prose log instead of a table index.
 
 Safety:
 - Dry-run by default; pass --execute to apply.
+- Handoff and archive names must resolve to distinct, non-symlinked files inside
+  the declared vault; traversal and absolute-path escapes fail before any write.
 - No-op when the handoff is at/under --max-kb (safe to call every /mn:session).
 - NEVER archives a block that has an open `- [ ]` (verified before writing; aborts
   with exit 2 if that invariant is somehow violated).
 - Verbatim cut-paste (no rewriting) + timestamped backup = one-command undo.
 
 Usage:
-  handoff-archive.py --vault-path "$(get-vault-path.sh <vault>)" \
-      --handoff "Meta — Session Handoff" [--max-kb 40] [--keep-days 14] [--execute]
+  safe-read.py handoff-archive < quoted-payload.json
+
+Direct trusted-path use remains available:
+  handoff-archive.py --vault-path /absolute/vault/path \
+    --handoff "Meta — Session Handoff" [--max-kb 40] [--keep-days 14] [--execute]
 
 Exit codes: 0 = ok (or no-op), 2 = safety abort / bad input.
 """
@@ -33,6 +38,7 @@ import os
 import re
 import shutil
 import sys
+from pathlib import Path
 
 DATE_HEADER = re.compile(r'^## (\d{4}-\d{2}-\d{2})')
 OPEN_TODO = re.compile(r'\[ \]')
@@ -46,6 +52,24 @@ HEADER_PENDING = re.compile(
     re.IGNORECASE,
 )
 GUARD_MARK = 'SIZE-GUARD'
+
+
+def note_path(vault_root, name):
+    """Resolve one extensionless note name beneath vault_root, rejecting escapes."""
+    if not isinstance(name, str) or not name or '\0' in name or name.endswith('.md'):
+        raise ValueError('note names must be non-empty, NUL-free, and omit .md')
+    root = Path(vault_root).expanduser().resolve()
+    if not root.is_dir():
+        raise ValueError(f'vault path is not a directory: {root}')
+    lexical = root / f'{name}.md'
+    if lexical.is_symlink():
+        raise ValueError(f'note path must not be a symlink: {name}')
+    resolved = lexical.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise ValueError(f'note escapes vault path: {name}') from exc
+    return resolved
 
 
 def parse(text):
@@ -93,9 +117,16 @@ def main(argv=None):
     ap.add_argument('--execute', action='store_true', help='apply changes; otherwise dry-run')
     a = ap.parse_args(argv)
 
-    handoff_path = os.path.join(a.vault_path, a.handoff + '.md')
     archive_name = a.archive or (a.handoff + ' Archive')
-    archive_path = os.path.join(a.vault_path, archive_name + '.md')
+    try:
+        handoff_path = note_path(a.vault_path, a.handoff)
+        archive_path = note_path(a.vault_path, archive_name)
+    except ValueError as exc:
+        print(f'bad note path: {exc}', file=sys.stderr)
+        return 2
+    if handoff_path == archive_path:
+        print('bad note path: handoff and archive must be different notes', file=sys.stderr)
+        return 2
 
     if not os.path.isfile(handoff_path):
         print(f'no-op: handoff not found ({handoff_path})')
@@ -146,7 +177,8 @@ def main(argv=None):
 
     # --- apply (reversible) ---
     stamp = today.isoformat()
-    shutil.copy2(handoff_path, handoff_path + f'.bak-{stamp}')
+    backup_path = handoff_path.with_name(handoff_path.name + f'.bak-{stamp}')
+    shutil.copy2(handoff_path, backup_path)
 
     new_header = header
     if GUARD_MARK not in header:
@@ -176,7 +208,7 @@ def main(argv=None):
         open(archive_path, 'w', encoding='utf-8').write(a_hdr + joined(cold))
 
     print(f'archived {len(cold)} blocks -> {archive_name} | handoff now {os.path.getsize(handoff_path) / 1024:.0f}KB '
-          f'| backup {os.path.basename(handoff_path)}.bak-{stamp}')
+          f'| backup {backup_path.name}')
     return 0
 
 

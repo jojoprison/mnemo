@@ -1,6 +1,6 @@
 # mnemo config.json schema
 
-Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install. All other skills read it at runtime.
+Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All other skills read it at runtime.
 
 ## Minimal required fields
 
@@ -76,7 +76,7 @@ Path: `~/.mnemo/config.json`. Created by `initial-setup` skill on first install.
 }
 ```
 
-The whole `review` section is **optional** — if absent, `vault-health` falls back to a uniform 30-day staleness threshold (the legacy behavior) and the content-lint pass stays off. Add it only when you want type-aware cadence or the LLM lint.
+The whole `review` section is **optional** — if absent, `health` falls back to a uniform 30-day staleness threshold (the legacy behavior) and the content-lint pass stays off. Add it only when you want type-aware cadence or the LLM lint.
 
 The `recall` section is optional and ships off. `recall.codeGraph` (default `null`) is a seam for `/mn:ask` Step 4c: set it to a code-knowledge-graph backend you have installed — `"graphify"` (reads its `graph.json` / `GRAPH_REPORT.md`) or an MCP server (`"sourcegraph"` / `"ast-grep"` / `"tree-sitter-analyzer"`) — and recall gains structural "what's where" context. With no backend it's a no-op. (The project-repo **git-log** grounding in Step 4c runs regardless whenever `/mn:ask` is invoked inside a git project — it needs no config.)
 
@@ -89,23 +89,23 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `taxonomy.{type}.tag` | Frontmatter tag for each note type | save, health |
 | `links_section` | Heading used for cross-references (`## Связи` / `## Links`) | All skills |
 | `handoff_note` | Cross-session continuity file name | session, setup |
-| `cascade.obsidian.enabled` | Skip Obsidian writes if false | memory-routing |
-| `cascade.claude_mem.enabled` | Enable optional claude-mem POSTs; keep false if claude-mem is disabled for CPU/RAM reasons | memory-routing |
-| `cascade.claude_mem.url` | claude-mem worker URL (default port 37777) | memory-routing |
-| `cascade.memory_dir.enabled` | Skip memory/ writes if false | memory-routing |
-| `cascade.project_rules.enabled` | Route an **actionable path-scoped rule** (a "never X / always Y" lesson tied to code) into `.claude/rules/<domain>.md` (project) or `~/.claude/rules/` (cross-project) so it **auto-injects** when a future agent touches the matching files — Claude Code's native path-scoped rules. Fires only for actionable-rule saves (recall items are untouched); creates the file/dir when none matches. Default **true**. Set false to keep rules out of the cascade | memory-routing |
-| `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md — the **fallback** for `cascade.project_rules` (prefer `.claude/rules/`). Default false | memory-routing |
-| `hooks.sessionStartNudge` | Inject a one-line "mnemo memory is available — recall with `/mn:ask` before non-trivial work, save with `/mn:save` as you go" nudge at SessionStart, so the agent reaches for memory on its own initiative, not only when asked. Gated on a configured `vault`. Default **true**; set false to silence | hooks/mnemo-context.sh |
-| `hooks.stopNudge` | At session end, if the session looks worth-saving (fix/decision signals) but `/mn:save` **and/or** `/mn:session` never ran, **block the stop once** with a reason listing whichever is missing, so the agent wraps up cleanly (save pins discrete facts; session writes the narrative + handoff). Because a blocking Stop hook can loop for arbitrary users, this is **opt-in, default false**; an anti-loop governor blocks at most once per session | hooks/mnemo-stop-nudge.sh |
-| `memory.indexWarnKB` | Warn threshold (KB) for `memory/MEMORY.md` size. Claude Code auto-memory **hard-truncates the index ~24.4KB on load** → warn earlier. Default **22** | vault-health |
+| `cascade.obsidian.enabled` | Skip Obsidian writes if false | save |
+| `cascade.claude_mem.enabled` | Enable optional claude-mem POSTs; keep false if claude-mem is disabled for CPU/RAM reasons | save |
+| `cascade.claude_mem.url` | claude-mem worker URL (default port 37777) | save |
+| `cascade.memory_dir.enabled` | Skip memory/ writes if false | save |
+| `cascade.project_rules.enabled` | Route an **actionable path-scoped rule** (a "never X / always Y" lesson tied to code) into `.claude/rules/<domain>.md` (project) or `~/.claude/rules/` (cross-project) so it **auto-injects** when a future agent touches the matching files — Claude Code's native path-scoped rules. Fires only for actionable-rule saves (recall items are untouched); creates the file/dir when none matches. Default **true**. Set false to keep rules out of the cascade | save |
+| `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md — the **fallback** for `cascade.project_rules` (prefer `.claude/rules/`). Default false | save |
+| `hooks.sessionStartNudge` | Inject a one-line memory reminder at SessionStart, rendered as `/mn:ask` + `/mn:save` in Claude Code or `$mnemo:ask` + `$mnemo:save` in Codex. Gated on a configured `vault`. Default **true**; set false to silence | hooks/mnemo-context.sh |
+| `hooks.stopNudge` | At session end, if the session looks worth-saving but the save and/or session skill never ran, block once with the current runtime's native commands. This is **opt-in, default false**; an anti-loop governor prevents repeated blocking | hooks/mnemo-stop-nudge.sh |
+| `memory.indexWarnKB` | Warn threshold (KB) for `memory/MEMORY.md` size. Claude Code auto-memory **hard-truncates the index ~24.4KB on load** → warn earlier. Default **22** | health |
 | `handoff.maxKB` | Size ceiling (KB) for the handoff note before `scripts/handoff-archive.py` rotates CLOSED old blocks into `<handoff_note> Archive` (cold). The handoff is a live index, not a store; un-rotated it becomes a token bomb read every session. Default **40** | session |
 | `handoff.keepDays` | Blocks newer than this stay hot regardless of status; older **and** closed (no open `- [ ]`) move to the archive. Default **14** | session |
-| `review.staleDays.default` | Days before a note becomes a review candidate when its type has no specific entry. Default **30**. (`review.staleDays` may also be a bare integer — a single uniform threshold for every type.) | vault-health |
-| `review.staleDays.{type}` | Per-type staleness cadence (key = a taxonomy `type` you actually use: `atom`/`molecule`/`source`/`session`/`moc`). A fast-moving fact ages quicker than an architectural decision | vault-health |
-| `review.lint.enabled` | Run the content-lint deep pass (LLM re-reads candidates, emits still-valid/update-needed/contradicts verdicts). Default **false** — it reads note bodies and costs tokens | vault-health |
-| `review.lint.maxCandidates` | Cap on notes the lint pass reads per run (most-overdue first). Default **15** | vault-health |
-| `review.lint.model` | Model for the lint pass, spawned as a subagent so the cheap haiku health fork stays cheap. `haiku` (default, triage-grade) / `sonnet` / `opus` (highest-quality verdicts & contradiction detection — `opus` = current Opus 4.8). Only the lint subagent uses it; Steps 1-7 always run on the health fork's own model | vault-health |
-| `review.lint.autoStampReviewed` | Close the review loop automatically: the content lint stamps `reviewed: {today}` on notes it judges **still-valid** (the only frontmatter write health makes — never content, never on update-needed/contradicts). Default **true**, but only takes effect when `review.lint.enabled` is also on; with the lint off (the default) health writes nothing. Set **false** to keep the lint suggest-only | vault-health |
+| `review.staleDays.default` | Days before a note becomes a review candidate when its type has no specific entry. Default **30**. (`review.staleDays` may also be a bare integer — a single uniform threshold for every type.) | health |
+| `review.staleDays.{type}` | Per-type staleness cadence (key = a taxonomy `type` you actually use: `atom`/`molecule`/`source`/`session`/`moc`). A fast-moving fact ages quicker than an architectural decision | health |
+| `review.lint.enabled` | Run the content-lint deep pass (LLM re-reads candidates, emits still-valid/update-needed/contradicts verdicts). Default **false** — it reads note bodies and costs tokens | health |
+| `review.lint.maxCandidates` | Cap on notes the lint pass reads per run (most-overdue first). Default **15** | health |
+| `review.lint.model` | Model for the lint pass, spawned as a subagent so the cheap haiku health fork stays cheap. `haiku` (default, triage-grade) / `sonnet` / `opus` (highest-quality verdicts & contradiction detection — `opus` = current Opus 4.8). Only the lint subagent uses it; Steps 1-7 always run on the health fork's own model | health |
+| `review.lint.autoStampReviewed` | Close the review loop automatically: the content lint stamps `reviewed: {today}` on notes it judges **still-valid** (the only frontmatter write health makes — never content, never on update-needed/contradicts). Default **true**, but only takes effect when `review.lint.enabled` is also on; with the lint off (the default) health writes nothing. Set **false** to keep the lint suggest-only | health |
 
 ## Optional per-note frontmatter (review)
 
@@ -124,7 +124,7 @@ If the whole `cascade` section is absent, defaults are: obsidian=true, claude_me
 
 The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false. If absent, the SessionStart nudge still fires (when a vault is configured) and the Stop nudge stays off.
 
-If `vault` or `taxonomy` is missing, the skill that needs them asks the user and offers to run `/mnemo:setup`.
+If `vault` or `taxonomy` is missing, the skill that needs them asks the user and offers to run `/mn:setup` in Claude Code or `$mnemo:setup` in Codex.
 
 ## Customizing taxonomy
 
@@ -140,7 +140,7 @@ The default is Zettelkasten-inspired (atom/molecule/source). **Naming constraint
 }
 ```
 
-**Custom** — any prefix/tag scheme, as long as `prefix` ends with a separator Obsidian can recognize in filenames (` — `, `: `, `/`, etc).
+**Custom** — any prefix/tag scheme, as long as `prefix` ends with a filename-safe separator (` — `, `: `, ` - `, etc). Never use `/`, `#`, or `.` in a prefix.
 
 ## Note type semantics (Zettelkasten default)
 

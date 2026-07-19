@@ -6,11 +6,13 @@ on:
     paths:
       - "plugins/**"
       - "scripts/lint-skills.py"
+      - "scripts/test-*.py"
       - ".github/workflows/skill-lint.yml"
   pull_request:
     paths:
       - "plugins/**"
       - "scripts/lint-skills.py"
+      - "scripts/test-*.py"
       - ".github/workflows/skill-lint.yml"
 
 jobs:
@@ -23,3 +25,7 @@ jobs:
           python-version: "3.11"
       - name: Validate SKILL.md files
         run: python3 scripts/lint-skills.py
+      - name: Test runtime compatibility
+        run: python3 scripts/test-runtime-compat.py
+      - name: Test handoff archive
+        run: python3 scripts/test-handoff-archive.py

@@ -1,4 +1,4 @@
-# mnemo:review — End-of-Session Orchestrator
+# mn:review — End-of-Session Orchestrator
 
 ## Overview
 
@@ -10,16 +10,18 @@ The only command you need at session end. Analyzes everything, then presents one
 /mn:review
 ```
 
+Codex explicit form: `$mnemo:review`. Samples below use Claude Code syntax.
+
 Also triggers on: "что забыли?", "что осталось?", "session review", "all done?", "what did we miss?"
 
 ## How It Works
 
-### 1. Preprocessing (before Claude sees the prompt)
+### 1. Runtime evidence collection
 
-Shell scripts run automatically:
+The skill collects fresh evidence with the current runtime's normal tools:
 - **Git state** — status, branch, recent commits, uncommitted changes
-- **JSONL introspection** — parses `${CLAUDE_SESSION_ID}.jsonl` to extract every tool call, skill invocation, modified file, error count
-- **Skill discovery** — globs the install locations (personal skills, plugins, cache, marketplaces) to find all available skills
+- **JSONL introspection** — reads the exact active Claude session or Codex thread to extract tool calls, explicit skill invocations, modified files, commits, and error count; it never falls back to another task
+- **Skill discovery** — scans active runtime locations, selects only the current plugin generation, and ignores shadowed cache copies
 - **Open PRs** — checks for your open GitHub PRs
 
 ### 2. Session fingerprinting
@@ -100,7 +102,7 @@ Review prepares two core candidates but **never runs them without asking** (auto
 | `/mn:save` | Unsaved decisions/findings detected | Extracts and saves to Obsidian + claude-mem + memory/ |
 | `/mn:session` | Significant work done | Creates session note + handoff |
 
-**Skips** if the skill was already invoked this session (checked via JSONL preprocessing).
+**Skips** if the skill was already invoked this session (checked via runtime JSONL evidence).
 
 Everything lands in a single prioritized offer:
 ```

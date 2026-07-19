@@ -1,8 +1,8 @@
-# mnemo:save — Memory Routing Cascade
+# mn:save — Memory Routing Cascade
 
 ## Overview
 
-The brain of mnemo. When you say "remember this" or "save to memory", this skill routes the information to the right storage backends — Obsidian, claude-mem, memory files, `.claude/rules/` (for actionable rules), CLAUDE.md — with graceful degradation. If one backend is down, others still work.
+The brain of mnemo. When you say "remember this" or "save to memory", this skill routes the information to the right storage backends — Obsidian, optional claude-mem, the active runtime's local memory, and runtime-native project instructions for actionable rules — with graceful degradation. If one backend is down, others still work.
 
 ## Usage
 
@@ -26,7 +26,7 @@ Your input
   ↓
   recall item ─┬─→ 1. Obsidian (Atom/Molecule/Source) → if down, skip
                ├─→ 2. claude-mem (semantic search)    → if down, skip
-               └─→ 3. memory/ (error prevention)      → if not needed, skip
+               └─→ 3. local memory (error prevention) → if not needed, skip
   ↓
   actionable rule ─→ 3.5 .claude/rules/<domain>.md (auto-inject, path-scoped)
                           → create file/dir if none matches; CLAUDE.md only as fallback
@@ -45,7 +45,7 @@ Type: decision
 Backends:
   1. Obsidian  ✅ → "Atom — SCOPE chosen over TextGrad" in MOC — Agent Self-Correction
   2. claude-mem ✅ → semantic search indexed
-  3. memory/   ✅ → memory/antomate-stack.md updated
+  3. local memory ✅ → runtime-specific topic file updated
   3.5 .claude/rules ⏭  skipped (recall item, not an actionable rule)
   4. CLAUDE.md ⏭  skipped (not critical rule)
 ```
@@ -73,10 +73,10 @@ Don't have claude-mem? Set `"enabled": false` — everything else works.
 - **Never fails completely** — at least one backend always works
 - **Classifies automatically** — you don't need to specify atom vs molecule
 - **Duplicate check** — always searches Obsidian before creating
-- **CLI-first** — uses obsidian CLI, not MCP
+- **CLI-first reads, MCP writes** — dynamic read values go through `safe-read.py`; markdown writes use MCP
 
 ## Related Skills
 
-- `/mn:session` — saves an entire session summary (uses save internally)
+- `/mn:session` — writes the full session narrative and handoff; complements discrete saves
 - `/mn:review` — recommends running save if unsaved decisions detected
 - `/mn:health` — verify saved notes aren't orphans

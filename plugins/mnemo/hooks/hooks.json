@@ -7,12 +7,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/prewarm.sh\"",
-            "async": true
+            "command": "\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/prewarm.sh\""
           },
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/mnemo-context.sh\"",
+            "command": "\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/mnemo-context.sh\"",
             "timeout": 10
           }
         ]
@@ -24,7 +23,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/mnemo-stop-nudge.sh\"",
+            "command": "\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/mnemo-stop-nudge.sh\"",
             "timeout": 10
           }
         ]

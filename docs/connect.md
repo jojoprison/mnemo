@@ -1,4 +1,4 @@
-# mnemo:connect — Discover Hidden Links
+# mn:connect — Discover Hidden Links
 
 ## Overview
 

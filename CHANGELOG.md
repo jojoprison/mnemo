@@ -6,6 +6,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-07-19
+
+### Added
+
+- **Native Codex skill presentation** — every canonical skill now has `agents/openai.yaml` with a short `mn:*` UI label and a deterministic `$mnemo:*` starter prompt.
+- **Dual-runtime contract validation** — `scripts/lint-skills.py` now enforces the seven-skill inventory, Agent Skills naming rules, invocation metadata, manifest namespaces, and absence of duplicate routers.
+- **Runtime regression harness** — `scripts/test-runtime-compat.py` covers Codex JSONL parsing, Claude direct-command envelopes, nested-cwd discovery, runtime isolation, private caches, portable hook commands, and Claude/Codex hook schemas.
+
+### Changed
+
+- **Seven canonical short skills** — implementation directories and frontmatter names are now exactly `ask`, `save`, `session`, `review`, `connect`, `setup`, and `health`; workflow bodies remain shared across Claude Code and Codex.
+- **Claude namespace is `mn`, package identity remains `mnemo`** — marketplace installs stay `mnemo@mnemo`, while Claude Code now registers exact `/mn:*` commands directly from canonical skills. Codex keeps its stable `mnemo` component namespace and explicit `$mnemo:*` IDs.
+- **Portable skill execution** — bundled scripts/references resolve from the loaded `SKILL.md` path instead of assuming `${CLAUDE_PLUGIN_ROOT}` exists in normal Codex shell calls. `review` now collects evidence through ordinary tools instead of Claude-only `!command` preprocessing, and `session-scan.py` recognizes `CODEX_THREAD_ID`.
+- **Runtime-safe hooks and discovery** — one shared hook manifest emits official cross-runtime hook payloads with runtime-native invocation syntax. Codex-compatible synchronous prewarming runs against the tiny SessionStart transcript and fails open. Session scanning ignores documentation-only command mentions, and skill discovery works from nested directories while excluding the other runtime's private scopes and stale plugin generations.
+- **Runtime-isolated memory checks** — `ask` uses the active runtime's local memory, while `health` only inspects Claude auto-memory and claude-mem state inside Claude Code; Codex never scans `~/.claude/` as its own state.
+
+### Fixed
+
+- **Hook semantics across both runtimes** — SessionStart now injects model context through `hookSpecificOutput.additionalContext`, Stop continuation uses `decision: block`, and unsupported `async` declarations no longer cause Codex to skip prewarming.
+- **Shell-safe vault writes** — generated markdown is written through Obsidian MCP only; inline `obsidian create/append/prepend ... content=` fallbacks were removed and are now rejected by the linter.
+- **Shell-safe indexed reads** — vault names, note names, search terms, concepts, prefixes, and metadataCache paths now flow through one allowlisted `safe-read.py` adapter using argv (`shell=False`) and JSON-encoded JavaScript literals; direct Obsidian CLI commands in skill bodies are lint failures.
+- **Private helper caches** — session/discovery caches and Stop anti-loop markers now use hashed names, owner/mode checks, symlink-safe reads, and atomic `0600` replacement inside a per-user `0700` directory.
+- **Vault-contained handoff rotation** — the archive helper rejects traversal, out-of-vault targets, symlinked handoff notes, and a handoff/archive collision before any write; regression coverage now includes both handoff and archive escape attempts.
+
+### Removed
+
+- **Legacy routing layers** — deleted seven `commands/mn/*` wrappers plus eight alias/compatibility skill directories. Old `/mnemo:*` and `/mnemo:mn:*` spellings no longer resolve; use `/mn:*` in Claude Code or `$mnemo:*` in Codex.
+- **Redundant vault-path shell helper** — dynamic vault resolution now lives in the single allowlisted `safe-read.py` adapter.
+
 ## [1.1.11] - 2026-07-17
 
 ### Fixed
@@ -799,7 +828,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.1.11...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/jojoprison/mnemo/compare/v1.1.11...v1.2.0
 [1.1.11]: https://github.com/jojoprison/mnemo/compare/v1.1.10...v1.1.11
 [1.1.10]: https://github.com/jojoprison/mnemo/compare/v1.1.9...v1.1.10
 [1.1.9]: https://github.com/jojoprison/mnemo/compare/v1.1.8...v1.1.9

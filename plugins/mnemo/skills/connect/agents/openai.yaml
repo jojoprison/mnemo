@@ -1,0 +1,4 @@
+interface:
+  display_name: "mn:connect"
+  short_description: "Discover useful links between vault notes"
+  default_prompt: "Use $mnemo:connect to find meaningful links for the new vault note."

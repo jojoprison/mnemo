@@ -1,0 +1,4 @@
+interface:
+  display_name: "mn:ask"
+  short_description: "Search and synthesize your Obsidian memory"
+  default_prompt: "Use $mnemo:ask to recall what we previously decided about this task."

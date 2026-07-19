@@ -20,4 +20,4 @@ Two options, both fine:
 
 ## Extending (follow-up, non-blocking)
 
-Widen to ~5 examples per skill and add boundary cases where two mnemo skills compete: `memory-routing` ↔ `council` (deciding vs recording a decision), `vault-search` ↔ `vault-health` (recall vs maintenance).
+Widen to ~5 examples per skill and add boundary cases where two mnemo skills compete: `save` ↔ `council` (deciding vs recording a decision), `ask` ↔ `health` (recall vs maintenance).

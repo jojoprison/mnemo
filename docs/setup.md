@@ -1,4 +1,4 @@
-# mnemo:setup — Interactive Onboarding
+# mn:setup — Interactive Onboarding
 
 ## Overview
 

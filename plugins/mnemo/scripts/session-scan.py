@@ -1,28 +1,49 @@
 #!/usr/bin/env python3
 """Scan Claude Code or Codex session JSONL for tool usage and modified files.
 
-Reads CLAUDE_SESSION_ID or CODEX_SESSION_ID from env. If neither is present,
-falls back to the newest Codex rollout JSONL for the current cwd.
+Reads CLAUDE_SESSION_ID, CODEX_THREAD_ID, or legacy CODEX_SESSION_ID from env.
+If none is present, falls back to the newest Codex rollout JSONL for the current cwd.
 
-Two-layer caching:
+Two-layer caching in a private per-user temp directory:
 - Fresh cache (<60s old) → reuse as-is, no re-read.
 - Older cache + stored byte offset → read only appended JSONL bytes since
   offset, merge into cached aggregate. Works because JSONL is append-only.
-
-Files under /tmp/:
-- mnemo-session-scan-{id}.json — aggregated result
-- mnemo-session-offset-{id}.json — {"offset": N, "mtime": ...}
 """
 from __future__ import annotations
 
 import glob
+import io
 import json
 import os
+import re
 import sys
 import time
 
+from cache_utils import atomic_write_json, cache_path, is_fresh, read_json
+
 
 FRESH_TTL = 60  # seconds
+CODEX_SKILL_RE = re.compile(
+    r"(?im)^\s*(?:(?:please\s+)?(?:use|run|invoke)\s+)?\$"
+    r"([a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?)"
+    r"(?![\w:*-])"
+)
+SIGNAL_RE = re.compile(
+    r"fixed|solved|resolved|root cause|decided|gotcha|починил|решил|разобрал|決定",
+    re.IGNORECASE,
+)
+CLAUDE_COMMAND_RE = re.compile(
+    r"<command-name>\s*/([a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+    r"(?::[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)?)\s*</command-name>",
+    re.IGNORECASE,
+)
+
+
+def safe_mtime(path: str) -> float:
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return 0.0
 
 
 def find_claude_jsonl(session_id: str) -> str | None:
@@ -36,9 +57,10 @@ def find_claude_jsonl(session_id: str) -> str | None:
 
 def find_codex_jsonl(session_id: str = "") -> str | None:
     home = os.path.expanduser("~")
+    filename = f"*{glob.escape(session_id)}*.jsonl" if session_id else "*.jsonl"
     candidates = sorted(
-        glob.glob(os.path.join(home, ".codex/sessions/**/*.jsonl"), recursive=True),
-        key=os.path.getmtime,
+        glob.glob(os.path.join(home, ".codex/sessions/**", filename), recursive=True),
+        key=safe_mtime,
         reverse=True,
     )
     cwd = os.getcwd()
@@ -57,7 +79,10 @@ def find_codex_jsonl(session_id: str = "") -> str | None:
                         return path
         except (OSError, json.JSONDecodeError):
             continue
-    return candidates[0] if candidates else None
+    # Never fall back to an unrelated task. With a runtime session id, only
+    # that exact task in this cwd is valid; without one, the loop above has
+    # already selected the newest task whose session_meta cwd matches.
+    return None
 
 
 def empty_acc() -> dict:
@@ -67,7 +92,47 @@ def empty_acc() -> dict:
         "commits": 0,
         "files_written": [],
         "errors": 0,
+        "signals": 0,
     }
+
+
+def valid_acc(value: object) -> bool:
+    """Reject poisoned or stale cache shapes before they influence review."""
+    if not isinstance(value, dict):
+        return False
+    counters = ("commits", "errors", "signals")
+    if any(not isinstance(value.get(key), int) or value[key] < 0 for key in counters):
+        return False
+    tools = value.get("tools")
+    if not isinstance(tools, dict) or any(
+        not isinstance(key, str) or not isinstance(count, int) or count < 0
+        for key, count in tools.items()
+    ):
+        return False
+    return all(
+        isinstance(value.get(key), list)
+        and all(isinstance(item, str) for item in value[key])
+        for key in ("skills", "files_written")
+    )
+
+
+def non_documentation_text(text: str) -> str:
+    """Remove fenced examples and quoted documentation before skill detection."""
+    lines: list[str] = []
+    fence = ""
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        marker = "```" if stripped.startswith("```") else "~~~" if stripped.startswith("~~~") else ""
+        if marker:
+            if not fence:
+                fence = marker
+            elif fence == marker:
+                fence = ""
+            continue
+        if fence or stripped.startswith(">"):
+            continue
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def parse_claude_message(msg: dict, acc: dict) -> None:
@@ -75,8 +140,22 @@ def parse_claude_message(msg: dict, acc: dict) -> None:
     skills = acc["skills"]
     files_written = set(acc["files_written"])
     content = msg.get("message", {}).get("content", [])
+    if isinstance(content, str):
+        if SIGNAL_RE.search(content):
+            acc["signals"] = acc.get("signals", 0) + 1
+        for skill in CLAUDE_COMMAND_RE.findall(content):
+            if skill not in skills:
+                skills.append(skill)
+        return
     if not isinstance(content, list):
         return
+    text = "\n".join(
+        str(block.get("text", ""))
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "text"
+    )
+    if SIGNAL_RE.search(text):
+        acc["signals"] = acc.get("signals", 0) + 1
     for block in content:
         if not isinstance(block, dict):
             continue
@@ -106,26 +185,59 @@ def parse_codex_message(msg: dict, acc: dict) -> None:
     if msg.get("type") != "response_item":
         return
     payload = msg.get("payload", {})
-    if payload.get("type") == "function_call":
+    payload_type = payload.get("type")
+
+    if payload_type == "message":
+        texts: list[str] = []
+        for block in payload.get("content", []):
+            if not isinstance(block, dict):
+                continue
+            text = block.get("text") or block.get("input_text") or block.get("output_text") or ""
+            if text:
+                texts.append(str(text))
+        combined = "\n".join(texts)
+        if payload.get("role") in ("user", "assistant") and SIGNAL_RE.search(combined):
+            acc["signals"] = acc.get("signals", 0) + 1
+        if payload.get("role") == "user":
+            for skill in CODEX_SKILL_RE.findall(non_documentation_text(combined)):
+                if skill not in acc["skills"]:
+                    acc["skills"].append(skill)
+        return
+
+    if payload_type in ("function_call", "custom_tool_call"):
         name = payload.get("name", "")
         if not name:
             return
         tools = acc["tools"]
         tools[name] = tools.get(name, 0) + 1
-        try:
-            args = json.loads(payload.get("arguments") or "{}")
-        except json.JSONDecodeError:
-            args = {}
         if name == "apply_patch":
+            acc["files_written"] = sorted(set(acc["files_written"]) | {"patch"})
+            return
+        if name not in ("exec", "exec_command", "spawn_agent"):
+            return
+
+        raw_input = payload.get("input") or payload.get("arguments") or ""
+        if isinstance(raw_input, dict):
+            args = raw_input
+            raw_text = json.dumps(raw_input)
+        else:
+            raw_text = str(raw_input)
+            try:
+                args = json.loads(raw_text or "{}")
+            except json.JSONDecodeError:
+                args = {}
+        if name == "exec" and "apply_patch" in raw_text:
             acc["files_written"] = sorted(set(acc["files_written"]) | {"patch"})
         elif name == "exec_command":
             cmd = args.get("cmd", "")
             if "git commit" in cmd:
                 acc["commits"] = acc.get("commits", 0) + 1
+        elif name == "exec" and "git commit" in raw_text:
+            acc["commits"] = acc.get("commits", 0) + 1
         elif name == "spawn_agent":
             agent_type = args.get("agent_type", "default")
             acc["skills"].append(f"subagent:{agent_type}")
-    elif payload.get("type") == "function_call_output":
+    elif payload_type in ("function_call_output", "custom_tool_call_output"):
         output = payload.get("output", "")
         if "Process exited with code 1" in output or "Error:" in output:
             acc["errors"] = acc.get("errors", 0) + 1
@@ -147,22 +259,27 @@ def parse_lines(handle, acc: dict) -> None:
             parse_codex_message(msg, acc)
 
 
+def session_cache_paths(session_id: str, jsonl_path: str):
+    identity = f"{os.path.realpath(jsonl_path)}\0{session_id}"
+    return (
+        cache_path("session-scan", identity, "json"),
+        cache_path("session-offset", identity, "json"),
+    )
+
+
 def scan_incremental(jsonl_path: str, session_id: str) -> dict:
-    cache_path = f"/tmp/mnemo-session-scan-{session_id}.json"
-    offset_path = f"/tmp/mnemo-session-offset-{session_id}.json"
+    result_path, offset_path = session_cache_paths(session_id, jsonl_path)
 
     prev_acc: dict | None = None
     prev_offset = 0
 
-    if os.path.exists(cache_path) and os.path.exists(offset_path):
-        try:
-            with open(cache_path) as f:
-                prev_acc = json.load(f)
-            with open(offset_path) as f:
-                prev_offset = int(json.load(f).get("offset", 0))
-        except (OSError, ValueError, json.JSONDecodeError):
-            prev_acc = None
-            prev_offset = 0
+    cached_acc = read_json(result_path)
+    cached_offset = read_json(offset_path)
+    if valid_acc(cached_acc) and isinstance(cached_offset, dict):
+        offset_value = cached_offset.get("offset")
+        if isinstance(offset_value, int) and offset_value >= 0:
+            prev_acc = cached_acc
+            prev_offset = offset_value
 
     try:
         file_size = os.path.getsize(jsonl_path)
@@ -176,18 +293,27 @@ def scan_incremental(jsonl_path: str, session_id: str) -> dict:
 
     acc = prev_acc if prev_acc is not None else empty_acc()
 
-    with open(jsonl_path) as f:
-        f.seek(prev_offset)
-        parse_lines(f, acc)
-        new_offset = f.tell()
+    # Offsets are bytes, matching getsize(). Do not advance past a JSONL record
+    # that is still being appended; otherwise its completed form is lost forever.
+    with open(jsonl_path, "rb") as handle:
+        handle.seek(prev_offset)
+        chunk = handle.read()
 
-    try:
-        with open(cache_path, "w") as f:
-            json.dump(acc, f)
-        with open(offset_path, "w") as f:
-            json.dump({"offset": new_offset, "mtime": time.time()}, f)
-    except OSError:
-        pass
+    consumed = len(chunk)
+    if chunk and not chunk.endswith(b"\n"):
+        tail_start = chunk.rfind(b"\n") + 1
+        tail = chunk[tail_start:]
+        try:
+            json.loads(tail.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError):
+            chunk = chunk[:tail_start]
+            consumed = tail_start
+
+    parse_lines(io.StringIO(chunk.decode("utf-8", errors="replace")), acc)
+    new_offset = prev_offset + consumed
+
+    atomic_write_json(result_path, acc)
+    atomic_write_json(offset_path, {"offset": new_offset, "mtime": time.time()})
 
     return acc
 
@@ -212,10 +338,40 @@ def render(result: dict) -> None:
             print(f"  {fp}")
     print(f"COMMITS: {result.get('commits', 0)}")
     print(f"ERRORS_SEEN: {result.get('errors', 0)}")
+    print(f"WORTH_SAVING_SIGNALS: {result.get('signals', 0)}")
+
+
+def stop_summary(jsonl_path: str) -> tuple[int, int, int]:
+    """Return actual save/session invocations and message-level save signals."""
+    acc = empty_acc()
+    try:
+        with open(jsonl_path) as handle:
+            parse_lines(handle, acc)
+    except OSError:
+        return 0, 0, 0
+    skills = set(acc.get("skills", []))
+    saved = bool(skills & {"save", "mn:save", "mnemo:save"})
+    sessioned = bool(skills & {"session", "mn:session", "mnemo:session"})
+    return int(saved), int(sessioned), int(acc.get("signals", 0))
+
+
+def runtime_session_id() -> str:
+    return (
+        os.environ.get("CLAUDE_SESSION_ID")
+        or os.environ.get("CODEX_THREAD_ID")
+        or os.environ.get("CODEX_SESSION_ID", "")
+    )
 
 
 def main() -> int:
-    session_id = os.environ.get("CLAUDE_SESSION_ID") or os.environ.get("CODEX_SESSION_ID", "")
+    if len(sys.argv) == 3 and sys.argv[1] == "--stop-summary":
+        print(*stop_summary(sys.argv[2]))
+        return 0
+    if len(sys.argv) > 1:
+        print("usage: session-scan.py [--stop-summary JSONL]", file=sys.stderr)
+        return 2
+
+    session_id = runtime_session_id()
     if not session_id:
         jsonl_path = find_codex_jsonl()
         if not jsonl_path:
@@ -225,17 +381,14 @@ def main() -> int:
     else:
         jsonl_path = find_claude_jsonl(session_id) or find_codex_jsonl(session_id)
 
-    cache_path = f"/tmp/mnemo-session-scan-{session_id}.json"
-    if os.path.exists(cache_path) and (time.time() - os.path.getmtime(cache_path)) < FRESH_TTL:
-        try:
-            with open(cache_path) as f:
-                render(json.load(f))
-            return 0
-        except (OSError, json.JSONDecodeError):
-            pass  # fall through to re-scan
-
     if not jsonl_path:
         print("JSONL: not found — use conversation context for analysis")
+        return 0
+
+    result_path, _ = session_cache_paths(session_id, jsonl_path)
+    cached_acc = read_json(result_path) if is_fresh(result_path, FRESH_TTL) else None
+    if valid_acc(cached_acc):
+        render(cached_acc)
         return 0
 
     result = scan_incremental(jsonl_path, session_id)

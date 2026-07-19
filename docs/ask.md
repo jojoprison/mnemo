@@ -1,4 +1,4 @@
-# mnemo:ask — Vault Knowledge Search & Synthesis
+# mn:ask — Vault Knowledge Search & Synthesis
 
 ## Overview
 
@@ -15,7 +15,7 @@ Search across your entire vault and get a synthesized answer with source citatio
 ## How It Works
 
 1. Breaks your question into 2-4 search terms *(SKILL Step 2)*
-2. Runs `obsidian search` for each term *(SKILL Step 3; also scans Claude's `memory/` index, Step 3b)*
+2. Runs `obsidian search` for each term *(SKILL Step 3; also scans the active runtime's local memory — Claude `memory/` or Codex `~/.codex/memories/` — in Step 3b)*
 3. Reads the top 7 most relevant notes *(SKILL Step 4)*
 4. Dates each cited note — **last-changed** (git last-commit if the vault is a repo, else file mtime) and **stale?** (content age from `date`/`reviewed` vs the type's budget — same engine as `/mn:health`) *(SKILL Step 4b)*
 5. For **current-state** questions inside a git project, cross-checks the project's recent commits — flags any cited note a newer commit may have outdated (optional code-knowledge-graph via `recall.codeGraph`, off by default) *(SKILL Step 4c)*
@@ -44,7 +44,7 @@ Key points:
 
 - **Only answers from your vault** — never hallucinated from general knowledge
 - **Max 7 notes read** — prevents context overflow
-- **CLI-first search** — uses `obsidian search`, not MCP
+- **CLI-first search, argv-safe values** — `safe-read.py search` uses the indexed Obsidian CLI without shell interpolation
 - **Dates every source** — shows when each cited note last changed (git if the vault is a repo, else mtime + frontmatter) so you know whether an answer rests on fresh or stale notes
 - **Grounds in live code** — for "is this still true" questions inside a git project, checks the project's recent commits so recall agrees with the code, not just old notes; optional code-graph backend via `recall.codeGraph` (off by default)
 - **Knowledge compounds** — a non-trivial synthesis can be saved back as a Molecule (opt-in, user-confirmed) so the next query starts from the conclusion instead of re-deriving it; trivial lookups are never auto-saved

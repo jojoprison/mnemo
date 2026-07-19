@@ -13,6 +13,9 @@ header, duplicate stray headers piling up in the archive). Two root causes:
    with `\n` (typically the last block of the file) glues the next `## header`
    onto its tail in both the handoff and the archive.
 
+Also pins the current filesystem boundary: neither the handoff nor archive name
+may traverse outside the declared vault.
+
 Stdlib-only (unittest + subprocess), no framework — run directly:
 
     python3 scripts/test-handoff-archive.py
@@ -125,6 +128,25 @@ class HandoffArchiveTest(unittest.TestCase):
         self.assertEqual(res.returncode, 0, res.stderr)
         self.assertEqual(read(self.handoff), first_pass, 'handoff must be idempotent when nothing to archive')
         self.assertEqual(read(self.archive).count('## 2026-03-25 old closed research'), 1)
+
+    def test_handoff_name_cannot_escape_vault(self):
+        outside = os.path.join(os.path.dirname(self.vault), 'Outside.md')
+        write(outside, DOC_HEADER + OLD_CLOSED_LAST_BLOCK)
+        before = read(outside)
+        res = subprocess.run(
+            [sys.executable, SCRIPT, '--vault-path', self.vault, '--handoff', '../Outside',
+             '--max-kb', '0', '--today', '2026-07-16', '--execute'],
+            capture_output=True, text=True,
+        )
+        self.assertEqual(res.returncode, 2)
+        self.assertEqual(read(outside), before)
+
+    def test_archive_name_cannot_escape_vault(self):
+        write(self.handoff, DOC_HEADER + FRESH_BLOCK + OLD_CLOSED_LAST_BLOCK)
+        outside = os.path.join(os.path.dirname(self.vault), 'Outside Archive.md')
+        res = run_archiver(self.vault, extra=('--archive', '../Outside Archive'))
+        self.assertEqual(res.returncode, 2)
+        self.assertFalse(os.path.exists(outside))
 
 
 if __name__ == '__main__':

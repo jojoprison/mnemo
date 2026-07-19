@@ -1,17 +1,17 @@
 {
   "about": "Trigger-eval set for mnemo skill descriptions. 6 proactive-positive prompts (a specific skill SHOULD auto-invoke) + 6 near-miss negatives (share keywords but must NOT trigger). Re-run after editing any canonical description to catch trigger regressions. Baseline 2026-07-05 (v1.1.x): 12/12 at the simulated-routing level. Format is compatible with skill-creator's run_loop.py (query + should_trigger); expect_skill/why are extra context.",
   "evals": [
-    { "id": "P1", "query": "Сейчас буду чинить баг в auth — токен опять отваливается на рефреше, вроде уже сталкивались с похожим", "should_trigger": true, "expect_skill": "vault-search", "why": "recurring/previously-seen bug → recall before re-fixing" },
-    { "id": "P2", "query": "Разобрался почему CI падал: race condition в setup-фикстуре, добавил await перед teardown. Наконец-то", "should_trigger": true, "expect_skill": "memory-routing", "why": "solved a tricky bug → proactive save" },
-    { "id": "P3", "query": "Мне надо влезть в payments/webhooks — незнакомый модуль, хочу понять как он устроен прежде чем менять", "should_trigger": true, "expect_skill": "vault-search", "why": "unfamiliar subsystem → recall" },
-    { "id": "P4", "query": "Окей, решили брать Redis вместо in-memory очереди — нужна персистентность между рестартами", "should_trigger": true, "expect_skill": "memory-routing", "why": "non-obvious decision → save (post-decision, not council)" },
-    { "id": "P5", "query": "что мы решили про стратегию миграций схемы?", "should_trigger": true, "expect_skill": "vault-search", "why": "explicit recall query" },
-    { "id": "P6", "query": "найди связи для только что созданной заметки про OAuth", "should_trigger": true, "expect_skill": "link-discovery", "why": "explicit connect + new note" },
-    { "id": "N1", "query": "найди функцию parse_order в кодовой базе и покажи где она вызывается", "should_trigger": false, "why": "grep of CODE, not vault recall — near-miss vault-search" },
+    { "id": "P1", "query": "Сейчас буду чинить баг в auth — токен опять отваливается на рефреше, вроде уже сталкивались с похожим", "should_trigger": true, "expect_skill": "ask", "why": "recurring/previously-seen bug → recall before re-fixing" },
+    { "id": "P2", "query": "Разобрался почему CI падал: race condition в setup-фикстуре, добавил await перед teardown. Наконец-то", "should_trigger": true, "expect_skill": "save", "why": "solved a tricky bug → proactive save" },
+    { "id": "P3", "query": "Мне надо влезть в payments/webhooks — незнакомый модуль, хочу понять как он устроен прежде чем менять", "should_trigger": true, "expect_skill": "ask", "why": "unfamiliar subsystem → recall" },
+    { "id": "P4", "query": "Окей, решили брать Redis вместо in-memory очереди — нужна персистентность между рестартами", "should_trigger": true, "expect_skill": "save", "why": "non-obvious decision → save (post-decision, not council)" },
+    { "id": "P5", "query": "что мы решили про стратегию миграций схемы?", "should_trigger": true, "expect_skill": "ask", "why": "explicit recall query" },
+    { "id": "P6", "query": "найди связи для только что созданной заметки про OAuth", "should_trigger": true, "expect_skill": "connect", "why": "explicit connect + new note" },
+    { "id": "N1", "query": "найди функцию parse_order в кодовой базе и покажи где она вызывается", "should_trigger": false, "why": "grep of CODE, not vault recall — near-miss ask" },
     { "id": "N2", "query": "поищи в интернете как работает OAuth PKCE flow, дай ссылки", "should_trigger": false, "why": "web search, not vault — 'поищи' overlaps, meaning differs" },
-    { "id": "N3", "query": "сохрани этот файл и закоммить", "should_trigger": false, "why": "'сохрани' is about a FILE + VCS, not memory — near-miss memory-routing" },
-    { "id": "N4", "query": "свяжись с бэкенд-командой насчёт API-контракта", "should_trigger": false, "why": "'свяжись' = communicate, not 'link notes' — near-miss link-discovery" },
-    { "id": "N5", "query": "проверь здоровье сервиса — дёрни /health эндпоинт прода", "should_trigger": false, "why": "service health, not vault health — near-miss vault-health" },
-    { "id": "N6", "query": "почини опечатку в переменной userNmae → userName", "should_trigger": false, "why": "trivial fix, not a recurring bug — vault-search must NOT fire" }
+    { "id": "N3", "query": "сохрани этот файл и закоммить", "should_trigger": false, "why": "'сохрани' is about a FILE + VCS, not memory — near-miss save" },
+    { "id": "N4", "query": "свяжись с бэкенд-командой насчёт API-контракта", "should_trigger": false, "why": "'свяжись' = communicate, not 'link notes' — near-miss connect" },
+    { "id": "N5", "query": "проверь здоровье сервиса — дёрни /health эндпоинт прода", "should_trigger": false, "why": "service health, not vault health — near-miss health" },
+    { "id": "N6", "query": "почини опечатку в переменной userNmae → userName", "should_trigger": false, "why": "trivial fix, not a recurring bug — ask must NOT fire" }
   ]
 }

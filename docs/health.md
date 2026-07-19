@@ -1,4 +1,4 @@
-# mnemo:health — Vault Health Check & Analytics
+# mn:health — Vault Health Check & Analytics
 
 ## Overview
 
@@ -71,6 +71,7 @@ Beyond cleaning up, `/mn:health` points at where the vault wants to **grow** —
 
 - **Ghost notes are a feature** — `[[Technology]]` links to non-existent files are intentional for entity discovery in Graph View
 - **Non-destructive by default** — out of the box health only reports (the content lint is off). The one write it can make is the `reviewed:` snooze stamp on still-valid notes once you enable the lint (`review.lint.autoStampReviewed`, default on; set false to keep the lint suggest-only).
+- **Runtime isolation** — Claude Code additionally checks its own auto-memory index and optional claude-mem cache. Codex skips both checks and never scans `~/.claude/`; this skill otherwise audits the shared Obsidian vault.
 - Run weekly or after creating many notes at once
 
 ## Related Skills

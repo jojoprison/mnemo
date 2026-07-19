@@ -1,0 +1,4 @@
+interface:
+  display_name: "mn:setup"
+  short_description: "Configure mnemo and its memory backends"
+  default_prompt: "Use $mnemo:setup to configure mnemo for this environment."

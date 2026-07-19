@@ -1,6 +1,6 @@
 # Trigger Matrix — Implementation sessions
 
-Read this file when session-review classifies the current session as **Implementation** (Write/Edit heavy, commits, new files, "feat/add" keywords).
+Read this file when review classifies the current session as **Implementation** (Write/Edit heavy, commits, new files, "feat/add" keywords).
 
 | Signal | Recommended skill | Priority |
 |--------|------------------|----------|

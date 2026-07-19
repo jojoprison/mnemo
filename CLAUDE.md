@@ -6,10 +6,11 @@ mnemo is a dual-runtime Agent Skills plugin for Codex and Claude Code. Keep Clau
 
 ## Compatibility Rules
 
-- Do not remove `plugins/mnemo/.claude-plugin/plugin.json` or `plugins/mnemo/commands/mn/*`; Claude users rely on `/mn:*`.
-- Codex support is additive: keep `.codex-plugin/plugin.json` and `.agents/plugins/marketplace.json` beside the Claude manifest.
-- Shared skills live in `plugins/mnemo/skills/*/SKILL.md`; avoid forked copies unless behavior must diverge by runtime.
-- Runtime-specific behavior belongs in scripts or `references/`, not duplicated skill bodies.
+- The install/package ID and public brand stay `mnemo` in both marketplaces.
+- Claude Code's manifest namespace is intentionally `mn`, giving users exact `/mn:*` commands.
+- Codex's manifest namespace stays `mnemo`; its deterministic explicit IDs are `$mnemo:*`, while `agents/openai.yaml` presents the matching `mn:*` labels in skill UI.
+- The only canonical skills are `ask`, `save`, `session`, `review`, `connect`, `setup`, and `health`. Keep one implementation per skill in `plugins/mnemo/skills/*/SKILL.md` — no alias skill directories or legacy `commands/` routers.
+- Runtime-specific presentation belongs in manifests and `agents/openai.yaml`, not duplicated skill bodies. Claude's `model`/`context` frontmatter extensions are an intentional dual-runtime exception accepted by Codex plugin validation.
 
 ## Memory Backends
 
@@ -28,9 +29,9 @@ mnemo is a dual-runtime Agent Skills plugin for Codex and Claude Code. Keep Clau
 
 ### Versioning & approval gate
 
-mnemo follows [SemVer](https://semver.org) from **1.0.0** (first stable). **The default for every release is a patch bump (`1.1.z`) — even for new features.**
+mnemo follows [SemVer](https://semver.org) from **1.0.0** (first stable). **The default for every release is a patch bump on the current `1.2.z` line — even for new features.**
 
-- **patch** (`1.1.z`) — the default for **everything**: bug fixes, docs, refactors, **and new skills / flags / user-visible behavior**. An agent may cut a patch release autonomously. When a change "feels like a minor", still ship it as a patch and just say so.
+- **patch** (`1.2.z`) — the default for **everything**: bug fixes, docs, refactors, **and new skills / flags / user-visible behavior**. An agent may cut a patch release autonomously. When a change "feels like a minor", still ship it as a patch and just say so.
 - **minor** (`1.y.0`) / **major** (`x.0.0`) — the middle and first digits move **ONLY on the maintainer's explicit instruction** ("bump the minor now", "this one's a minor / major"). Never raise them on your own judgment, even when plain SemVer would call the change a minor. No instruction → it's a patch.
 
 This gate is about the *version bump*, not the work: implement, commit, and cut patch releases freely; just never touch the minor/major digit unless the maintainer told you to in this conversation.

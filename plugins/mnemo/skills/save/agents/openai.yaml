@@ -1,0 +1,4 @@
+interface:
+  display_name: "mn:save"
+  short_description: "Save durable findings to your memory system"
+  default_prompt: "Use $mnemo:save to preserve this durable decision or gotcha."
