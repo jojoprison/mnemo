@@ -1,4 +1,4 @@
-# Testing — mnemo smoke tests (current: v1.2.1)
+# Testing — mnemo smoke tests (current: v1.2.2)
 
 mnemo has an automated structural/runtime regression gate plus manual end-to-end smoke tests. Run the automated gate after every skill, manifest, hook, or helper change; run the relevant manual checks after `/plugin update mnemo@mnemo` or `codex plugin add mnemo@mnemo`.
 
@@ -68,7 +68,7 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 - **V5 — recall item is untouched by the rule path.** Run `/mn:save "we decided X because Y"` (a recall decision). Assert the report shows `3.5 .claude/rules ⏭ skipped (recall item)` and the item lands in Obsidian/`memory/` as before — the rule branch must NOT fire for recall.
 - **V6 — `cascade.project_rules` toggle + `/mn:review` confirmation.** With `cascade.project_rules.enabled: false`, a rule save falls back to CLAUDE.md/`memory/` and leaves `.claude/rules/` untouched. With it on (default), run `/mn:review` after a session that learned a rule: the orchestrator must **surface the rule for y/n in Step 8** (not write the committed project file unattended); accepting delegates the write to save Step 3.5 (single code path).
 
-## Proactive description checks — introduced in v1.1.0, current surface in v1.2.1
+## Proactive description checks — introduced in v1.1.0, current surface in v1.2.2
 
 - **V7 — one canonical surface.** After loading the current plugin, Claude Code lists exactly seven `/mn:*` skills and Codex lists exactly seven `mn:*` UI labels backed by `$mnemo:*` IDs. There are no `commands/`, alias skills, `/mnemo:*`, or `/mnemo:mn:*` duplicates.
 - **V8 — references resolve portably.** Trigger a skill that points at a shared reference or script. `<mnemo-root>` must resolve from the loaded `SKILL.md` path in Codex and from `${CLAUDE_PLUGIN_ROOT}` in Claude Code; no versioned cache hunting and no literal `<mnemo-root>` may reach a shell.
@@ -86,6 +86,11 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 
 - **V13 — Stop nudge tracks `/mn:session` too (v1.1.2).** Covered by V10 above: with `hooks.stopNudge:true` and worth-saving signals, the nudge now blocks on either missing `/mn:save` **or** `/mn:session` (both present → silent).
 - **V14 — `/mn:review` trigger phrasings (v1.1.3).** The `review` description now fires on `'что ещё осталось'` / `'что ещё тут осталось'` in addition to `'что осталось'`. Type one mid-session → the orchestrator should engage.
+
+## What changed in v1.2.2 — invocation visibility (marker + expansion echo)
+
+- **V17 — in-body invocation marker.** Every `skills/*/SKILL.md` opens with an instruction to begin the reply with the exact line `🧠 mn:<skill> (mnemo) → running` (guarded by `test_every_skill_body_carries_its_invocation_marker`: present exactly once, ahead of Portable paths). Invoke any `/mn:*` command → the reply should start with the marker (probabilistic — model compliance, both runtimes).
+- **V18 — expansion echo hook (`hooks/mnemo-skill-echo.sh`).** Covered by `test_skill_echo_hook_announces_mn_commands_only_and_respects_gate`: `mn:*` command → `systemMessage` announce; foreign command → silent continue; `hooks.invocationEcho:false` → silent; missing config → announce (default on). Live payload schema captured on CC 2.1.215 (`expansion_type`/`command_name`/`command_source`); three headless runs verified hook stdout never alters the skill expansion; interactive-UI rendering of the `systemMessage` line is pending manual confirmation post-release (headless `-p` transcripts do not record it).
 
 ## What changed in v1.1.11 — handoff-archive corruption fix + first automated tests
 

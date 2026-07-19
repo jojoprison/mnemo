@@ -367,6 +367,15 @@ class SkillLintTests(unittest.TestCase):
         for skill in (REPO_ROOT / "plugins/mnemo/skills").glob("*/SKILL.md"):
             self.assertFalse(skill_lint.has_direct_obsidian_cli(skill.read_text()), skill)
 
+    def test_every_skill_body_carries_its_invocation_marker(self) -> None:
+        for skill in sorted((REPO_ROOT / "plugins/mnemo/skills").glob("*/SKILL.md")):
+            name = skill.parent.name
+            marker = f"`🧠 mn:{name} (mnemo) → running`"
+            body = skill.read_text()
+            self.assertEqual(body.count(marker), 1, skill)
+            # marker must sit right after the H1, ahead of Portable paths, so it loads first
+            self.assertLess(body.index(marker), body.index("## Portable paths"), skill)
+
     def test_shared_hook_manifest_has_no_unsupported_async_handlers(self) -> None:
         hooks = json.loads((REPO_ROOT / "plugins/mnemo/hooks/hooks.json").read_text())
         self.assertEqual(set(hooks), {"hooks"})
@@ -422,6 +431,67 @@ class HookCompatibilityTests(unittest.TestCase):
             codex_message = codex_payload["hookSpecificOutput"]["additionalContext"]
             self.assertIn("$mnemo:ask", codex_message)
             self.assertNotIn("systemMessage", codex_payload)
+
+    def test_skill_echo_hook_announces_mn_commands_only_and_respects_gate(self) -> None:
+        script = REPO_ROOT / "plugins/mnemo/hooks/mnemo-skill-echo.sh"
+        expansion = json.dumps(
+            {
+                "hook_event_name": "UserPromptExpansion",
+                "expansion_type": "slash_command",
+                "command_name": "mn:save",
+                "command_args": "",
+                "command_source": "plugin",
+                "prompt": "/mn:save",
+            }
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            self._configured_home(tmp)
+            env = {"HOME": tmp, "PATH": os.environ.get("PATH", "")}
+
+            announced = subprocess.run(
+                ["bash", str(script)],
+                input=expansion,
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            payload = json.loads(announced.stdout)
+            self.assertIn("/mn:save", payload["systemMessage"])
+            self.assertTrue(payload["continue"])
+
+            foreign = subprocess.run(
+                ["bash", str(script)],
+                input=expansion.replace("mn:save", "commit"),
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            self.assertNotIn("systemMessage", json.loads(foreign.stdout))
+
+            (Path(tmp) / ".mnemo/config.json").write_text(
+                json.dumps({"vault": "main", "hooks": {"invocationEcho": False}})
+            )
+            gated = subprocess.run(
+                ["bash", str(script)],
+                input=expansion,
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            self.assertNotIn("systemMessage", json.loads(gated.stdout))
+
+            no_config = subprocess.run(
+                ["bash", str(script)],
+                input=expansion,
+                check=True,
+                capture_output=True,
+                text=True,
+                env={"HOME": tmp + "/nowhere", "PATH": os.environ.get("PATH", "")},
+            )
+            self.assertIn("/mn:save", json.loads(no_config.stdout)["systemMessage"])
 
     def test_prewarm_uses_codex_session_id_from_minimal_hook_input(self) -> None:
         script = REPO_ROOT / "plugins/mnemo/hooks/prewarm.sh"

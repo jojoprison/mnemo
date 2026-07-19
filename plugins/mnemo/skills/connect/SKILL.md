@@ -7,6 +7,8 @@ context: fork
 
 # mn:connect — Discover Hidden Links
 
+> **Invocation marker (both runtimes):** begin your reply with the exact line `🧠 mn:connect (mnemo) → running` — the user-visible confirmation that this skill actually loaded. Emit it once per invocation, before any other output.
+
 ## Portable paths
 
 Resolve `<mnemo-root>` once to the absolute plugin root before reading bundled files or running bundled scripts. In Claude Code, use `${CLAUDE_PLUGIN_ROOT}`; in Codex, derive it from this loaded `SKILL.md` path (skill directory → `skills/` → plugin root). Replace `<mnemo-root>` with that quoted absolute path in every command — never execute the placeholder literally and never hunt versioned cache directories.

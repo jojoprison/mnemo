@@ -292,9 +292,10 @@ mnemo/
 │   │   ├── handoff-archive.py       # size-guard rotation: closed old handoff blocks → cold archive
 │   │   └── check-cm-version.sh      # claude-mem cache inspector
 │   └── hooks/                       # Harness hooks
-│       ├── hooks.json               # SessionStart prewarm + proactive nudges; Stop nudge
+│       ├── hooks.json               # SessionStart prewarm + nudges; expansion echo; Stop nudge
 │       ├── prewarm.sh               # Codex-compatible SessionStart cache warmup
 │       ├── mnemo-context.sh         # SessionStart nudge — memory exists (config-gated)
+│       ├── mnemo-skill-echo.sh      # /mn:* expansion echo — visible skill-load confirmation
 │       └── mnemo-stop-nudge.sh      # Stop nudge — save before wrapping up (opt-in)
 ├── .claude-plugin/marketplace.json  # Claude Code marketplace entry
 ├── .agents/plugins/marketplace.json # Codex marketplace entry
