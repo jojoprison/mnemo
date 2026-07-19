@@ -4,3 +4,10 @@ name = "mnemo"
 
 [setup]
 script = ""
+
+[[actions]]
+name = "verify"
+icon = "tool"
+command = '''
+python3 scripts/lint-skills.py
+python3 plugins/mnemo/scripts/session-scan.py'''
