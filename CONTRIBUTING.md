@@ -35,6 +35,8 @@ The directory and `name` must match and use lowercase letters, digits, and singl
    python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
    ```
 
+   The CI job installs the tested Claude Code loader and sets `MNEMO_REQUIRE_CLAUDE_LOADER=1`, making the isolated real-loader test mandatory. Release workstations must run the same test without a skip; the schema validator alone does not detect duplicate paths between Claude's default component discovery and manifest-listed additions.
+
 ## Skill Design Principles
 
 - **CLI-first for reads, shell-free for values** — indexed reads/search/orphans/backlinks run through `scripts/safe-read.py`, which invokes the CLI with argv (`shell=False`); use MCP (`mcp__obsidian__create` / `str_replace`) for markdown writes

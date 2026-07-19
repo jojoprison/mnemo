@@ -23,9 +23,18 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Claude Code loader
+        run: npm install --global @anthropic-ai/claude-code@2.1.215
       - name: Validate SKILL.md files
         run: python3 scripts/lint-skills.py
       - name: Test runtime compatibility
+        env:
+          MNEMO_REQUIRE_CLAUDE_LOADER: "1"
         run: python3 scripts/test-runtime-compat.py
+      - name: Test runtime memory
+        run: python3 scripts/test-runtime-memory.py
       - name: Test handoff archive
         run: python3 scripts/test-handoff-archive.py

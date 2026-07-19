@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import shutil
 import stat
 import subprocess
 import sys
@@ -376,7 +377,7 @@ class SkillLintTests(unittest.TestCase):
             # marker must sit right after the H1, ahead of Portable paths, so it loads first
             self.assertLess(body.index(marker), body.index("## Portable paths"), skill)
 
-    def test_runtime_hook_manifests_compose_without_duplicate_events(self) -> None:
+    def test_runtime_hook_manifests_compose_without_duplicate_files_or_events(self) -> None:
         plugin = REPO_ROOT / "plugins/mnemo"
         shared = json.loads((plugin / "hooks/hooks.json").read_text())
         claude_only = json.loads((plugin / "hooks/claude-hooks.json").read_text())
@@ -390,14 +391,51 @@ class SkillLintTests(unittest.TestCase):
         self.assertTrue(set(shared["hooks"]).isdisjoint(claude_only["hooks"]))
         self.assertEqual(
             claude_manifest["hooks"],
-            ["./hooks/hooks.json", "./hooks/claude-hooks.json"],
+            ["./hooks/claude-hooks.json"],
         )
+        self.assertNotIn("./hooks/hooks.json", claude_manifest["hooks"])
         self.assertNotIn("hooks", codex_manifest)
         for manifest in (shared, claude_only):
             for groups in manifest["hooks"].values():
                 for group in groups:
                     for handler in group.get("hooks", []):
                         self.assertNotIn("async", handler)
+
+    def test_claude_loader_accepts_runtime_hook_composition(self) -> None:
+        claude = shutil.which("claude")
+        if claude is None:
+            if os.environ.get("MNEMO_REQUIRE_CLAUDE_LOADER") == "1":
+                self.fail("Claude Code CLI is required for the loader regression gate")
+            self.skipTest("Claude Code CLI not installed")
+
+        with tempfile.TemporaryDirectory(prefix="mnemo-claude-load-") as config_dir:
+            env = os.environ.copy()
+            env["CLAUDE_CONFIG_DIR"] = config_dir
+            subprocess.run(
+                [claude, "plugin", "marketplace", "add", str(REPO_ROOT)],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            subprocess.run(
+                [claude, "plugin", "install", "mnemo@mnemo"],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            installed = subprocess.run(
+                [claude, "plugin", "list"],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            ).stdout
+
+        self.assertIn("mnemo@mnemo", installed)
+        self.assertIn("Status: ✔ enabled", installed)
+        self.assertNotIn("failed to load", installed)
 
 
 class HookCompatibilityTests(unittest.TestCase):
