@@ -8,6 +8,9 @@
 # Empirics (CC 2.1.215, live capture): fires for plugin slash commands with
 # {command_name: "mn:health", command_source: "plugin", expansion_type: "slash_command"};
 # hook stdout never alters the expansion, so a malformed reply cannot break skills.
+# matcher "*" in hooks.json is deliberate: the mn:-prefix filter lives HERE in the
+# script — robust to matcher-semantics drift across CC versions (the payload shape
+# already drifted from the docs). Do not "optimize" the matcher without live re-testing.
 #
 # Gated by hooks.invocationEcho (default true; missing config = on — the echo confirms
 # skill loading and does not depend on a vault). Never blocks, exit 0 always.
