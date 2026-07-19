@@ -12,7 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **Cross-runtime recall without synchronization** — opt-in `recall.runtimeMemory` lets Codex retrieve verified Claude Code project memory and Claude retrieve only Codex task groups scoped to the exact same git common directory. Obsidian stays authoritative; runtime memory is cited as untrusted secondary evidence.
 - **Bounded read-only adapter** — `runtime-memory.py` returns at most seven hits, 12 KiB of excerpts, and 32 KiB of JSON. It never writes, caches, follows symlinks, reads transcript bodies, fetches embedded links, or broadens an unverified project mapping. Explicit global lookup is restricted to direct non-secret Markdown topics under `~/.claude/memory/`.
-- **Setup and health integration** — setup offers the bridge as an off-by-default choice; health reports only mapping availability and never reads counterpart content or attempts repair.
+- **Setup and health integration** — setup offers the bridge as an off-by-default choice; health reports only mapping availability through a bounded metadata projection, never returns/summarizes counterpart body content, and never attempts repair.
 
 ### Changed
 
@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Security
 
-- **Fail-closed project isolation** — Claude's lossy project slug is accepted only after session metadata proves the same repository; Codex memory requires an explicit matching `applies_to: cwd=…`. Foreign, malformed, oversized, symlinked, and unscoped candidates are rejected, with regression coverage for worktrees, slug collisions, injection-shaped content, secret-like names, and output bounds.
+- **Fail-closed project isolation** — Claude's lossy project slug is accepted only when every matching exact app-state project key resolves to the same git common directory; session JSONL is never opened. Codex memory requires exactly one explicit matching `applies_to: cwd=…`. Foreign, mixed, malformed, oversized, symlinked, and unscoped candidates are rejected, with regression coverage for worktrees, slug collisions, injection-shaped content, secret-like names, metadata-only status, and real output bounds.
 
 ## [1.2.2] - 2026-07-20
 

@@ -23,10 +23,14 @@ SCHEMA_VERSION = 1
 MAX_INPUT_BYTES = 16_384
 MAX_QUERY_BYTES = 8_192
 MAX_FILE_BYTES = 256 * 1024
-MAX_SESSION_METADATA_BYTES = 64 * 1024
+MAX_CLAUDE_STATE_BYTES = 1024 * 1024
+MAX_CLAUDE_PROJECT_KEYS = 2_048
+MAX_CLAUDE_COLLISION_KEYS = 8
 MAX_GLOBAL_SCAN_BYTES = 4 * 1024 * 1024
 MAX_GLOBAL_FILES = 200
+MAX_GLOBAL_DIR_ENTRIES = 256
 MAX_INDEX_LINKS = 50
+MAX_STATUS_LINE_BYTES = 8 * 1024
 HARD_MAX_HITS = 7
 HARD_MAX_EXCERPT_BYTES = 12_288
 HARD_MAX_OUTPUT_BYTES = 32_768
@@ -34,6 +38,7 @@ PER_HIT_BYTES = 2_048
 
 LINK_RE = re.compile(r"\[([^\]]+)\]\(([^)]+\.md)(?:#[^)]+)?\)")
 TASK_GROUP_RE = re.compile(r"(?m)^# Task Group: (.+?)\s*$")
+APPLIES_TO_RE = re.compile(r"(?m)^applies_to\s*:\s*(.*?)\s*$")
 CWD_RE = re.compile(r"(?:^|[;\s])cwd=([^;,\n]+)")
 SECRET_NAME_PARTS = (
     "credential",
@@ -178,7 +183,6 @@ def _read_file(
     candidate: Path,
     *,
     limit: int,
-    allow_larger: bool = False,
 ) -> tuple[str | None, str | None]:
     safe_path = _safe_file_path(root, candidate)
     if safe_path is None:
@@ -190,7 +194,7 @@ def _read_file(
             info = os.fstat(fd)
             if not stat.S_ISREG(info.st_mode) or not _owned_by_current_user(info):
                 return None, "unsafe_file"
-            if not allow_larger and info.st_size > limit:
+            if info.st_size > limit:
                 return None, "oversized_file"
             data = os.read(fd, limit + 1)
         finally:
@@ -217,61 +221,54 @@ def _claude_slug(path: Path) -> str:
     return str(path).replace(os.sep, "-")
 
 
-def _extract_session_cwd(obj: Any) -> str | None:
-    if not isinstance(obj, dict):
+def _claude_state_path(home: Path, config_dir: Path) -> tuple[Path, Path]:
+    default_dir = home / ".claude"
+    if config_dir == default_dir:
+        return home, home / ".claude.json"
+    return config_dir, config_dir / ".claude.json"
+
+
+def _claude_registered_projects(
+    home: Path,
+    env: dict[str, str],
+) -> list[str] | None:
+    """Return Claude's exact project registry keys without opening transcripts."""
+    config_dir = _claude_config_dir(home, env)
+    state_root, state_path = _claude_state_path(home, config_dir)
+    text, _ = _read_file(state_root, state_path, limit=MAX_CLAUDE_STATE_BYTES)
+    if text is None:
         return None
-    for candidate in (
-        obj.get("cwd"),
-        (obj.get("session_meta") or {}).get("cwd")
-        if isinstance(obj.get("session_meta"), dict)
-        else None,
-        (obj.get("payload") or {}).get("cwd")
-        if isinstance(obj.get("payload"), dict)
-        else None,
-    ):
-        if isinstance(candidate, str) and candidate:
-            return candidate
-    return None
+    try:
+        value = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    projects = value.get("projects") if isinstance(value, dict) else None
+    if not isinstance(projects, dict) or len(projects) > MAX_CLAUDE_PROJECT_KEYS:
+        return None
+    keys = [key for key in projects if isinstance(key, str) and Path(key).is_absolute()]
+    return keys if len(keys) == len(projects) else None
 
 
 def _verified_claude_project(
     projects_root: Path,
     project_dir: Path,
     context: ProjectContext,
+    registered_projects: list[str],
 ) -> bool:
     safe_project = _safe_subdirectory(projects_root, project_dir)
     if safe_project is None:
         return False
-    try:
-        sessions = sorted(
-            (
-                path
-                for path in safe_project.iterdir()
-                if path.name.endswith(".jsonl") and not path.is_symlink()
-            ),
-            key=lambda path: path.stat().st_mtime,
-            reverse=True,
-        )[:20]
-    except OSError:
+    matching_keys = [
+        key
+        for key in registered_projects
+        if _claude_slug(Path(key)) == safe_project.name
+    ]
+    if not matching_keys or len(matching_keys) > MAX_CLAUDE_COLLISION_KEYS:
         return False
-    for session in sessions:
-        text, _ = _read_file(
-            safe_project,
-            session,
-            limit=MAX_SESSION_METADATA_BYTES,
-            allow_larger=True,
-        )
-        if text is None:
-            continue
-        # Session metadata is at the start. Never search or return transcript bodies.
-        for line in text.splitlines()[:32]:
-            try:
-                cwd = _extract_session_cwd(json.loads(line))
-            except json.JSONDecodeError:
-                continue
-            if cwd and _same_project(cwd, context):
-                return True
-    return False
+    # Claude's flattened directory key is lossy. Accept it only when every
+    # exact app-state key that maps to the candidate resolves to this git
+    # common directory; mixed or stale collisions fail closed.
+    return all(_same_project(key, context) for key in matching_keys)
 
 
 def _claude_config_dir(home: Path, env: dict[str, str]) -> Path:
@@ -293,13 +290,18 @@ def _claude_memory_root(
     safe_projects = _safe_subdirectory(config_dir, projects_root)
     if safe_projects is None:
         return None, "claude_project_unverified"
+    registered_projects = _claude_registered_projects(home, env)
+    if registered_projects is None:
+        return None, "claude_project_unverified"
     candidates = [
         safe_projects / _claude_slug(context.canonical_root),
     ]
     if context.current_root != context.canonical_root:
         candidates.append(safe_projects / _claude_slug(context.current_root))
     for project_dir in dict.fromkeys(candidates):
-        if not _verified_claude_project(safe_projects, project_dir, context):
+        if not _verified_claude_project(
+            safe_projects, project_dir, context, registered_projects
+        ):
             continue
         memory_dir = project_dir / "memory"
         safe_memory = _safe_subdirectory(project_dir, memory_dir)
@@ -490,18 +492,24 @@ def _claude_global_hits(
     scanned = 0
     truncated = False
     try:
-        files = sorted(
-            (
-                path
-                for path in root.iterdir()
-                if path.suffix.casefold() == ".md"
-                and not path.is_symlink()
-                and not _is_secret_name(path)
-            ),
-            key=lambda path: path.name.casefold(),
-        )
+        entries: list[Path] = []
+        with os.scandir(root) as scan:
+            for entry in scan:
+                if len(entries) >= MAX_GLOBAL_DIR_ENTRIES:
+                    return [], ["claude_global_entry_budget"], True
+                entries.append(root / entry.name)
     except OSError:
         return [], ["claude_global_unavailable"], False
+    files = sorted(
+        (
+            path
+            for path in entries
+            if path.suffix.casefold() == ".md"
+            and not path.is_symlink()
+            and not _is_secret_name(path)
+        ),
+        key=lambda path: path.name.casefold(),
+    )
     if len(files) > MAX_GLOBAL_FILES:
         files = files[:MAX_GLOBAL_FILES]
         truncated = True
@@ -555,26 +563,111 @@ def _task_groups(text: str) -> list[tuple[str, str]]:
     groups: list[tuple[str, str]] = []
     for index, match in enumerate(matches):
         end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
-        groups.append((match.group(1).strip(), text[match.start() : end]))
+        title = match.group(1).strip()
+        if title:
+            groups.append((title, text[match.start() : end]))
     return groups
 
 
 def _codex_group_matches(group: str, context: ProjectContext) -> bool:
     metadata = group.split("\n## ", 1)[0]
-    paths = CWD_RE.findall(metadata)
-    for value in paths:
-        raw = value.strip()
-        candidates = [raw]
-        # Generated Codex summaries sometimes annotate a real cwd with prose,
-        # e.g. "cwd=/repo and user-level configuration". Try only explicit
-        # delimiter prefixes, and still require each resulting path to exist
-        # and resolve to the exact same git common directory.
-        for marker in (" and ", " or ", " (", " [", " — "):
-            if marker in raw:
-                candidates.append(raw.split(marker, 1)[0].strip())
-        if any(_same_project(candidate, context) for candidate in dict.fromkeys(candidates)):
-            return True
-    return False
+    applies_to = APPLIES_TO_RE.findall(metadata)
+    if len(applies_to) != 1:
+        return False
+    scope = applies_to[0].strip()
+    if not scope.startswith("cwd="):
+        return False
+    if len(re.findall(r"(?:^|[;\s])cwd=", scope)) != 1:
+        return False
+    paths = CWD_RE.findall(scope)
+    if len(paths) != 1:
+        return False
+    raw = paths[0].strip()
+    candidates = [raw]
+    # Generated Codex summaries sometimes annotate a real cwd with prose,
+    # e.g. "cwd=/repo and user-level configuration". Try only explicit
+    # delimiter prefixes, and still require each resulting path to exist
+    # and resolve to the exact same git common directory.
+    for marker in (" and ", " or ", " (", " [", " — "):
+        if marker in raw:
+            candidates.append(raw.split(marker, 1)[0].strip())
+    return any(
+        _same_project(candidate, context) for candidate in dict.fromkeys(candidates)
+    )
+
+
+def _codex_status_has_matching_group(
+    root: Path,
+    path: Path,
+    context: ProjectContext,
+) -> bool:
+    """Inspect only task-group headers and scope metadata for health status."""
+    safe_path = _safe_file_path(root, path)
+    if safe_path is None:
+        return False
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    fd: int | None = None
+    try:
+        fd = os.open(safe_path, flags)
+        info = os.fstat(fd)
+        if (
+            not stat.S_ISREG(info.st_mode)
+            or not _owned_by_current_user(info)
+            or info.st_size > MAX_FILE_BYTES
+        ):
+            os.close(fd)
+            return False
+        stream = os.fdopen(fd, "rb", buffering=0)
+        fd = None
+    except OSError:
+        if fd is not None:
+            os.close(fd)
+        return False
+
+    in_group = False
+    metadata_lines: list[str] = []
+    bytes_read = 0
+    try:
+        with stream:
+            while True:
+                if bytes_read >= MAX_FILE_BYTES:
+                    if stream.read(1):
+                        return False
+                    break
+                remaining = MAX_FILE_BYTES - bytes_read
+                raw = stream.readline(min(MAX_STATUS_LINE_BYTES, remaining) + 1)
+                if not raw:
+                    break
+                bytes_read += len(raw)
+                if (
+                    bytes_read > MAX_FILE_BYTES
+                    or len(raw) > MAX_STATUS_LINE_BYTES
+                    or not raw.endswith(b"\n")
+                ):
+                    return False
+                if raw.startswith(b"# Task Group: "):
+                    if in_group and _codex_group_matches(
+                        "".join(metadata_lines), context
+                    ):
+                        return True
+                    header = raw.decode("utf-8", errors="replace").rstrip("\n")
+                    match = TASK_GROUP_RE.fullmatch(header)
+                    in_group = bool(match and match.group(1).strip())
+                    metadata_lines = []
+                    continue
+                if not in_group:
+                    continue
+                if raw.startswith(b"## "):
+                    if _codex_group_matches("".join(metadata_lines), context):
+                        return True
+                    in_group = False
+                    metadata_lines = []
+                    continue
+                if raw.startswith(b"applies_to"):
+                    metadata_lines.append(raw.decode("utf-8", errors="replace"))
+        return in_group and _codex_group_matches("".join(metadata_lines), context)
+    except OSError:
+        return False
 
 
 def _codex_project_hits(
@@ -790,12 +883,9 @@ def status(
         reason = "available" if available else (warning or "unavailable")
     elif enabled and context is not None and runtime == "claude":
         root = _codex_memory_root(home, active_env)
-        text = None
         if root is not None:
-            text, _ = _read_file(root, root / "MEMORY.md", limit=MAX_FILE_BYTES)
-        if root is not None and text is not None:
-            available = any(
-                _codex_group_matches(group, context) for _, group in _task_groups(text)
+            available = _codex_status_has_matching_group(
+                root, root / "MEMORY.md", context
             )
         reason = "available" if available else "codex_project_unverified"
     elif enabled and runtime not in {"claude", "codex"}:

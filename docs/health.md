@@ -74,7 +74,7 @@ Beyond cleaning up, `/mn:health` points at where the vault wants to **grow** —
 
 - **Ghost notes are a feature** — `[[Technology]]` links to non-existent files are intentional for entity discovery in Graph View
 - **Non-destructive by default** — out of the box health only reports (the content lint is off). The one write it can make is the `reviewed:` snooze stamp on still-valid notes once you enable the lint (`review.lint.autoStampReviewed`, default on; set false to keep the lint suggest-only).
-- **Runtime isolation** — Claude Code additionally checks its own auto-memory index and optional claude-mem cache. Codex skips both size/cache checks. When cross-runtime recall is enabled, either runtime may run one exact-project, metadata-only status probe; health never reads counterpart memory content, broad-scans another runtime, or repairs anything.
+- **Runtime isolation** — Claude Code additionally checks its own auto-memory index and optional claude-mem cache. Codex skips both size/cache checks. When cross-runtime recall is enabled, either runtime may run one exact-project metadata projection: it decodes/retains only scope metadata, never returns or summarizes body content, never broad-scans another runtime, and repairs nothing. The flat Codex registry may require bounded streaming past opaque body bytes to locate later task-group headers.
 - Run weekly or after creating many notes at once
 
 ## Related Skills

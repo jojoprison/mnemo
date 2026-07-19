@@ -508,6 +508,18 @@ class HookCompatibilityTests(unittest.TestCase):
             )
             self.assertIn("/mn:save", json.loads(no_config.stdout)["systemMessage"])
 
+            malformed = subprocess.run(
+                ["bash", str(script)],
+                input="{not-json",
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            malformed_payload = json.loads(malformed.stdout)
+            self.assertTrue(malformed_payload["continue"])
+            self.assertTrue(malformed_payload["suppressOutput"])
+
     def test_prewarm_uses_codex_session_id_from_minimal_hook_input(self) -> None:
         script = REPO_ROOT / "plugins/mnemo/hooks/prewarm.sh"
         with tempfile.TemporaryDirectory() as tmp:

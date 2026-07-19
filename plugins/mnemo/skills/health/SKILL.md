@@ -42,7 +42,7 @@ Script emits three lines: `version: X`, `stale: N`, `path: ...`. Interpret:
 
 ### Step 0.5: Cross-runtime Recall Status (conditional, read-only)
 
-When `recall.runtimeMemory.enabled` is `true`, report whether the other runtime's project memory can be mapped safely. Run only the helper's metadata-only status probe; do not read or summarize counterpart memory content during a health audit:
+When `recall.runtimeMemory.enabled` is `true`, report whether the other runtime's project memory can be mapped safely. Run only the helper's metadata-projection status probe: it decodes and retains project/scope metadata only (bounded raw bytes may be streamed past to locate later headers), and it never returns or summarizes counterpart body content during a health audit:
 
 ```bash
 python3 "<mnemo-root>/scripts/runtime-memory.py" status <<'JSON'

@@ -9,6 +9,7 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -36,12 +37,17 @@ def claude_slug(path: Path) -> str:
     return str(path.resolve()).replace("/", "-")
 
 
-def enabled_config(*, max_hits: int = 5, max_excerpt_bytes: int = 12_288) -> dict:
+def enabled_config(
+    *,
+    max_hits: int = 5,
+    max_excerpt_bytes: int = 12_288,
+    global_sources: str = "explicit",
+) -> dict:
     return {
         "recall": {
             "runtimeMemory": {
                 "enabled": True,
-                "globalSources": "explicit",
+                "globalSources": global_sources,
                 "maxHits": max_hits,
                 "maxExcerptBytes": max_excerpt_bytes,
             }
@@ -53,7 +59,7 @@ def write_claude_project_memory(
     home: Path,
     repo: Path,
     *,
-    session_cwd: Path | None = None,
+    registered_projects: list[Path] | None = None,
     index: str,
     topics: dict[str, str] | None = None,
 ) -> Path:
@@ -66,7 +72,7 @@ def write_claude_project_memory(
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content)
     (project_dir / "session.jsonl").write_text(
-        json.dumps({"type": "user", "cwd": str(session_cwd or repo)})
+        json.dumps({"type": "user", "cwd": str(repo)})
         + "\n"
         + json.dumps(
             {
@@ -76,6 +82,12 @@ def write_claude_project_memory(
         )
         + "\n"
     )
+    state_path = home / ".claude.json"
+    state = json.loads(state_path.read_text()) if state_path.exists() else {}
+    projects = state.setdefault("projects", {})
+    for registered in registered_projects or [repo]:
+        projects[str(registered.resolve())] = {}
+    state_path.write_text(json.dumps(state))
     return memory_dir
 
 
@@ -157,7 +169,7 @@ class ClaudeProjectMemoryTests(unittest.TestCase):
             self.assertNotIn("TAGGED_RELEASE_FOREIGN_PROJECT", body)
             self.assertTrue(all(hit["backend"] == "claude-project" for hit in result["hits"]))
 
-    def test_lossy_slug_collision_is_rejected_by_session_metadata(self) -> None:
+    def test_lossy_slug_collision_is_rejected_by_exact_project_registry(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             home = root / "home"
@@ -167,7 +179,7 @@ class ClaudeProjectMemoryTests(unittest.TestCase):
             write_claude_project_memory(
                 home,
                 repo_a,
-                session_cwd=repo_b,
+                registered_projects=[repo_b],
                 index="- [scope](scope.md) — collision sentinel\n",
                 topics={"scope.md": "COLLIDING_PROJECT_SECRET"},
             )
@@ -182,6 +194,57 @@ class ClaudeProjectMemoryTests(unittest.TestCase):
 
             self.assertEqual(result["hits"], [])
             self.assertIn("claude_project_unverified", result["warnings"])
+
+    def test_mixed_colliding_project_registry_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo_a = init_repo(root / "a-b/c")
+            repo_b = init_repo(root / "a/b-c")
+            self.assertEqual(claude_slug(repo_a), claude_slug(repo_b))
+            write_claude_project_memory(
+                home,
+                repo_a,
+                registered_projects=[repo_a, repo_b],
+                index="- [scope](scope.md) — mixed collision query\n",
+                topics={"scope.md": "MIXED_COLLISION_SECRET"},
+            )
+
+            result = runtime_memory.search(
+                ["mixed", "collision"],
+                cwd=repo_a,
+                home=home,
+                runtime="codex",
+                config=enabled_config(),
+            )
+
+            self.assertEqual(result["hits"], [])
+            self.assertNotIn("MIXED_COLLISION_SECRET", json.dumps(result))
+            self.assertIn("claude_project_unverified", result["warnings"])
+
+    def test_collision_key_budget_fails_before_git_probes(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            projects_root = root / "projects"
+            project_dir = projects_root / "candidate"
+            project_dir.mkdir(parents=True)
+            repo = init_repo(root / "repo")
+            context = runtime_memory.project_context(repo)
+            self.assertIsNotNone(context)
+            registered = [
+                f"/synthetic/collision/{index}"
+                for index in range(runtime_memory.MAX_CLAUDE_COLLISION_KEYS + 1)
+            ]
+
+            with mock.patch.object(
+                runtime_memory, "_claude_slug", return_value=project_dir.name
+            ), mock.patch.object(runtime_memory, "_same_project") as same_project:
+                verified = runtime_memory._verified_claude_project(
+                    projects_root, project_dir, context, registered
+                )
+
+            self.assertFalse(verified)
+            same_project.assert_not_called()
 
     def test_symlink_file_and_parent_escape_are_rejected(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -271,6 +334,63 @@ class ClaudeProjectMemoryTests(unittest.TestCase):
             )
 
             self.assertEqual(result["hits"], [])
+
+    def test_project_verification_never_opens_transcript_jsonl(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            write_claude_project_memory(
+                home,
+                repo,
+                index="- [proof](proof.md) — registry proof query\n",
+                topics={"proof.md": "REGISTRY_PROOF_MEMORY"},
+            )
+            real_open = runtime_memory.os.open
+
+            def guarded_open(path, *args, **kwargs):
+                if str(path).endswith(".jsonl"):
+                    raise AssertionError("transcripts must never be opened")
+                return real_open(path, *args, **kwargs)
+
+            with mock.patch.object(runtime_memory.os, "open", side_effect=guarded_open):
+                result = runtime_memory.search(
+                    ["registry", "proof"],
+                    cwd=repo,
+                    home=home,
+                    runtime="codex",
+                    config=enabled_config(),
+                )
+
+            self.assertIn("REGISTRY_PROOF_MEMORY", json.dumps(result))
+
+    def test_custom_claude_config_dir_uses_its_own_app_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            config_dir = root / "claude-work"
+            project_dir = config_dir / "projects" / claude_slug(repo)
+            memory_dir = project_dir / "memory"
+            memory_dir.mkdir(parents=True)
+            (memory_dir / "MEMORY.md").write_text(
+                "- [custom](custom.md) — custom config query\n"
+            )
+            (memory_dir / "custom.md").write_text("CUSTOM_CONFIG_MEMORY")
+            (config_dir / ".claude.json").write_text(
+                json.dumps({"projects": {str(repo.resolve()): {}}})
+            )
+
+            result = runtime_memory.search(
+                ["custom", "config"],
+                cwd=repo,
+                home=home,
+                runtime="codex",
+                config=enabled_config(),
+                env={"CLAUDE_CONFIG_DIR": str(config_dir)},
+            )
+
+            self.assertIn("CUSTOM_CONFIG_MEMORY", json.dumps(result))
 
     def test_prompt_injection_is_returned_only_as_untrusted_data_and_no_writes_occur(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -376,6 +496,71 @@ applies_to: cwd={foreign}; reuse_rule=foreign only
 
             self.assertEqual(result["hits"], [])
 
+    def test_scope_requires_one_explicit_applies_to_field(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            foreign = init_repo(root / "foreign")
+            memory = home / ".codex/memories"
+            memory.mkdir(parents=True)
+            (memory / "MEMORY.md").write_text(
+                f"""# Task Group: cwd on wrong field
+scope: cwd={repo}
+
+## Reusable knowledge
+- scope-query WRONG_FIELD_LEAK
+
+# Task Group: misleading notes
+applies_to: no project scope
+notes: cwd={repo}
+
+## Reusable knowledge
+- scope-query NOTES_FIELD_LEAK
+
+# Task Group: duplicate scope
+applies_to: cwd={repo}
+applies_to: cwd={foreign}
+
+## Reusable knowledge
+- scope-query DUPLICATE_SCOPE_LEAK
+
+# Task Group: prose before cwd
+applies_to: arbitrary prose cwd={repo}
+
+## Reusable knowledge
+- scope-query PROSE_PREFIX_LEAK
+
+# Task Group: second cwd in prose
+applies_to: cwd={repo} and cwd={foreign}
+
+## Reusable knowledge
+- scope-query AMBIGUOUS_CWD_LEAK
+
+# Task Group: explicit scope
+applies_to:cwd={repo} and user-level configuration; reuse_rule=current only
+
+## Reusable knowledge
+- scope-query EXPLICIT_SCOPE_MEMORY
+"""
+            )
+
+            result = runtime_memory.search(
+                ["scope-query"],
+                cwd=repo,
+                home=home,
+                runtime="claude",
+                config=enabled_config(),
+            )
+
+            body = json.dumps(result)
+            self.assertIn("EXPLICIT_SCOPE_MEMORY", body)
+            self.assertNotIn("WRONG_FIELD_LEAK", body)
+            self.assertNotIn("NOTES_FIELD_LEAK", body)
+            self.assertNotIn("DUPLICATE_SCOPE_LEAK", body)
+            self.assertNotIn("PROSE_PREFIX_LEAK", body)
+            self.assertNotIn("AMBIGUOUS_CWD_LEAK", body)
+
 
 class GlobalAndBoundsTests(unittest.TestCase):
     def test_claude_global_topics_require_explicit_request_and_skip_secret_names(self) -> None:
@@ -411,6 +596,52 @@ class GlobalAndBoundsTests(unittest.TestCase):
             explicit_body = json.dumps(explicit)
             self.assertIn("GLOBAL_TOOLING_SENTINEL", explicit_body)
             self.assertNotIn("GLOBAL_CREDENTIAL_SENTINEL", explicit_body)
+
+    def test_global_sources_off_overrides_explicit_request(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            global_dir = home / ".claude/memory"
+            global_dir.mkdir(parents=True)
+            (global_dir / "tooling.md").write_text("GLOBAL_DISABLED_SENTINEL")
+
+            result = runtime_memory.search(
+                ["GLOBAL_DISABLED_SENTINEL"],
+                cwd=repo,
+                home=home,
+                runtime="codex",
+                config=enabled_config(global_sources="off"),
+                include_global=True,
+            )
+
+            self.assertNotIn("GLOBAL_DISABLED_SENTINEL", json.dumps(result))
+            self.assertFalse(
+                any(hit["backend"] == "claude-global" for hit in result["hits"])
+            )
+
+    def test_global_directory_entry_budget_fails_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            global_dir = home / ".claude/memory"
+            global_dir.mkdir(parents=True)
+            for index in range(runtime_memory.MAX_GLOBAL_DIR_ENTRIES + 1):
+                (global_dir / f"topic-{index:04d}.md").write_text("entry-budget")
+
+            result = runtime_memory.search(
+                ["entry-budget"],
+                cwd=repo,
+                home=home,
+                runtime="codex",
+                config=enabled_config(),
+                include_global=True,
+            )
+
+            self.assertEqual(result["hits"], [])
+            self.assertIn("claude_global_entry_budget", result["warnings"])
+            self.assertTrue(result["truncated"])
 
     def test_hits_are_deduplicated_and_hard_bounded(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -451,6 +682,34 @@ class GlobalAndBoundsTests(unittest.TestCase):
             self.assertTrue(result["truncated"])
             self.assertLessEqual(len(json.dumps(result).encode()), 32_768)
 
+    def test_output_budget_fallback_clears_true_oversize_envelope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            memory = home / ".codex/memories"
+            memory.mkdir(parents=True)
+            huge_title = "T" * 34_000
+            (memory / "MEMORY.md").write_text(
+                f"# Task Group: {huge_title}\n"
+                f"applies_to: cwd={repo}; reuse_rule=current only\n\n"
+                "## Reusable knowledge\n"
+                "- output-budget OUTPUT_BUDGET_SENTINEL\n"
+            )
+
+            result = runtime_memory.search(
+                ["output-budget"],
+                cwd=repo,
+                home=home,
+                runtime="claude",
+                config=enabled_config(max_hits=1, max_excerpt_bytes=256),
+            )
+
+            self.assertEqual(result["hits"], [])
+            self.assertIn("output_budget_exceeded", result["warnings"])
+            self.assertTrue(result["truncated"])
+            self.assertLessEqual(len(json.dumps(result).encode()), 32_768)
+
     def test_disabled_bridge_is_a_silent_noop(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -467,6 +726,245 @@ class GlobalAndBoundsTests(unittest.TestCase):
 
             self.assertEqual(result["hits"], [])
             self.assertEqual(result["warnings"], [])
+
+
+class StatusContractTests(unittest.TestCase):
+    def test_status_covers_disabled_non_git_and_both_available_backends(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            write_claude_project_memory(
+                home,
+                repo,
+                index="- [status](status.md) — status mapping\n",
+                topics={"status.md": "STATUS_MEMORY"},
+            )
+            codex_memory = home / ".codex/memories"
+            codex_memory.mkdir(parents=True)
+            (codex_memory / "MEMORY.md").write_text(
+                f"# Task Group: status\n"
+                f"applies_to: cwd={repo}; reuse_rule=current only\n\n"
+                "## Reusable knowledge\n"
+                "- body must not be needed for status\n"
+            )
+
+            disabled = runtime_memory.status(
+                cwd=repo,
+                home=home,
+                runtime="codex",
+                config={"recall": {"runtimeMemory": {"enabled": False}}},
+            )
+            non_git = runtime_memory.status(
+                cwd=root,
+                home=home,
+                runtime="codex",
+                config=enabled_config(),
+            )
+            codex = runtime_memory.status(
+                cwd=repo,
+                home=home,
+                runtime="codex",
+                config=enabled_config(),
+            )
+            claude = runtime_memory.status(
+                cwd=repo,
+                home=home,
+                runtime="claude",
+                config=enabled_config(),
+            )
+
+            self.assertEqual(disabled["counterpart"]["reason"], "disabled")
+            self.assertEqual(non_git["counterpart"]["reason"], "not_a_git_project")
+            self.assertTrue(codex["counterpart"]["available"])
+            self.assertTrue(claude["counterpart"]["available"])
+
+    def test_claude_status_stops_before_matching_group_body(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            memory = home / ".codex/memories"
+            memory.mkdir(parents=True)
+            (memory / "MEMORY.md").write_text(
+                f"# Task Group: early match\n"
+                f"applies_to: cwd={repo}; reuse_rule=current only\n\n"
+                "## Reusable knowledge\n"
+                "- STATUS_BODY_MUST_NOT_BE_READ\n"
+            )
+            real_fdopen = runtime_memory.os.fdopen
+
+            class GuardedStream:
+                def __init__(self, stream):
+                    self.stream = stream
+                    self.at_body = False
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    self.stream.close()
+
+                def readline(self, *args):
+                    if self.at_body:
+                        raise AssertionError("status attempted to read task-group body")
+                    raw = self.stream.readline(*args)
+                    if raw.startswith(b"## "):
+                        self.at_body = True
+                    return raw
+
+            def guarded_fdopen(fd, *args, **kwargs):
+                return GuardedStream(real_fdopen(fd, *args, **kwargs))
+
+            with mock.patch.object(
+                runtime_memory.os, "fdopen", side_effect=guarded_fdopen
+            ):
+                result = runtime_memory.status(
+                    cwd=repo,
+                    home=home,
+                    runtime="claude",
+                    config=enabled_config(),
+                )
+
+            self.assertTrue(result["counterpart"]["available"])
+
+    def test_status_rejects_foreign_or_body_only_scope(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            foreign = init_repo(root / "foreign")
+            memory = home / ".codex/memories"
+            memory.mkdir(parents=True)
+            (memory / "MEMORY.md").write_text(
+                f"# Task Group: foreign\n"
+                f"applies_to: cwd={foreign}\n\n"
+                "## Reusable knowledge\n"
+                f"- misleading cwd={repo}\n"
+            )
+
+            result = runtime_memory.status(
+                cwd=repo,
+                home=home,
+                runtime="claude",
+                config=enabled_config(),
+            )
+
+            self.assertFalse(result["counterpart"]["available"])
+            self.assertEqual(
+                result["counterpart"]["reason"], "codex_project_unverified"
+            )
+
+    def test_status_streams_opaque_body_to_reach_later_matching_group(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            foreign = init_repo(root / "foreign")
+            memory = home / ".codex/memories"
+            memory.mkdir(parents=True)
+            (memory / "MEMORY.md").write_bytes(
+                (
+                    f"# Task Group: foreign\n"
+                    f"applies_to: cwd={foreign}\n\n"
+                    "## Reusable knowledge\n"
+                    "- OPAQUE_BODY_MUST_NOT_ENTER_METADATA\n"
+                ).encode()
+                + b"- invalid utf8 remains opaque: \xff\n"
+                + (
+                    f"# Task Group: later current\n"
+                    f"applies_to: cwd={repo}\n\n"
+                    "## Reusable knowledge\n"
+                    "- later body\n"
+                ).encode()
+            )
+            original_matcher = runtime_memory._codex_group_matches
+
+            def guarded_matcher(group, context):
+                self.assertNotIn("OPAQUE_BODY", group)
+                return original_matcher(group, context)
+
+            with mock.patch.object(
+                runtime_memory,
+                "_codex_group_matches",
+                side_effect=guarded_matcher,
+            ):
+                result = runtime_memory.status(
+                    cwd=repo,
+                    home=home,
+                    runtime="claude",
+                    config=enabled_config(),
+                )
+
+            self.assertTrue(result["counterpart"]["available"])
+
+    def test_status_rejects_empty_task_group_title(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            memory = home / ".codex/memories"
+            memory.mkdir(parents=True)
+            (memory / "MEMORY.md").write_text(
+                f"# Task Group: \n"
+                f"applies_to: cwd={repo}\n\n"
+                "## Reusable knowledge\n"
+                "- malformed empty title\n"
+            )
+
+            result = runtime_memory.status(
+                cwd=repo,
+                home=home,
+                runtime="claude",
+                config=enabled_config(),
+            )
+
+            self.assertFalse(result["counterpart"]["available"])
+
+    def test_status_cumulative_read_budget_survives_file_growth(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            home = root / "home"
+            repo = init_repo(root / "repo")
+            memory = home / ".codex/memories"
+            memory.mkdir(parents=True)
+            path = memory / "MEMORY.md"
+            path.write_text("seed\n")
+            real_fdopen = runtime_memory.os.fdopen
+            calls = 0
+
+            class GrowingStream:
+                def __init__(self, stream):
+                    self.stream = stream
+
+                def __enter__(self):
+                    return self
+
+                def __exit__(self, *args):
+                    self.stream.close()
+
+                def readline(self, limit):
+                    nonlocal calls
+                    calls += 1
+                    return b"x\n"
+
+                def read(self, size):
+                    return b"x"
+
+            def growing_fdopen(fd, *args, **kwargs):
+                return GrowingStream(real_fdopen(fd, *args, **kwargs))
+
+            with mock.patch.object(
+                runtime_memory.os, "fdopen", side_effect=growing_fdopen
+            ), mock.patch.object(runtime_memory, "MAX_FILE_BYTES", 32), mock.patch.object(
+                runtime_memory, "MAX_STATUS_LINE_BYTES", 8
+            ):
+                available = runtime_memory._codex_status_has_matching_group(
+                    memory, path, runtime_memory.project_context(repo)
+                )
+
+            self.assertFalse(available)
+            self.assertLessEqual(calls, 16)
 
 
 class IntegrationContractTests(unittest.TestCase):
@@ -488,7 +986,8 @@ class IntegrationContractTests(unittest.TestCase):
         self.assertIn("max 7 evidence items total across every source", ask)
         self.assertIn("runtime-generated-untrusted", ask)
         self.assertEqual(health.count("runtime-memory.py\" status"), 1)
-        self.assertIn("metadata-only status probe", health)
+        self.assertIn("metadata-projection status probe", health)
+        self.assertIn("bounded raw bytes", health)
         self.assertIn('"enabled": false', setup)
 
     def test_cli_without_opt_in_is_a_clean_noop(self) -> None:

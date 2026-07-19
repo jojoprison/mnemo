@@ -60,7 +60,7 @@ claude-mem is optional and disabled by default. mnemo never starts ChromaDB or t
 
 ## Optional cross-runtime recall
 
-`recall.runtimeMemory.enabled: true` lets `$mnemo:ask` retrieve Claude Code auto-memory for the same verified git repository. The adapter is read-only and bounded: it validates the candidate using session metadata, reads only `MEMORY.md` plus linked topics, ignores transcript bodies, rejects symlinks/foreign scope, and never copies data into Codex or Obsidian. Claude uses the same shared skill in reverse and sees only Codex task groups explicitly scoped to the current repository.
+`recall.runtimeMemory.enabled: true` lets `$mnemo:ask` retrieve Claude Code auto-memory for the same verified git repository. The adapter is read-only and bounded: it cross-checks Claude's exact app-state project keys against the current git common directory, reads only `MEMORY.md` plus linked topics, never opens session JSONL, rejects lossy-slug collisions/symlinks/foreign scope, and never copies data into Codex or Obsidian. Claude uses the same shared skill in reverse and sees only Codex task groups explicitly scoped to the current repository. This follows Claude Code's documented [per-repository auto-memory layout](https://code.claude.com/docs/en/memory) and [project app-state mapping](https://code.claude.com/docs/en/claude-directory); missing or ambiguous upstream metadata simply disables the overlay.
 
 This is federation, not synchronization. Both runtimes keep their native storage and writers; Obsidian remains the canonical human-authored memory. The feature is off by default.
 

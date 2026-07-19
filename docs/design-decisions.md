@@ -18,14 +18,14 @@ Claude Code and Codex each own generated local-memory state with different layou
 
 Instead, `recall.runtimeMemory.enabled` adds a bounded **read-only retrieval overlay** to `ask`:
 
-- Codex may read Claude Code's `MEMORY.md` and linked topic files only after a session metadata prefix proves that the candidate directory belongs to the same git common directory. The lossy Claude slug alone is never trusted; transcript bodies are never searched or returned.
+- Codex may read Claude Code's `MEMORY.md` and linked topic files only after Claude's exact app-state project keys resolve to the same git common directory. The lossy Claude slug alone is never trusted; mixed/ambiguous mappings fail closed, and session JSONL is never opened.
 - Claude may read only `# Task Group:` sections in Codex `MEMORY.md` whose metadata contains a matching `applies_to: cwd=…`. Unscoped and foreign-project groups fail closed.
 - Worktrees that share a git common directory intentionally share project scope; unrelated clones and non-git directories do not.
 - Symlinks, path escapes, non-regular/foreign-owned files, oversized inputs, secret-like global filenames, and unknown structure are rejected. Missing proof disables only that backend; it never falls back to a home-wide scan.
 - Runtime-memory excerpts are labelled `runtime-generated-untrusted`. They can support an answer but cannot issue instructions, widen scope, trigger tools, fetch embedded links, or write back to the vault.
 - One global result budget applies after source merge: at most seven evidence items, with bounded excerpts. Obsidian remains the authoritative human-authored source and wins ties.
 
-The overlay is off by default and has no daemon, registry, cache, vector store, or background index. Optional direct Markdown topics under `~/.claude/memory/` are searched only when both config and the individual query explicitly request global/cross-project recall; `~/.claude/CLAUDE.md` stays on the instruction plane and is never treated as remembered facts.
+The overlay is off by default and has no daemon, mnemo-owned registry, cache, vector store, or background index. It only verifies against Claude's existing app-state registry and Codex's existing task-group metadata. Optional direct Markdown topics under `~/.claude/memory/` are searched only when both config and the individual query explicitly request global/cross-project recall; `~/.claude/CLAUDE.md` stays on the instruction plane and is never treated as remembered facts.
 
 This gives each agent visibility into useful counterpart context without creating a third writer or pretending the runtimes expose a stable synchronization protocol. `save` continues writing through the existing canonical cascade; federation changes retrieval only.
 
