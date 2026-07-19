@@ -29,7 +29,13 @@
     "lint": { "enabled": false, "maxCandidates": 15, "model": "haiku", "autoStampReviewed": true }
   },
   "recall": {
-    "codeGraph": null
+    "codeGraph": null,
+    "runtimeMemory": {
+      "enabled": false,
+      "globalSources": "explicit",
+      "maxHits": 5,
+      "maxExcerptBytes": 12288
+    }
   },
   "hooks": {
     "sessionStartNudge": true,

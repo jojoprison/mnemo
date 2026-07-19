@@ -23,11 +23,14 @@ No arguments needed. Reads vault name from `~/.mnemo/config.json`.
 | Review candidates | Notes past their **type-aware** staleness threshold — due for a re-read/refresh | 💤 Low |
 | Content lint *(opt-in)* | LLM re-reads candidates → still-valid / update-needed / contradicts verdicts | 🔬 Deep |
 | Research-gap candidates | Where the vault wants to grow — populous topic with no MOC, recurring external with no Source note | 🌱 Growth |
+| Cross-runtime recall status *(opt-in)* | Whether the counterpart runtime can be mapped to this exact git repository; metadata only, no memory-content audit | 🔄 Info |
 
 ## Example Output
 
 ```
 📊 Vault Health Report (2026-03-24)
+
+🔄 Cross-runtime recall: Claude memory available
 
 Total: 375 notes
   Atoms: 221 | Sessions: 96 | Sources: 21
@@ -71,7 +74,7 @@ Beyond cleaning up, `/mn:health` points at where the vault wants to **grow** —
 
 - **Ghost notes are a feature** — `[[Technology]]` links to non-existent files are intentional for entity discovery in Graph View
 - **Non-destructive by default** — out of the box health only reports (the content lint is off). The one write it can make is the `reviewed:` snooze stamp on still-valid notes once you enable the lint (`review.lint.autoStampReviewed`, default on; set false to keep the lint suggest-only).
-- **Runtime isolation** — Claude Code additionally checks its own auto-memory index and optional claude-mem cache. Codex skips both checks and never scans `~/.claude/`; this skill otherwise audits the shared Obsidian vault.
+- **Runtime isolation** — Claude Code additionally checks its own auto-memory index and optional claude-mem cache. Codex skips both size/cache checks. When cross-runtime recall is enabled, either runtime may run one exact-project, metadata-only status probe; health never reads counterpart memory content, broad-scans another runtime, or repairs anything.
 - Run weekly or after creating many notes at once
 
 ## Related Skills

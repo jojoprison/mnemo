@@ -7,12 +7,13 @@ mnemo has an automated structural/runtime regression gate plus manual end-to-end
 ```bash
 python3 scripts/lint-skills.py
 python3 scripts/test-runtime-compat.py
+python3 scripts/test-runtime-memory.py
 python3 scripts/test-handoff-archive.py
 claude plugin validate plugins/mnemo --strict
 python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
 ```
 
-The first three commands are repository-owned regression tests. The last two are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. All five must pass before release.
+The first four commands are repository-owned regression tests. The last two are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. All six must pass before release.
 
 The manual suite below has two layers: the **6 per-skill checks** (version-agnostic — do the workflows still behave?) and the **"What changed in vX" feature checks** (run the groups relevant to your change).
 
@@ -31,6 +32,14 @@ The manual suite below has two layers: the **6 per-skill checks** (version-agnos
 ## What changed in v1.2.1 — hook-parser compatibility
 
 - **R5 — legacy Codex hook parser.** The shared `hooks/hooks.json` keeps `hooks` as its only top-level key. A fresh Codex process must load the plugin without an `unknown field 'description'` hook error, while Claude Code validation and the SessionStart/Stop payload tests remain green.
+
+## What changed in v1.2.2 — scoped cross-runtime recall
+
+- **R6 — opt-in is truly off.** With `recall.runtimeMemory` absent or `enabled:false`, `ask` keeps the v1.2.1 behavior and the helper returns zero hits/warnings. No runtime-memory files are created or changed.
+- **R7 — Codex → Claude exact scope.** From a nested directory and a second worktree of repo A, `$mnemo:ask` can retrieve repo A's Claude `MEMORY.md`/linked topic. A colliding lossy slug or session metadata for repo B must return nothing; transcript-body-only text must never match.
+- **R8 — Claude → Codex exact scope.** `/mn:ask` may retrieve only Codex `# Task Group:` sections whose metadata has `applies_to: cwd=…` for the same git common directory. Foreign, unscoped, malformed, and oversized groups fail closed.
+- **R9 — trust and bounds.** A memory fixture containing shell syntax, tool requests, path traversal, markdown tracking URLs, symlink escapes, secret-like global filenames, and duplicate/giant topics remains inert. Results are labelled `runtime-generated-untrusted`, capped at seven helper hits / 12 KiB excerpts / 32 KiB JSON, and final synthesis uses at most seven evidence items across all sources.
+- **R10 — health is metadata-only.** With federation enabled, `health` reports available/unavailable from `runtime-memory.py status`; it never summarizes counterpart content or repairs missing memory. Disabled federation omits the line.
 
 ## What changed in v0.7.3
 

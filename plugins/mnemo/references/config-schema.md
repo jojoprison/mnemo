@@ -66,7 +66,13 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
   },
 
   "recall": {
-    "codeGraph": null
+    "codeGraph": null,
+    "runtimeMemory": {
+      "enabled": false,
+      "globalSources": "explicit",
+      "maxHits": 5,
+      "maxExcerptBytes": 12288
+    }
   },
 
   "hooks": {
@@ -80,6 +86,10 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
 The whole `review` section is **optional** — if absent, `health` falls back to a uniform 30-day staleness threshold (the legacy behavior) and the content-lint pass stays off. Add it only when you want type-aware cadence or the LLM lint.
 
 The `recall` section is optional and ships off. `recall.codeGraph` (default `null`) is a seam for `/mn:ask` Step 4c: set it to a code-knowledge-graph backend you have installed — `"graphify"` (reads its `graph.json` / `GRAPH_REPORT.md`) or an MCP server (`"sourcegraph"` / `"ast-grep"` / `"tree-sitter-analyzer"`) — and recall gains structural "what's where" context. With no backend it's a no-op. (The project-repo **git-log** grounding in Step 4c runs regardless whenever `/mn:ask` is invoked inside a git project — it needs no config.)
+
+`recall.runtimeMemory` is a read-only cross-runtime overlay for `ask`: Codex may retrieve Claude Code auto-memory for the **same verified git repository**, and Claude may retrieve only Codex task groups with a matching `applies_to: cwd=…`. Obsidian remains authoritative; nothing is copied, synchronized, indexed in the background, or written by the bridge. It is opt-in (`enabled: false`) because native runtime memory is local agent-generated data. Mapping failure degrades silently and never widens the search to other projects.
+
+`globalSources: "explicit"` permits direct Markdown topics under `~/.claude/memory/` only when the current user query explicitly asks for global/cross-project memory. Use `"off"` to disable that path completely. The bridge never reads `~/.claude/CLAUDE.md`, transcript bodies, subdirectories, symlinks, or secret-like filenames. `maxHits` is clamped to 1-7; `maxExcerptBytes` is a total output budget clamped to 256-12288 bytes. The `ask` skill still enforces one global maximum of 7 evidence items after merging all sources.
 
 ## Field reference
 
@@ -96,6 +106,11 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `cascade.memory_dir.enabled` | Skip memory/ writes if false | save |
 | `cascade.project_rules.enabled` | Route an **actionable path-scoped rule** (a "never X / always Y" lesson tied to code) into `.claude/rules/<domain>.md` (project) or `~/.claude/rules/` (cross-project) so it **auto-injects** when a future agent touches the matching files — Claude Code's native path-scoped rules. Fires only for actionable-rule saves (recall items are untouched); creates the file/dir when none matches. Default **true**. Set false to keep rules out of the cascade | save |
 | `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md — the **fallback** for `cascade.project_rules` (prefer `.claude/rules/`). Default false | save |
+| `recall.codeGraph` | Optional structural code-search backend; `null` disables it. Default **null** | ask |
+| `recall.runtimeMemory.enabled` | Allow bounded read-only retrieval from the counterpart runtime for the exact same git repository. Default **false** | ask, health, setup |
+| `recall.runtimeMemory.globalSources` | `"explicit"` allows Claude global topic lookup only for an explicitly global query; `"off"` disables it. Default **explicit** | ask |
+| `recall.runtimeMemory.maxHits` | Helper result cap, clamped to 1-7. The final cross-source cap remains 7 total. Default **5** | ask |
+| `recall.runtimeMemory.maxExcerptBytes` | Total UTF-8 excerpt budget for counterpart results, clamped to 256-12288 bytes. Default **12288** | ask |
 | `hooks.sessionStartNudge` | Inject a one-line memory reminder at SessionStart, rendered as `/mn:ask` + `/mn:save` in Claude Code or `$mnemo:ask` + `$mnemo:save` in Codex. Gated on a configured `vault`. Default **true**; set false to silence | hooks/mnemo-context.sh |
 | `hooks.stopNudge` | At session end, if the session looks worth-saving but the save and/or session skill never ran, block once with the current runtime's native commands. This is **opt-in, default false**; an anti-loop governor prevents repeated blocking | hooks/mnemo-stop-nudge.sh |
 | `hooks.invocationEcho` | Claude Code only: on a `/mn:*` slash command, emit a `systemMessage` line (`🧠 mnemo: /mn:save → skill body loaded`) via the `UserPromptExpansion` hook — a **deterministic** invocation confirmation that, unlike the in-body marker, does not depend on model compliance. Codex never fires this event (silent no-op). Default **true**; set false to silence | hooks/mnemo-skill-echo.sh |
@@ -123,6 +138,8 @@ This is deliberately **not** an absolute `review-by:` date. Computed-from-type p
 ## Defaults when fields are missing
 
 If the whole `cascade` section is absent, defaults are: obsidian=true, claude_mem=false, memory_dir=true, project_rules=true, claude_md=false.
+
+If `recall.runtimeMemory` is absent, cross-runtime recall is disabled. Active-runtime memory and normal Obsidian recall keep their existing behavior.
 
 The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false, invocationEcho=true. If absent, the SessionStart nudge still fires (when a vault is configured), the Stop nudge stays off, and the invocation echo stays on (it does not require a vault).
 
