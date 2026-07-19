@@ -284,9 +284,12 @@ def check_mnemo_contract() -> list[str]:
         issues.append("Claude displayName must preserve the public 'mnemo' brand")
     if codex_manifest.get("name") != "mnemo":
         issues.append("Codex plugin namespace must remain 'mnemo'")
-    expected_claude_hooks = ["./hooks/hooks.json", "./hooks/claude-hooks.json"]
+    expected_claude_hooks = ["./hooks/claude-hooks.json"]
     if claude_manifest.get("hooks") != expected_claude_hooks:
-        issues.append(f"Claude manifest hooks must be exactly {expected_claude_hooks}")
+        issues.append(
+            "Claude manifest hooks must add only ./hooks/claude-hooks.json; "
+            "Claude auto-loads the standard hooks/hooks.json"
+        )
     if "hooks" in codex_manifest:
         issues.append("Codex manifest must use default hooks/hooks.json discovery")
     if claude_market.get("plugins", [{}])[0].get("name") != "mnemo":

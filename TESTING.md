@@ -1,4 +1,4 @@
-# Testing — mnemo smoke tests (current: v1.2.3)
+# Testing — mnemo smoke tests (current: v1.2.4)
 
 mnemo has an automated structural/runtime regression gate plus manual end-to-end smoke tests. Run the automated gate after every skill, manifest, hook, or helper change; run the relevant manual checks after `/plugin update mnemo@mnemo` or `codex plugin add mnemo@mnemo`.
 
@@ -13,7 +13,7 @@ claude plugin validate plugins/mnemo --strict
 python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
 ```
 
-The first four commands are repository-owned regression tests. The last two are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. All six must pass before release.
+The first four commands are repository-owned regression tests. `test-runtime-compat.py` performs a real plugin install/load inside an isolated `CLAUDE_CONFIG_DIR`; CI installs the tested Claude Code loader and sets `MNEMO_REQUIRE_CLAUDE_LOADER=1`, so that check cannot skip. Release workstations must execute it too. The last two commands are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. All six must pass before release.
 
 The manual suite below has two layers: the **6 per-skill checks** (version-agnostic — do the workflows still behave?) and the **"What changed in vX" feature checks** (run the groups relevant to your change).
 
@@ -40,7 +40,11 @@ The manual suite below has two layers: the **6 per-skill checks** (version-agnos
 - **R8 — Claude → Codex exact scope.** `/mn:ask` may retrieve only Codex `# Task Group:` sections whose metadata has `applies_to: cwd=…` for the same git common directory. Foreign, unscoped, malformed, and oversized groups fail closed.
 - **R9 — trust and bounds.** A memory fixture containing shell syntax, tool requests, path traversal, markdown tracking URLs, symlink escapes, secret-like global filenames, and duplicate/giant topics remains inert. Results are labelled `runtime-generated-untrusted`, capped at seven helper hits / 12 KiB excerpts / 32 KiB JSON, and final synthesis uses at most seven evidence items across all sources.
 - **R10 — health is metadata-only.** With federation enabled, `health` reports available/unavailable from `runtime-memory.py status`; the Codex probe decodes/retains only task-group scope metadata, may stream bounded opaque bytes to find later headers, and returns before a matching group's body. It never returns, summarizes, or repairs counterpart content. Disabled federation omits the line.
-- **R11 — one hook definition per runtime capability.** Shared `hooks/hooks.json` contains only Codex-supported `SessionStart` + `Stop`; additive `hooks/claude-hooks.json` contains only Claude's `UserPromptExpansion`. Claude's manifest composes both files and retains the deterministic `/mn:*` echo; Codex uses default discovery and never parses the unsupported event.
+- **R11 — one hook definition per runtime capability.** Shared `hooks/hooks.json` contains only Codex-supported `SessionStart` + `Stop`; additive `hooks/claude-hooks.json` contains only Claude's `UserPromptExpansion`. Both runtimes auto-discover the shared baseline, Claude's manifest lists only the additive file, and Codex never parses the unsupported event.
+
+## What changed in v1.2.4 — Claude loader parity
+
+- **R12 — no duplicate default hook path.** The Claude manifest must list exactly `./hooks/claude-hooks.json`, never the auto-discovered `./hooks/hooks.json`. The required CI compatibility suite installs the plugin into an isolated Claude config and requires `Status: ✔ enabled`, so a schema-valid but loader-invalid composition cannot ship again.
 
 ## What changed in v0.7.3
 

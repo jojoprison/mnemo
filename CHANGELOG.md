@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.4] - 2026-07-20
+
+### Fixed
+
+- **Claude hook auto-discovery** — Claude's manifest now lists only the additive `hooks/claude-hooks.json`; the standard `hooks/hooks.json` baseline is auto-loaded by Claude Code. This removes the `Duplicate hooks file detected` load failure introduced in v1.2.3 while preserving Claude's `UserPromptExpansion` echo and Codex's `SessionStart`/`Stop` baseline.
+- **Required real-loader CI gate** — CI installs the tested Claude Code loader, then `test-runtime-compat.py` installs mnemo into an isolated `CLAUDE_CONFIG_DIR` and requires the plugin to report enabled. The gate catches duplicate component paths that `claude plugin validate --strict` accepts; CI also runs the full cross-runtime memory suite.
+
 ## [1.2.3] - 2026-07-20
 
 ### Added
@@ -858,7 +865,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.3...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.4...HEAD
+[1.2.4]: https://github.com/jojoprison/mnemo/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/jojoprison/mnemo/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/jojoprison/mnemo/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/jojoprison/mnemo/compare/v1.2.0...v1.2.1
