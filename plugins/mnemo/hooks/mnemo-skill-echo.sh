@@ -3,8 +3,8 @@
 # into its skill body. Deterministic DELIVERY (the hook always fires), unlike the
 # in-body invocation marker which relies on model compliance.
 #
-# Claude Code only: Codex never emits this event, and legacy Codex hook parsers
-# ignore unknown event sections in hooks.json — a guaranteed no-op there.
+# Claude Code only: its manifest adds claude-hooks.json. Codex loads only the
+# supported SessionStart/Stop baseline from hooks.json and never sees this event.
 # Empirics (CC 2.1.215, live capture): fires for plugin slash commands with
 # {command_name: "mn:health", command_source: "plugin", expansion_type: "slash_command"};
 # hook stdout never alters the expansion, so a malformed reply cannot break skills.

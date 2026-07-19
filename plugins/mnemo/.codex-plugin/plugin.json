@@ -1,7 +1,7 @@
 {
   "name": "mnemo",
-  "version": "1.2.2",
-  "description": "Persistent memory layer for Codex and Claude Code via Obsidian: vault health, knowledge search, link discovery, session notes, memory routing, review orchestration, and setup.",
+  "version": "1.2.3",
+  "description": "Persistent memory layer for Codex and Claude Code via Obsidian: vault health, knowledge search, verified cross-runtime project recall, link discovery, session notes, memory routing, review orchestration, and setup.",
   "author": {
     "name": "jojoprison",
     "url": "https://github.com/jojoprison"
@@ -30,7 +30,7 @@
   "interface": {
     "displayName": "mnemo",
     "shortDescription": "Persistent memory skills for Obsidian-backed agent work.",
-    "longDescription": "mnemo gives Codex and Claude Code a persistent memory layer through your Obsidian vault. It adds skills for vault audit, knowledge search, hidden connection discovery, session handoff, and memory routing with graceful degradation when Obsidian or optional backends are unavailable.",
+    "longDescription": "mnemo gives Codex and Claude Code a persistent memory layer through your Obsidian vault. It adds skills for vault audit, knowledge search, bounded read-only recall from the other runtime for the exact same git project, hidden connection discovery, session handoff, and memory routing with graceful degradation when Obsidian or optional backends are unavailable.",
     "developerName": "jojoprison",
     "category": "Productivity",
     "capabilities": [

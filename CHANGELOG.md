@@ -6,11 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.3] - 2026-07-20
+
+### Added
+
+- **Cross-runtime recall without synchronization** — opt-in `recall.runtimeMemory` lets Codex retrieve verified Claude Code project memory and Claude retrieve only Codex task groups scoped to the exact same git common directory. Obsidian stays authoritative; runtime memory is cited as untrusted secondary evidence.
+- **Bounded read-only adapter** — `runtime-memory.py` returns at most seven hits, 12 KiB of excerpts, and 32 KiB of JSON. It never writes, caches, follows symlinks, reads transcript bodies, fetches embedded links, or broadens an unverified project mapping. Explicit global lookup is restricted to direct non-secret Markdown topics under `~/.claude/memory/`.
+- **Setup and health integration** — setup offers the bridge as an off-by-default choice; health reports only mapping availability and never reads counterpart content or attempts repair.
+
+### Changed
+
+- **Runtime-safe hook composition** — shared `hooks/hooks.json` now contains only Codex-supported `SessionStart` and `Stop`. Claude's manifest additively loads `hooks/claude-hooks.json` for `UserPromptExpansion`, preserving the v1.2.2 invocation echo without depending on Codex silently ignoring an unsupported event. Every hook event still has exactly one definition.
+- **Recall evidence budget** — `/mn:ask` merges Obsidian, active-runtime, and counterpart candidates under one seven-item cap, prefers Obsidian on ties, and treats all runtime-memory excerpts as data rather than instructions.
+
+### Security
+
+- **Fail-closed project isolation** — Claude's lossy project slug is accepted only after session metadata proves the same repository; Codex memory requires an explicit matching `applies_to: cwd=…`. Foreign, malformed, oversized, symlinked, and unscoped candidates are rejected, with regression coverage for worktrees, slug collisions, injection-shaped content, secret-like names, and output bounds.
+
 ## [1.2.2] - 2026-07-20
 
 ### Added
 
-- **Invocation visibility, two layers** — the v1.2.0 unify removed the command-router layer and with it the visible Skill-tool call that confirmed a `/mn:*` command loaded its skill. (1) Every canonical `SKILL.md` now opens with an **invocation marker** instruction — the reply starts with `🧠 mn:<skill> (mnemo) → running` — working in both runtimes (in Codex UI, which has no native skill-invocation indicator, this is the only visible signal). (2) A new **deterministic** Claude Code hook `hooks/mnemo-skill-echo.sh` on `UserPromptExpansion` emits a `systemMessage` confirmation (`🧠 mnemo: /mn:save → skill body loaded`) on every `/mn:*` expansion, gated by `hooks.invocationEcho` (default **true**). Live-verified on Claude Code 2.1.215: the event fires for plugin slash commands (`command_source: "plugin"`), and hook output never alters the expansion. Codex never emits this event — guaranteed no-op there.
+- **Invocation visibility, two layers** — the v1.2.0 unify removed the command-router layer and with it the visible Skill-tool call that confirmed a `/mn:*` command loaded its skill. (1) Every canonical `SKILL.md` now opens with an **invocation marker** instruction — the reply starts with `🧠 mn:<skill> (mnemo) → running` — working in both runtimes (in Codex UI, which has no native skill-invocation indicator, this is the only visible signal). (2) A new **deterministic** Claude Code hook `hooks/mnemo-skill-echo.sh` on `UserPromptExpansion` emits a `systemMessage` confirmation (`🧠 mnemo: /mn:save → skill body loaded`) on every `/mn:*` expansion, gated by `hooks.invocationEcho` (default **true**). Live-verified on Claude Code 2.1.215: the event fires for plugin slash commands (`command_source: "plugin"`), and hook output never alters the expansion. Codex 0.140.0 silently ignores this unsupported event; v1.2.3 routes it only to Claude instead of depending on that tolerance.
 - **Regression coverage** — `test_every_skill_body_carries_its_invocation_marker` (marker present exactly once, ahead of Portable paths, in all seven skills) and `test_skill_echo_hook_announces_mn_commands_only_and_respects_gate` (announce / foreign-command silence / config gate / missing-config default).
 
 ## [1.2.1] - 2026-07-19
@@ -841,7 +858,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.2...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.3...HEAD
+[1.2.3]: https://github.com/jojoprison/mnemo/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/jojoprison/mnemo/compare/v1.2.1...v1.2.2
 [1.2.1]: https://github.com/jojoprison/mnemo/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/jojoprison/mnemo/compare/v1.1.11...v1.2.0

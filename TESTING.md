@@ -1,4 +1,4 @@
-# Testing — mnemo smoke tests (current: v1.2.2)
+# Testing — mnemo smoke tests (current: v1.2.3)
 
 mnemo has an automated structural/runtime regression gate plus manual end-to-end smoke tests. Run the automated gate after every skill, manifest, hook, or helper change; run the relevant manual checks after `/plugin update mnemo@mnemo` or `codex plugin add mnemo@mnemo`.
 
@@ -33,13 +33,14 @@ The manual suite below has two layers: the **6 per-skill checks** (version-agnos
 
 - **R5 — legacy Codex hook parser.** The shared `hooks/hooks.json` keeps `hooks` as its only top-level key. A fresh Codex process must load the plugin without an `unknown field 'description'` hook error, while Claude Code validation and the SessionStart/Stop payload tests remain green.
 
-## What changed in v1.2.2 — scoped cross-runtime recall
+## What changed in v1.2.3 — scoped cross-runtime recall + runtime-safe hooks
 
 - **R6 — opt-in is truly off.** With `recall.runtimeMemory` absent or `enabled:false`, `ask` keeps the v1.2.1 behavior and the helper returns zero hits/warnings. No runtime-memory files are created or changed.
 - **R7 — Codex → Claude exact scope.** From a nested directory and a second worktree of repo A, `$mnemo:ask` can retrieve repo A's Claude `MEMORY.md`/linked topic. A colliding lossy slug or session metadata for repo B must return nothing; transcript-body-only text must never match.
 - **R8 — Claude → Codex exact scope.** `/mn:ask` may retrieve only Codex `# Task Group:` sections whose metadata has `applies_to: cwd=…` for the same git common directory. Foreign, unscoped, malformed, and oversized groups fail closed.
 - **R9 — trust and bounds.** A memory fixture containing shell syntax, tool requests, path traversal, markdown tracking URLs, symlink escapes, secret-like global filenames, and duplicate/giant topics remains inert. Results are labelled `runtime-generated-untrusted`, capped at seven helper hits / 12 KiB excerpts / 32 KiB JSON, and final synthesis uses at most seven evidence items across all sources.
 - **R10 — health is metadata-only.** With federation enabled, `health` reports available/unavailable from `runtime-memory.py status`; it never summarizes counterpart content or repairs missing memory. Disabled federation omits the line.
+- **R11 — one hook definition per runtime capability.** Shared `hooks/hooks.json` contains only Codex-supported `SessionStart` + `Stop`; additive `hooks/claude-hooks.json` contains only Claude's `UserPromptExpansion`. Claude's manifest composes both files and retains the deterministic `/mn:*` echo; Codex uses default discovery and never parses the unsupported event.
 
 ## What changed in v0.7.3
 
@@ -77,7 +78,7 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 - **V5 — recall item is untouched by the rule path.** Run `/mn:save "we decided X because Y"` (a recall decision). Assert the report shows `3.5 .claude/rules ⏭ skipped (recall item)` and the item lands in Obsidian/`memory/` as before — the rule branch must NOT fire for recall.
 - **V6 — `cascade.project_rules` toggle + `/mn:review` confirmation.** With `cascade.project_rules.enabled: false`, a rule save falls back to CLAUDE.md/`memory/` and leaves `.claude/rules/` untouched. With it on (default), run `/mn:review` after a session that learned a rule: the orchestrator must **surface the rule for y/n in Step 8** (not write the committed project file unattended); accepting delegates the write to save Step 3.5 (single code path).
 
-## Proactive description checks — introduced in v1.1.0, current surface in v1.2.2
+## Proactive description checks — introduced in v1.1.0, current surface in v1.2.3
 
 - **V7 — one canonical surface.** After loading the current plugin, Claude Code lists exactly seven `/mn:*` skills and Codex lists exactly seven `mn:*` UI labels backed by `$mnemo:*` IDs. There are no `commands/`, alias skills, `/mnemo:*`, or `/mnemo:mn:*` duplicates.
 - **V8 — references resolve portably.** Trigger a skill that points at a shared reference or script. `<mnemo-root>` must resolve from the loaded `SKILL.md` path in Codex and from `${CLAUDE_PLUGIN_ROOT}` in Claude Code; no versioned cache hunting and no literal `<mnemo-root>` may reach a shell.
