@@ -289,6 +289,7 @@ mnemo/
 │   │   ├── session-scan.py          # JSONL parser (Claude + Codex) with incremental cache
 │   │   ├── skills-discover.py       # Auto-discovery across Claude/Codex skill paths
 │   │   ├── review-candidates.py     # type-aware staleness scan for /mn:health
+│   │   ├── handoff-archive.py       # size-guard rotation: closed old handoff blocks → cold archive
 │   │   └── check-cm-version.sh      # claude-mem cache inspector
 │   └── hooks/                       # Harness hooks
 │       ├── hooks.json               # SessionStart prewarm + proactive nudges; Stop nudge
