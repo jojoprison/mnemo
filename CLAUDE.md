@@ -14,7 +14,7 @@ mnemo is a dual-runtime Agent Skills plugin for Codex and Claude Code. Keep Clau
 ## Memory Backends
 
 - Obsidian is the primary user-visible memory store.
-- claude-mem is optional and may be intentionally disabled for CPU/RAM reasons. Do not auto-start ChromaDB, the claude-mem worker, or repair claude-mem unless the user explicitly asks.
+- claude-mem is optional and may be intentionally disabled — or fully removed (plugin + marketplace + chroma LaunchAgent). Never auto-start ChromaDB or the claude-mem worker, never reinstall or "repair" claude-mem unless the user explicitly asks: a missing/dead claude-mem is intended state, the cascade must degrade silently.
 - In Codex, fallback local memory goes under `~/.codex/memories/`.
 - In Claude Code, fallback local memory goes under `~/.claude/projects/<slug>/memory/`.
 
