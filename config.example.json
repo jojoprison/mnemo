@@ -33,6 +33,7 @@
   },
   "hooks": {
     "sessionStartNudge": true,
-    "stopNudge": false
+    "stopNudge": false,
+    "invocationEcho": true
   }
 }

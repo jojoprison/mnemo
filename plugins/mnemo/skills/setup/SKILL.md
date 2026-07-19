@@ -7,6 +7,8 @@ context: fork
 
 # mn:setup — Interactive Onboarding
 
+> **Invocation marker (both runtimes):** begin your reply with the exact line `🧠 mn:setup (mnemo) → running` — the user-visible confirmation that this skill actually loaded. Emit it once per invocation, before any other output.
+
 ## Portable paths
 
 Resolve `<mnemo-root>` once to the absolute plugin root before reading bundled files or running bundled scripts. In Claude Code, use `${CLAUDE_PLUGIN_ROOT}`; in Codex, derive it from this loaded `SKILL.md` path (skill directory → `skills/` → plugin root). Replace `<mnemo-root>` with that quoted absolute path in every command — never execute the placeholder literally and never hunt versioned cache directories.
@@ -111,12 +113,13 @@ Write `~/.mnemo/config.json`:
   },
   "hooks": {
     "sessionStartNudge": true,
-    "stopNudge": false
+    "stopNudge": false,
+    "invocationEcho": true
   }
 }
 ```
 
-`hooks.stopNudge` ships **false** — flip it to `true` if you want the end-of-session save/session reminder (see `<mnemo-root>/references/config-schema.md`). Everything works on these defaults even if the whole `hooks` block is omitted.
+`hooks.stopNudge` ships **false** — flip it to `true` if you want the end-of-session save/session reminder (see `<mnemo-root>/references/config-schema.md`). `hooks.invocationEcho` (Claude Code only, default true) prints a `🧠 mnemo: /mn:<skill> → skill body loaded` confirmation when a `/mn:*` command expands. Everything works on these defaults even if the whole `hooks` block is omitted.
 
 ### Step 6: Create Handoff Note (only if missing)
 

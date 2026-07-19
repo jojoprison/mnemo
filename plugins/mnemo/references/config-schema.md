@@ -71,7 +71,8 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
 
   "hooks": {
     "sessionStartNudge": true,
-    "stopNudge": false
+    "stopNudge": false,
+    "invocationEcho": true
   }
 }
 ```
@@ -97,6 +98,7 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md — the **fallback** for `cascade.project_rules` (prefer `.claude/rules/`). Default false | save |
 | `hooks.sessionStartNudge` | Inject a one-line memory reminder at SessionStart, rendered as `/mn:ask` + `/mn:save` in Claude Code or `$mnemo:ask` + `$mnemo:save` in Codex. Gated on a configured `vault`. Default **true**; set false to silence | hooks/mnemo-context.sh |
 | `hooks.stopNudge` | At session end, if the session looks worth-saving but the save and/or session skill never ran, block once with the current runtime's native commands. This is **opt-in, default false**; an anti-loop governor prevents repeated blocking | hooks/mnemo-stop-nudge.sh |
+| `hooks.invocationEcho` | Claude Code only: on a `/mn:*` slash command, emit a `systemMessage` line (`🧠 mnemo: /mn:save → skill body loaded`) via the `UserPromptExpansion` hook — a **deterministic** invocation confirmation that, unlike the in-body marker, does not depend on model compliance. Codex never fires this event (silent no-op). Default **true**; set false to silence | hooks/mnemo-skill-echo.sh |
 | `memory.indexWarnKB` | Warn threshold (KB) for `memory/MEMORY.md` size. Claude Code auto-memory **hard-truncates the index ~24.4KB on load** → warn earlier. Default **22** | health |
 | `handoff.maxKB` | Size ceiling (KB) for the handoff note before `scripts/handoff-archive.py` rotates CLOSED old blocks into `<handoff_note> Archive` (cold). The handoff is a live index, not a store; un-rotated it becomes a token bomb read every session. Default **40** | session |
 | `handoff.keepDays` | Blocks newer than this stay hot regardless of status; older **and** closed (no open `- [ ]`) move to the archive. Default **14** | session |
@@ -122,7 +124,7 @@ This is deliberately **not** an absolute `review-by:` date. Computed-from-type p
 
 If the whole `cascade` section is absent, defaults are: obsidian=true, claude_mem=false, memory_dir=true, project_rules=true, claude_md=false.
 
-The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false. If absent, the SessionStart nudge still fires (when a vault is configured) and the Stop nudge stays off.
+The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false, invocationEcho=true. If absent, the SessionStart nudge still fires (when a vault is configured), the Stop nudge stays off, and the invocation echo stays on (it does not require a vault).
 
 If `vault` or `taxonomy` is missing, the skill that needs them asks the user and offers to run `/mn:setup` in Claude Code or `$mnemo:setup` in Codex.
 
