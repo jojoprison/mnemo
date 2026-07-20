@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.9] - 2026-07-21
+
+### Changed
+
+- **Stop nudge now recommends the one-command close-out `/mn:review --full`** instead of listing `/mn:save` and `/mn:session` separately — aligning the automatic end-of-session reminder with the v1.2.8 one-command close-out (Codex: `$mnemo:review --full`). The gating is unchanged: opt-in `hooks.stopNudge`, worth-saving signals ≥3, save/session not yet run, blocks at most once per session.
+
+### Fixed
+
+- **Stop nudge over-firing in Codex** — the anti-loop governor keyed only on the Stop payload's `session_id`, which a Codex Stop payload can omit or vary, so the once-per-session marker failed to dedup and the nudge could fire on every Stop. It now falls back to `CODEX_THREAD_ID` / `CODEX_SESSION_ID` for a stable per-thread key. New `scripts/test-stop-nudge.py` (7 cases) pins the `--full` recommendation, both runtimes' syntax, once-per-session dedup, the Codex thread-key fallback, and the silence conditions (below-threshold signals, save+session already ran, recursion guard).
+
 ## [1.2.8] - 2026-07-21
 
 ### Added
@@ -923,7 +933,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.8...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.9...HEAD
+[1.2.9]: https://github.com/jojoprison/mnemo/compare/v1.2.8...v1.2.9
 [1.2.8]: https://github.com/jojoprison/mnemo/compare/v1.2.7...v1.2.8
 [1.2.7]: https://github.com/jojoprison/mnemo/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/jojoprison/mnemo/compare/v1.2.5...v1.2.6

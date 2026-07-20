@@ -715,8 +715,7 @@ class HookCompatibilityTests(unittest.TestCase):
                 )
                 payload = json.loads(result.stdout)
                 self.assertEqual(payload["decision"], "block")
-                self.assertIn("$mnemo:save", payload["reason"])
-                self.assertIn("$mnemo:session", payload["reason"])
+                self.assertIn("$mnemo:review --full", payload["reason"])
 
                 second = subprocess.run(
                     ["bash", str(script)],
