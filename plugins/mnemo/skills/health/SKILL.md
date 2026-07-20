@@ -52,6 +52,8 @@ JSON
 
 Pass the active runtime. `available` means the helper proved an exact same-repository mapping; `unavailable` is not corruption and must not trigger repair, copying, broad scans, or claude-mem startup. Omit the report line when the feature is disabled.
 
+The report names **only the counterpart runtime** represented by this probe: active Claude reports `Codex memory …`; active Codex reports `Claude memory …`. Never describe the active runtime as its own counterpart and never collapse the result into “Claude memory available, Codex memory available.”
+
 ### Step 1: Orphan Detection
 
 ```bash
@@ -97,6 +99,8 @@ Show top 15 tags. Flag tags used only once (potential typos).
 **Reuse the `obsidian tags counts` output from Step 3 — do not call it again** (the tag index is one query; Steps 3 and 4 are two views of the same result). Read `config.taxonomy` and `config.taxonomy_roles` once, then enumerate **every configured taxonomy entry** as `{type key, prefix, tag, mapped roles}`. Extract its count using that entry's configured tag; never assume a tag from the type key, prefix, or a built-in Zettelkasten name.
 
 Validate `taxonomy_roles` before labeling semantic roles: its key set must be exactly `fact`, `insight`, `source`, `session`, and `moc`; every target must be an existing taxonomy key; and the functional roles must self-map as `session → session` and `moc → moc`. If the map is absent but all five legacy Zettelkasten keys exist, use the deterministic legacy mapping documented in `config-schema.md` for this report and recommend persisting it with setup. For any other missing/invalid map, still report raw configured taxonomy types, but mark semantic role routing unavailable and ask the user to run the runtime-native setup command — do not guess.
+
+For the per-type `roles` column, invert the validated map mechanically: `mapped_roles = [role for role, target in taxonomy_roles.items() if target == type_key]`. Across the entire taxonomy table, concatenating every row's `mapped_roles` must yield exactly the multiset `fact, insight, source, session, moc` — each role appears once total. A type with no matching target says `none`; never infer roles from a PARA type's conceptual meaning, copy roles from another row, or assign the three content roles to both `project` and `resource`. With setup's canonical PARA map, the self-check is `project/area/archive → none`, `resource → fact, insight, source`, `session → session`, and `moc → moc`.
 
 Total notes count:
 
@@ -211,7 +215,7 @@ These are **suggestions, never auto-created** (same non-destructive stance as th
 
 Total: {N} notes
 Configured taxonomy (all entries, including types with no semantic role):
-  - {type_key}: {N} | prefix `{prefix}` | tag `#{tag}` | roles: {role} (repeat role names, or `none`)
+  - {type_key}: {N} | prefix `{prefix}` | tag `#{tag}` | roles: {mapped_roles joined by ", ", or `none`}
 Semantic routing (`taxonomy_roles`): fact→{type_key}, insight→{type_key}, source→{type_key}, session→{type_key}, moc→{type_key}
 Other (no configured taxonomy tag): {N}
 

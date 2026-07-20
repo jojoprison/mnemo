@@ -1,4 +1,4 @@
-# Testing — mnemo smoke tests (current: v1.2.5)
+# Testing — mnemo smoke tests (current: v1.2.6)
 
 mnemo has an automated structural/runtime regression gate plus manual end-to-end smoke tests. Run the automated gate after every skill, manifest, hook, or helper change; run the relevant manual checks after `/plugin update mnemo@mnemo` or `codex plugin add mnemo@mnemo`.
 
@@ -19,14 +19,15 @@ claude plugin validate plugins/mnemo --strict
 python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
 ```
 
-The first ten commands are repository-owned gates. `verify-release.py` requires all three manifest versions, the dated CHANGELOG section, and both current compare-links to agree. `test-runtime-compat.py` and `test-fresh-install.py` perform real installs into isolated Claude/Codex homes; CI pins both loaders and makes skips fatal. The last two commands are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. Every command must pass before release.
+The first ten commands are repository-owned gates. `verify-release.py` requires all three manifest versions, the dated CHANGELOG section, and both current compare-links to agree. `test-runtime-compat.py` exercises the runtime contracts, while `test-fresh-install.py` performs real installs into isolated Claude/Codex homes and deliberately stops at the loader/package boundary — it does **not** invoke a model or claim command-level behavior. CI pins both loaders and makes skips fatal. The last two commands are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. Every command must pass before release.
 
 The manual suite below has two layers: the **7 per-skill checks** (version-agnostic — do the workflows still behave?) and the **"What changed in vX" feature checks** (run the groups relevant to your change).
 
 ## Status
 
-- **Last full per-skill pass:** v0.7.3 — 7/7 clean on 2026-04-24 (large opus-4-7[1m] session; universal red flag never fired; two claude-mem v12.3.9 API bugs found in Check #4, patched in v0.7.4).
-- **Feature checks v0.10–v0.14** added 2026-06-21 (this is the checklist; not yet run end-to-end on a fresh install). The v0.14.0 write-path check (V3) is the highest priority — it is the first frontmatter write `/mn:health` can make.
+- **Last live dual-runtime per-skill pass:** v1.2.5 — all seven canonical skills in Claude Code and all seven in Codex passed on 2026-07-20; the v1.2.6 candidate then repeated the changed `health` workflow after its report-projection fix. Claude Code 2.1.215 used Opus for inherited skills and each skill's declared model/context routing; Codex CLI 0.144.6 used `gpt-5.6-terra` at low effort.
+- **Live matrix boundary:** two isolated `0700` runtime profiles and temp vaults exercised 16 explicit invocations (7×2 unique skills plus a foreign-repository `ask` control in each runtime) and two separate `connect` confirmation continuations. Assertions covered fresh PARA setup, exact role routing, shell-safe `save`, report-only→confirmed `connect`, session/MOC/handoff writes, read-only `health`/`review`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME`, Claude `autoMemoryDirectory`, same-repository federation positives, and foreign-repository payload non-disclosure. Runtime-memory hashes stayed unchanged; no real `main` vault path was accepted by the fixture CLI.
+- **Historical feature matrix remains targeted:** the live 7×2 pass does not imply that every older A1–A5/V1–V18 toggle and negative branch was re-run. In particular, the opt-in V3 `autoStampReviewed` live scenario remains a separate targeted check; its automated writer contracts are part of the required gate.
 
 ## What changed in v1.2.0 — canonical dual-runtime surface
 
@@ -134,7 +135,7 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
   ```
 - **claude-mem plugin optional**. If `cascade.claude_mem.enabled=false`, `/mn:health` Step 0 and `/mn:save` claude-mem POST should skip silently.
 
-## Test plan — 7 checks, ~12 minutes total
+## Test plan — 7 workflow checks per runtime (7×2)
 
 ### 1. `/mn:health` — the biggest surface
 
@@ -237,7 +238,7 @@ Try a recall-style query you know is in your vault:
 
 **Red flag:** handoff gets overwritten → idempotency fix didn't land.
 
-## Codex smoke check
+## Codex helper smoke check
 
 After installing through Codex:
 
