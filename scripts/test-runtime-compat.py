@@ -365,9 +365,23 @@ class SkillLintTests(unittest.TestCase):
         self.assertNotIn("#atom", step_four)
         self.assertNotIn('"Atom — "', step_five)
         self.assertNotIn("Atoms:", report)
-        self.assertIn("{role}", report)
+        self.assertIn("{mapped_roles", report)
+        self.assertNotIn("roles: {role}", report)
         self.assertIn("{prefix}", report)
         self.assertIn("#{tag}", report)
+        self.assertIn("mapped_roles = [role for role, target", step_four)
+        self.assertIn("each role appears once total", step_four)
+        self.assertIn("never infer roles", step_four)
+        self.assertIn("project/area/archive → none", step_four)
+
+    def test_health_names_only_the_counterpart_runtime(self) -> None:
+        health = (REPO_ROOT / "plugins/mnemo/skills/health/SKILL.md").read_text()
+        step_half = health.split("### Step 0.5:", 1)[1].split("### Step 1:", 1)[0]
+
+        self.assertIn("only the counterpart runtime", step_half)
+        self.assertIn("active Claude reports `Codex memory", step_half)
+        self.assertIn("active Codex reports `Claude memory", step_half)
+        self.assertIn("never collapse", step_half)
 
     def test_every_command_hook_must_use_the_portable_root(self) -> None:
         hooks = {

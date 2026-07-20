@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.6] - 2026-07-20
+
+### Changed
+
+- **Published live dual-runtime evidence** — the testing guide now distinguishes the required isolated loader/package gate from the dated model-invocation matrix, including all seven canonical skills in Claude Code and Codex, exact-project federation positives, foreign-project fail-closed controls, PARA routing, and confirmed connect writes.
+
+### Fixed
+
+- **Accurate health-report projection** — the report names only the actual counterpart runtime and validates the inverse taxonomy-role table so every semantic role appears exactly once instead of being copied onto two PARA rows.
+
 ## [1.2.5] - 2026-07-20
 
 ### Added
@@ -889,7 +899,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.5...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.6...HEAD
+[1.2.6]: https://github.com/jojoprison/mnemo/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/jojoprison/mnemo/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/jojoprison/mnemo/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/jojoprison/mnemo/compare/v1.2.2...v1.2.3
