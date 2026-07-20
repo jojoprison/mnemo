@@ -37,6 +37,8 @@ Tool-routing (bundled atomic writer for writes, bundled CLI adapter for reads/se
 
 Analyze the conversation: what was done, key decisions, commits/PRs created, findings.
 
+**Thoroughness by routing (standing default).** A good session note is thorough by *routing* material to its right home, not by swelling this one note: the narrative + arc + decisions-in-context live here; business-logic / pains / how-the-user-thinks route to `save`'s typed `principle` / `pain` / `stance` atoms; connections go to `connect`; unfinished threads become handoff `- [ ]` items. Full contract: `<mnemo-root>/references/depth-contract.md`. Depth = structure, not volume — never fold "capture everything" into the narrative (that is the blob anti-pattern).
+
 **Ground the summary in facts — don't rely on conversation memory alone** (a note that claims "shipped X" when git shows no such commit is worse than no note). Before writing "what was done", cross-check against reality: `git log --oneline -15` + `git status --short` for real commits/changes, and — when the script is reachable — the session's actual tool/skill activity:
 
 ```bash
@@ -173,13 +175,16 @@ If the newly created note appears in orphans, it means no `## Связи` links 
 
 ⚠️ **`obsidian orphans` caches & lags writes 1-5s** — a freshly written note may show as orphan falsely. If it appears right after creation, wait 2-3s and re-run, or verify authoritatively via `obsidian eval` (`metadataCache.resolvedLinks`/`unresolvedLinks`). See `<mnemo-root>/references/gotchas.md`.
 
-### Step 7: Confirm
+### Step 7: Confirm — with an own-note self-check
+
+Before the summary, self-verify **this note's own artifact** (not a cross-skill audit — that is `review --full` Step 9): reusing Steps 2 / 4 / 6, reconfirm it is not a duplicate of today's session, its `## Связи` carries the mapped MOC link, it is non-orphan, and any atom-worthy material was delegated to `save` rather than folded in. Report residual own-note gaps.
 
 Output summary:
 - Note name
 - MOC updated (yes/no)
 - Handoff updated (yes/no)
 - Orphan status (clean / flagged)
+- Own-note self-check (clean / gaps: {list})
 
 ## Rules
 
@@ -193,6 +198,8 @@ Output summary:
 - **Handoff = thin live index, not an archive** — targeted optimistic replacement, not blind append. Named ceiling: when it exceeds `handoff.maxKB` (default 40KB), `vault-write.py archive-handoff` (Step 5) rotates CLOSED blocks older than `handoff.keepDays` into `{handoff_note} Archive` (cold); open `- [ ]` + recent stay hot. Prevents multi-MB token-bomb accumulation without a second writer.
 - **Links section is mandatory** — at least one MOC link, else the note orphans (invisible to graph navigation)
 - **Ghost notes generously** — wrap projects, technologies, people in `[[wikilinks]]`
+- **Thorough by routing, not volume** — the note stays a narrative; atom-worthy material (decisions, business-logic, pains, how-the-user-thinks) goes to `save`, links to `connect`, unfinished work to handoff. Full contract in `<mnemo-root>/references/depth-contract.md`
+- **Own-note self-check only** — Step 7 verifies this note's own artifact (dup / MOC / orphan / delegation); the cross-skill palace audit belongs to `review --full`, not here
 
 ## Gotchas
 

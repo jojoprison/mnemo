@@ -2,7 +2,7 @@
 
 ## Overview
 
-The only command you need at session end. Analyzes everything, then presents one prioritized offer — unsaved decisions (`/mn:save`), session notes (`/mn:session`), and the remaining skills. **Nothing runs without your confirmation.** One command replaces manually running save + session + connect + health — you approve the batch once.
+The only command you need at session end. Analyzes everything, then presents one prioritized offer — unsaved decisions (`/mn:save`), session notes (`/mn:session`), and the remaining skills. **Nothing runs without your confirmation.** One command replaces manually running save + session + connect + health — you approve the batch once. Add `--full` and even that one approval goes away: the flag itself is consent (see [`--full` below](#--full--one-command-close-out-v128)).
 
 ## Usage
 
@@ -114,6 +114,21 @@ Recommended:
 
 Run any? (1,2,3,4 / A=all / N=skip)
 ```
+
+## `--full` — one-command close-out (v1.2.8)
+
+```
+/mn:review --full
+```
+
+The explicit flag **is** the consent, so the whole close-out runs with no per-skill prompt. It:
+
+1. **Anchors on the session's origin** — reconstructs the first request and measures drift (discussed vs wanted vs did), not just an end-state inventory.
+2. **Audits** the whole arc (Done / Missed / Hanging Threads / score) — this produces the recommendation list.
+3. **Executes the chain** in order — `save → session → [any focus text you passed after --full] → connect` — injecting the depth-contract so business-logic / pains / how-you-think route into typed `save` atoms, not the session narrative. `health` is excluded (heavy — run it by hand).
+4. **Verifies (read-only)** — checks the freshly-parked notes for typed-slot quality, atomicity, and connectedness (binary orphan check, delegated to `connect`, never self-linked); REPORTS any missing prod/e2e verification as a gap (mnemo never runs QA); and is idempotent — a second `--full` on an unchanged session prints "🏛 already in order" and stops.
+
+Plain `/mn:review` (no flag) is unchanged: audit + one interactive offer, never auto-runs (v0.16.0). `--full` does **not** revive that killed implicit autorun — the user typed the flag.
 
 ## Important Notes
 

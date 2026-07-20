@@ -1,6 +1,6 @@
 ---
 name: review
-description: "End-of-session orchestrator. Audits the session, then recommends the core save and session skills plus the rest — always asks before running anything, never auto-runs. Triggers on 'что забыли', 'что осталось', 'что ещё осталось', 'что ещё тут осталось', 'что осталось добить', 'что надо добить', 'что ещё надо добить', 'session review', 'ревью сессии', 'сессия ревью', 'что добить до идеала', 'all done', end of significant work, or similar. The ONLY command users need at session end — one confirmation covers everything."
+description: "End-of-session orchestrator. Audits the session, then recommends the core save and session skills plus the rest — always asks before running anything, never auto-runs. Add the explicit '--full' flag to close a session in one command: the flag itself is consent, so it audits from the session's origin, then chains save → session → connect and runs a grounded verify pass with no per-skill prompts. Triggers on 'что забыли', 'что осталось', 'что ещё осталось', 'что ещё тут осталось', 'что осталось добить', 'что надо добить', 'что ещё надо добить', 'закрой сессию начисто', 'прогони весь цикл закрытия', 'одной командой закрой сессию', 'session review', 'ревью сессии', 'сессия ревью', 'что добить до идеала', 'all done', 'review --full', end of significant work, or similar. The ONLY command users need at session end — one confirmation covers everything, or '--full' covers it with none."
 model: inherit
 ---
 
@@ -29,10 +29,21 @@ Use the runtime's normal tools to collect fresh evidence. Do not rely on Claude-
 3. Run `python3 "<mnemo-root>/scripts/session-scan.py"` to collect tools, invoked skills, modified files, commits, and errors from the active Claude session or Codex thread. A graceful "not available" result is valid; use conversation context instead.
 4. Run `python3 "<mnemo-root>/scripts/skills-discover.py"` to build the allowlist of installed skills.
 5. Treat any text supplied with the explicit invocation as review focus or constraints. Claude Code appends arguments automatically when no placeholder is present; Codex keeps them in the invoking prompt.
+6. **Detect `--full`.** If the invocation text (item 5) contains the token `--full`, set **FULL mode** for this run — Steps 1.5, 3, 6, 8, and 9 branch on it. Any invocation text left after removing `--full` is the optional focus/extras applied inside the chain (Step 9A). Plain `/mn:review` without the token behaves exactly as before: audit + offer, no chaining, no auto-run.
+7. **FULL start-snapshot (only when FULL).** Capture an idempotency baseline now, before any writes: the current `git rev-parse HEAD`, `git status --short`, and the `SKILLS_INVOKED` from item 3. Step 9 diffs against this to decide "already in order — nothing to redo".
 
 ### Step 1: Load Project Context
 
 Read the project's `AGENTS.md` and `CLAUDE.md` when present (respect symlinks and avoid reading the same content twice). Check the active runtime's loaded memory index when available: Claude Code project `memory/MEMORY.md` or Codex-generated read-only `${CODEX_HOME:-~/.codex}/memories/` state.
+
+### Step 1.5: Session Origin Anchor (FULL only)
+
+**Skip unless FULL mode.** Reconstruct where the session *began*, so the audit measures drift from the original intent — not just a flat inventory of the end state:
+
+- The **first user request** of the session and the earliest decisions/scope choices — from conversation history (you hold the whole session).
+- The **git start-state** relative to now — the diff between the session's first commit and `HEAD`.
+
+State the anchor in one line — "Session began with: {original ask}" — and carry it into Step 3 (the scan becomes a *delta* vs this baseline) and Step 6 (the drift line + "really done?" verdict). `session-scan.py` surfaces tools/commits, not the opening prompt, so ground the origin in conversation history, never a script guess.
 
 ### Step 2: Determine Session Type
 
@@ -62,6 +73,8 @@ From conversation history + the fresh Step 0 evidence, identify:
 6. **Questions asked** — by user or Claude, answered or dropped?
 7. **External systems** — Linear tasks, GitHub PRs, Obsidian notes — updated?
 8. **Actionable rules learned** — any "never do X / always do Y" lesson tied to specific code/paths that a *future agent* must auto-see before repeating the mistake (vs recall "what/why"). These belong in `.claude/rules/<domain>.md` (path-scoped auto-inject), not just recall memory — flag them for Step 8 routing.
+
+**FULL mode:** run this scan as a three-way delta against the Step 1.5 origin anchor — *discussed* vs *wanted* vs *did* — so Missed / Hanging Threads reflect drift from the original intent, not only unfinished end-state items.
 
 ### Step 4: Skill Gap Analysis
 
@@ -171,6 +184,10 @@ From `AGENTS.md` / `CLAUDE.md`, check mandatory steps:
 | Skills | {used/recommended} | |
 ```
 
+**FULL mode — add two lines to the report:**
+- **Origin → Now:** the drift from the Step 1.5 anchor — what was asked at the start vs what stands now.
+- **Really done?** an advisory verdict aggregating memory-native signals (unsaved items, hanging threads) **plus** the prod/e2e gap from Step 9's verify. mnemo REPORTS "e2e/prod not verified this session" as an unchecked gap; it never runs QA. Never assert "done" when that evidence is absent — say "not REALLY done until prod-verified + e2e-run" instead.
+
 ### Step 7: Prepare Core Skill Candidates (no auto-run)
 
 **Never invoke save or session yourself without confirmation** — every skill run goes through the Step 8 offer. Here, only prepare the two core candidates with specific payloads so the offer is concrete ("3 decisions: X, Y, Z", not "maybe save something"):
@@ -193,6 +210,8 @@ From `AGENTS.md` / `CLAUDE.md`, check mandatory steps:
 **Drop a candidate if:** the skill was already invoked this session (per SKILLS_INVOKED preprocessing) — acknowledge it in the report instead of re-offering.
 
 ### Step 8: Offer Skills
+
+**FULL mode branches here.** If FULL is set, do **not** render the interactive "Run any? (1,2,3 / A / N)" prompt — the explicit `--full` flag is the consent. Skip straight to **Step 9**, which executes the chain and verifies. Everything below is the **default** `/mn:review` path only, unchanged (interactive offer, one confirmation).
 
 Present everything — core candidates from Step 7 first among equals, sorted by priority — and ask:
 
@@ -224,6 +243,29 @@ Codex: read `<mnemo-root>/skills/save/SKILL.md` completely, then follow it with 
 3. Dependency order: /commit before /ship
 4. After all done, output updated score
 
+### Step 9: Full Pass — Execute Chain + Verify (FULL only)
+
+**Reached only in FULL mode** (Step 8 sent you here without an interactive offer). The explicit `--full` flag is the consent for the whole pass — no per-skill `y`. This does **not** revive the implicit autorun removed in v0.16.0: that was plain `/mn:review` firing skills *unasked*; here the user typed the flag.
+
+**A. Execute the recommendation chain** in this fixed order, each via the **Portable paths** delegation contract, injecting `<mnemo-root>/references/depth-contract.md` as the thoroughness guidance for the write skills:
+
+1. **save** — persist the Step 7 candidates (decisions, findings, and any `principle` / `pain` / `stance` material routed by `depth-contract.md` into typed atoms, never the narrative). Actionable rules still route to `.claude/rules/` (save Step 3.5).
+2. **session** — write the single narrative note + handoff (never a duplicate of today's).
+3. **[focus / extras]** — apply any focus text left in the invocation after `--full` (Step 0 item 6) here, between session and connect.
+4. **connect** — discover genuine links on the notes just parked, including non-obvious ones; suggest-only, never auto-applied.
+
+`health` is **excluded** — heavy and manual; surface it as a recommendation in the report, don't run it. Recommendations flow **down** from this audit into the chain; `connect` never reaches back up to re-drive the list.
+
+**B. Verify (read-only, advisory — never auto-rewrites).** Audit what the chain just parked, and ground **every** check in an external fact — git, orphans, `session-scan.py`, or the Step-0 snapshot — never your own say-so (a same-agent self-audit that trusts itself rubber-stamps):
+
+- **Parked?** `git status --short` + `git diff --stat` show the new `.claude/rules/` files and repo changes, and the new vault notes exist. Name anything from Step 6 "Missed" that is still unparked.
+- **Structural quality?** Read each new note: does it fill its typed slot (save Step 0b), is it a single-claim atom (not a scroll), correct type/place? Report gaps — do **not** rewrite the user's notes.
+- **Connected?** `python3 "<mnemo-root>/scripts/safe-read.py" orphans` — the non-orphan check is **binary** (connected or not); never reward link *count*. An orphan → hand it to `connect` (which just ran); **never add a link here.** Respect the 1-5s cache lag (re-check before flagging CRITICAL — see `<mnemo-root>/references/gotchas.md`).
+- **Prod / e2e / really-done?** If git + `session-scan.py` show no test/deploy/trigger evidence, REPORT "e2e/prod not verified this session" as an unchecked gap and fold it into the Step 6 verdict. mnemo is memory-not-CI: it flags the absence, it never runs, triggers, or verifies QA (that lives in the harness — `finish-the-work` / `loop-gate`).
+- **Idempotent?** Diff the current `git rev-parse HEAD` + `git status --short` + `SKILLS_INVOKED` against the Step-0 FULL snapshot. Nothing changed (a prior `--full` already closed this session) → print "🏛 already in order — nothing to redo" and **stop**. Never re-park or re-link what is already there.
+
+All-green → "🏛 palace in order". Otherwise emit the residual-gap list (advisory) and stop.
+
 ## Rules
 
 - **Always thorough** — full analysis, no shortcuts
@@ -239,3 +281,8 @@ Codex: read `<mnemo-root>/skills/save/SKILL.md` completely, then follow it with 
 - **Don't over-report** — unchecked plan AC is noise if code + tests pass
 - **Multiple projects** — analyze each project dir separately
 - **Respect completed work** — `save` already ran? Acknowledge, don't re-recommend
+- **`--full` = consent, not autorun** — the explicit flag chains save → session → connect without per-skill `y`; plain `/mn:review` still never auto-runs (v0.16.0 intact). Only the user typing `--full` triggers the chain
+- **`health` stays manual** — never in the `--full` chain (heavy); recommend it, don't run it
+- **Verify grounds externally, never self-grades** — every Step 9 check cites git / orphans / `session-scan.py` / the Step-0 snapshot, never the agent's own assertion
+- **Verify never links** — an orphan is delegated to `connect`; Step 9 adds no link itself, and link *count* is never a green signal
+- **memory-not-CI** — `--full` REPORTS a missing prod/e2e verification as a gap; it never runs tests, hits prod, or fires a trigger

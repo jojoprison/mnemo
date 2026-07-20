@@ -20,6 +20,7 @@ No arguments. Summarizes the current conversation automatically.
 4. Verifies the note is linked in the hub reached through `taxonomy_roles.moc`
 5. Updates `Meta — Session Handoff` with pending items
 6. Checks for orphans after creation
+7. Self-checks its own note (duplicate / MOC link / orphan / atom-delegation) before confirming
 
 ## Example Output
 
@@ -62,6 +63,8 @@ When the next session starts, it reads `Meta — Session Handoff`:
 - **MOC verification** — automatically adds to MOC if missing
 - **Branch field optional** — research sessions don't have branches
 - **Ghost notes generously** — wraps projects, technologies, people in `[[wikilinks]]`
+- **Thorough by routing, not volume** — the note stays a narrative; decisions, business-logic, pains, and how-you-think route to `save`'s typed atoms (see the depth-contract), links to `connect`, unfinished work to handoff — never a "capture everything" blob
+- **Own-note self-check** — Step 7 verifies only this note's own artifact; the cross-skill palace audit is `review --full`'s job, not session's
 
 ## Related Skills
 

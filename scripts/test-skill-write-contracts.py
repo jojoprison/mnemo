@@ -90,5 +90,51 @@ class BundledVaultWriterContractTests(unittest.TestCase):
         self.assertEqual(roles["moc"], "moc")
 
 
+class ReviewFullContractTests(unittest.TestCase):
+    """Pin the v1.2.8 `review --full` one-command close-out invariants."""
+
+    def test_full_flag_mode_and_new_phases_present(self) -> None:
+        review = skill("review")
+        self.assertIn("Detect `--full`", review)
+        self.assertIn("FULL mode", review)
+        self.assertIn("Session Origin Anchor", review)
+        self.assertIn("Step 9: Full Pass — Execute Chain + Verify", review)
+
+    def test_full_is_consent_not_the_killed_implicit_autorun(self) -> None:
+        review = skill("review")
+        # v0.16.0 no-implicit-autorun stays intact on the DEFAULT path.
+        self.assertIn("No auto-run", review)
+        # --full is explicit consent, explicitly distinguished from the killed autorun.
+        self.assertIn("implicit autorun removed in v0.16.0", review)
+        self.assertIn("consent, not autorun", review)
+
+    def test_chain_order_excludes_health_and_injects_depth_contract(self) -> None:
+        review = skill("review")
+        self.assertIn("references/depth-contract.md", review)
+        self.assertIn("**excluded**", review)  # health never auto-chained
+        # Chain runs save -> session -> connect in that order.
+        s, se, c = (review.index(f"**{x}**") for x in ("save", "session", "connect"))
+        self.assertLess(s, se)
+        self.assertLess(se, c)
+
+    def test_verify_is_grounded_binary_and_never_links(self) -> None:
+        review = skill("review")
+        self.assertIn("**binary**", review)          # non-orphan check, not link count
+        self.assertIn("never add a link here", review)
+        self.assertIn("memory-not-CI", review)        # prod/e2e reported, never run
+
+    def test_depth_contract_routes_mental_model_to_save_not_narrative(self) -> None:
+        contract = (REPO_ROOT / "plugins/mnemo/references/depth-contract.md").read_text()
+        self.assertIn("one kind → one home", contract)
+        self.assertIn("not** the session narrative", contract)
+        self.assertIn("auto-ingest fork", contract)
+
+    def test_session_carries_depth_routing_and_own_note_check(self) -> None:
+        session = skill("session")
+        self.assertIn("references/depth-contract.md", session)
+        self.assertIn("own-note self-check", session)
+        self.assertIn("Own-note self-check only", session)
+
+
 if __name__ == "__main__":
     unittest.main()
