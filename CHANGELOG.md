@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.8] - 2026-07-21
+
+### Added
+
+- **`/mn:review --full` — one-command session close-out.** An explicit `--full` flag turns `review` into the whole end-of-session ritual with no per-skill prompt: the flag itself is consent (**not** the implicit autorun removed in v0.16.0 — the user types it). It anchors on the session's **origin** (reconstructs the first request, measures drift: discussed vs wanted vs did), audits the arc, chains **save → session → [focus text] → connect**, then runs a read-only **verify** pass. `health` is excluded (heavy — manual). Folds the four manual "be thorough / did we capture everything / what's left / find hidden links" prompts into built-in phases. Plain `/mn:review` is byte-for-byte unchanged (audit + one interactive offer, never auto-runs).
+- **`references/depth-contract.md` — thoroughness by routing, not volume.** A standing contract `--full` injects into its `save`/`session` steps (and `session` reads as its default bar): business-logic / pains / how-the-user-thinks route into `save`'s typed `principle`/`pain`/`stance` atoms, links to `connect`, unfinished work to the handoff — never a "capture everything" blob. Encodes depth = structure (the v1.2.7 rule) across the whole close-out.
+- **Grounded, idempotent verify guardrails.** The verify pass cites only external facts (git diff, orphans, `session-scan`, a Step-0 snapshot), never self-grades; its non-orphan check is binary and never rewards link count (orphans delegate to `connect`; verify never links); it REPORTS a missing prod/e2e verification as an unchecked gap (memory-not-CI — it never runs QA); and a re-run on an unchanged session prints "already in order" and stops.
+
+### Changed
+
+- **`session` is thorough-by-routing and self-checks its own note.** Step 1 carries a standing depth-routing default (pointing at the depth-contract) so even a standalone `/mn:session` routes atom-worthy material to `save` instead of swelling the narrative; Step 7 adds an own-note self-check (dup / MOC / orphan / delegation). The cross-skill palace audit stays in `review --full`. `review`'s description gains the `--full` triggers; `evals/trigger-eval.json` adds P9/P10 (positives) + N8 (near-miss); `test-skill-write-contracts.py` pins the new `--full` invariants (flag = consent not autorun, chain order, grounded-binary-never-links verify, depth-contract routing).
+
 ## [1.2.7] - 2026-07-21
 
 ### Added
@@ -911,7 +923,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.7...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.8...HEAD
+[1.2.8]: https://github.com/jojoprison/mnemo/compare/v1.2.7...v1.2.8
 [1.2.7]: https://github.com/jojoprison/mnemo/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/jojoprison/mnemo/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/jojoprison/mnemo/compare/v1.2.4...v1.2.5

@@ -44,6 +44,21 @@ mnemo saves two different kinds of thing, and they must land in different places
 - **Auto-route on explicit save, confirmed in the orchestrator.** A direct `/mn:save` of a rule routes automatically (the user explicitly asked to save). `/mn:review` never writes unattended — since v0.16.0 *every* skill it wants to run goes through one Step 8 confirmation, and an actionable rule additionally gets its own explicit line item there, because routing it creates/edits committed project files.
 - **Codex caveat acknowledged, not solved here.** Codex reads only `AGENTS.md` (32 KiB, silent truncate), not `.claude/rules/`. mnemo routes to `.claude/rules/` and flags the AGENTS.md build-step as the user's responsibility — it does not own that assemble step.
 
+## One-command close-out: `review --full` (v1.2.8)
+
+`/mn:review --full` collapses the end-of-session ritual — audit, save, session, connect, verify — into a single explicit command, so the user never pastes a "capture everything, check everything, keep it like a clean palace" wall of prompt. It is a **flag on `review`**, not an eighth skill (the 7-skill canon holds).
+
+**Deliberate boundaries** (each is load-bearing — removing it reintroduces a rejected behavior):
+
+- **Flag = consent, not implicit autorun.** The explicit `--full` the user typed *is* the confirmation, so the chain runs without a per-skill `y`. This does not revive the autorun removed in v0.16.0: that was *plain* `/mn:review` firing skills unasked. Default `/mn:review` still audits + offers + never auto-runs — only the typed flag chains.
+- **Verify grounds externally, never self-grades.** The Step 9 verify pass anchors every check to a fact — git diff, orphans, `session-scan`, the Step-0 snapshot — never the agent's own assertion. A same-agent self-audit that trusts itself rubber-stamps (eval-integrity).
+- **Verify never links; over-linking is defused.** The non-orphan check is binary (connected or not) and never rewards link *count*; an orphan is delegated to `connect`, and verify adds no link itself. So "score the palace green" cannot incentivize link-spam from a "connect everything" instruction.
+- **Depth-contract is routing, not volume.** `--full` injects `references/depth-contract.md` as guidance: thorough means the right material in the right home (business-logic / pains / mental-model → `save`'s typed atoms, **not** the session narrative), never a bigger note. "Capture everything, super-detailed" is the blob anti-pattern rejected in v1.2.7; it is explicitly dropped.
+- **memory-not-CI.** For "did we verify on prod / run e2e / really done?", `--full` REPORTS the absence of test/deploy evidence as an unchecked gap; it never runs tests, hits prod, or fires a trigger. That execution lives in the harness (`finish-the-work` / `loop-gate`), outside a memory plugin's mandate.
+- **`health` stays manual.** Heavy; recommended in the report, never auto-chained.
+- **`session` stays pure narrative.** Its own Step 7 self-check verifies only *its* note (dup / MOC / orphan / delegation); the cross-skill palace audit is `review --full`'s Step 9, not session's — the same boundary that keeps rule-routing out of session (v0.15.0).
+- **Idempotent.** A second `--full` on an unchanged session prints "already in order" and stops — it never re-parks or re-links.
+
 ## Proactive nudges via hooks (v1.1.1)
 
 Descriptions get an agent to *consider* mnemo, but Opus 4.8 / Fable 5 under-trigger skills — a good description raises the odds, it doesn't guarantee the call. v1.1.1 adds a deterministic **delivery** layer via hooks, with one honest caveat baked into the design: **deterministic delivery ≠ deterministic effect** — the hook always fires, but the model still decides whether to act. A prose nudge is exactly the "marginal rule ≈ 0" pattern, so it's kept short, factual (not an order), and gated.
