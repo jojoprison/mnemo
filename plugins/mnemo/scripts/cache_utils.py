@@ -16,6 +16,27 @@ def _uid() -> int:
     return os.getuid() if hasattr(os, "getuid") else 0
 
 
+def configured_root(
+    env_name: str,
+    default_name: str,
+    home: str | os.PathLike[str] | None = None,
+) -> str:
+    """Resolve a runtime root from its override or the active user's home.
+
+    An explicit ``home`` pins the legacy HOME-relative layout and deliberately
+    bypasses process overrides. This keeps test/compatibility callers isolated
+    while normal runtime discovery honors CLAUDE_CONFIG_DIR or CODEX_HOME.
+    """
+    if home is None:
+        configured = os.environ.get(env_name)
+        if configured:
+            return os.path.abspath(os.path.expanduser(configured))
+        home = os.path.expanduser("~")
+    else:
+        home = os.path.abspath(os.path.expanduser(os.fspath(home)))
+    return os.path.join(home, default_name)
+
+
 def private_cache_dir() -> Path:
     """Return a per-user 0700 temp directory, rejecting symlinks or foreign owners."""
     root = Path(tempfile.gettempdir()) / f"mnemo-{_uid()}"

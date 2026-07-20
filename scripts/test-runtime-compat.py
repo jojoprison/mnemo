@@ -2,10 +2,11 @@
 """Regression tests for Claude/Codex runtime compatibility helpers."""
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import os
-import shutil
 import stat
 import subprocess
 import sys
@@ -324,6 +325,50 @@ class PrivateCacheTests(unittest.TestCase):
             self.assertIsNone(cache_utils.read_text(path))
 
 class SkillLintTests(unittest.TestCase):
+    def test_only_noninteractive_health_skill_keeps_fork_context(self) -> None:
+        skills = REPO_ROOT / "plugins/mnemo/skills"
+        setup = (skills / "setup/SKILL.md").read_text()
+        connect = (skills / "connect/SKILL.md").read_text()
+        health = (skills / "health/SKILL.md").read_text()
+
+        self.assertNotIn("context: fork", setup.split("---", 2)[1])
+        self.assertNotIn("context: fork", connect.split("---", 2)[1])
+        self.assertIn("context: fork", health.split("---", 2)[1])
+
+    def test_taxonomy_roles_are_explicit_and_reference_existing_types(self) -> None:
+        config = json.loads((REPO_ROOT / "config.example.json").read_text())
+        expected = {
+            "fact": "atom",
+            "insight": "molecule",
+            "source": "source",
+            "session": "session",
+            "moc": "moc",
+        }
+        self.assertEqual(config["taxonomy_roles"], expected)
+        self.assertTrue(set(config["taxonomy_roles"].values()) <= set(config["taxonomy"]))
+
+        setup = (REPO_ROOT / "plugins/mnemo/skills/setup/SKILL.md").read_text()
+        schema = (REPO_ROOT / "plugins/mnemo/references/config-schema.md").read_text()
+        self.assertIn('"taxonomy_roles"', setup)
+        self.assertIn('"taxonomy_roles"', schema)
+        self.assertIn("legacy Zettelkasten", schema)
+        self.assertIn("ask once", schema)
+
+    def test_health_report_and_commands_are_taxonomy_driven(self) -> None:
+        health = (REPO_ROOT / "plugins/mnemo/skills/health/SKILL.md").read_text()
+        step_four = health.split("### Step 4:", 1)[1].split("### Step 5:", 1)[0]
+        step_five = health.split("### Step 5:", 1)[1].split("### Step 6:", 1)[0]
+        report = health.split("### Step 9:", 1)[1].split("### Step 10:", 1)[0]
+
+        for section in (step_four, report):
+            self.assertIn("taxonomy_roles", section)
+        self.assertNotIn("#atom", step_four)
+        self.assertNotIn('"Atom — "', step_five)
+        self.assertNotIn("Atoms:", report)
+        self.assertIn("{role}", report)
+        self.assertIn("{prefix}", report)
+        self.assertIn("#{tag}", report)
+
     def test_every_command_hook_must_use_the_portable_root(self) -> None:
         hooks = {
             "hooks": {
@@ -400,43 +445,6 @@ class SkillLintTests(unittest.TestCase):
                 for group in groups:
                     for handler in group.get("hooks", []):
                         self.assertNotIn("async", handler)
-
-    def test_claude_loader_accepts_runtime_hook_composition(self) -> None:
-        claude = shutil.which("claude")
-        if claude is None:
-            if os.environ.get("MNEMO_REQUIRE_CLAUDE_LOADER") == "1":
-                self.fail("Claude Code CLI is required for the loader regression gate")
-            self.skipTest("Claude Code CLI not installed")
-
-        with tempfile.TemporaryDirectory(prefix="mnemo-claude-load-") as config_dir:
-            env = os.environ.copy()
-            env["CLAUDE_CONFIG_DIR"] = config_dir
-            subprocess.run(
-                [claude, "plugin", "marketplace", "add", str(REPO_ROOT)],
-                check=True,
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-            subprocess.run(
-                [claude, "plugin", "install", "mnemo@mnemo"],
-                check=True,
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-            installed = subprocess.run(
-                [claude, "plugin", "list"],
-                check=True,
-                capture_output=True,
-                text=True,
-                env=env,
-            ).stdout
-
-        self.assertIn("mnemo@mnemo", installed)
-        self.assertIn("Status: ✔ enabled", installed)
-        self.assertNotIn("failed to load", installed)
-
 
 class HookCompatibilityTests(unittest.TestCase):
     def _configured_home(self, tmp: str, *, stop_nudge: bool = False) -> None:
@@ -733,6 +741,22 @@ class HookCompatibilityTests(unittest.TestCase):
 
 
 class SafeReadTests(unittest.TestCase):
+    def test_bad_filenames_checks_hash_and_dot_in_stem_only(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for name in ("normal.md", "release.v1.md", "issue#12.md", ".hidden.md"):
+                (root / name).write_text("test")
+
+            output = io.StringIO()
+            with mock.patch.object(safe_read, "vault_root", return_value=root):
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(safe_read.action_bad_filenames({}), 0)
+
+        self.assertEqual(
+            set(output.getvalue().splitlines()),
+            {"release.v1.md", "issue#12.md", ".hidden.md"},
+        )
+
     def test_filesystem_scans_skip_symlinked_markdown(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "vault"

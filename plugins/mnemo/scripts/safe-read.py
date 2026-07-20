@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -209,7 +208,10 @@ def action_missing_links(payload: dict[str, Any]) -> int:
 def action_bad_filenames(payload: dict[str, Any]) -> int:
     root = vault_root(payload)
     for path, relative in markdown_files(root):
-        if "#" in path.name:
+        # Check the note filename without the expected Markdown extension.
+        # A period inside the stem breaks Obsidian CLI creation/resolution, but
+        # the terminal `.md` itself is valid and must not flag every note.
+        if "#" in path.stem or "." in path.stem:
             print(relative)
     return 0
 
@@ -255,27 +257,6 @@ def action_note_date(payload: dict[str, Any]) -> int:
     return 0
 
 
-def action_handoff_archive(payload: dict[str, Any]) -> int:
-    script = Path(__file__).with_name("handoff-archive.py")
-    root = vault_root(payload)
-    _, relative = safe_note_path(root, text(payload, "handoff"))
-    handoff = relative.removesuffix(".md")
-    argv = [
-        sys.executable,
-        str(script),
-        "--vault-path",
-        str(root),
-        "--handoff",
-        handoff,
-        "--max-kb",
-        str(integer(payload, "max_kb", 40)),
-        "--keep-days",
-        str(integer(payload, "keep_days", 14)),
-        "--execute",
-    ]
-    return run(argv).returncode
-
-
 def action_review_candidates(payload: dict[str, Any]) -> int:
     script = Path(__file__).with_name("review-candidates.py")
     root = vault_root(payload)
@@ -302,7 +283,6 @@ ACTIONS = {
     "bad-filenames": action_bad_filenames,
     "moc-names": action_moc_names,
     "note-date": action_note_date,
-    "handoff-archive": action_handoff_archive,
     "review-candidates": action_review_candidates,
     "git-log-grep": action_git_log_grep,
     "git-log-path": action_git_log_path,

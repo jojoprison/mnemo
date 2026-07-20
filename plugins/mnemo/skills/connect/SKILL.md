@@ -2,7 +2,6 @@
 name: connect
 description: "Use automatically right after a new Obsidian note is created — e.g. an mn:save or mn:session that created one (skip when mn:save only appended to an existing note) — to surface hidden connections with existing notes. Also when the user asks to 'find related notes', 'connect this to others', 'найди связи', 'сделай связи', 'свяжи заметки', 'свяжи память', 'свяжи базу знаний', 'свяжи обсидиан', 'перелинкуй', or similar. Shows ranked suggestions with 'why relevant' explanations — does NOT auto-apply."
 model: sonnet
-context: fork
 ---
 
 # mn:connect — Discover Hidden Links
@@ -19,7 +18,7 @@ Analyze a note and discover connections to other notes in the vault that aren't 
 
 ## Prerequisites & config
 
-Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault` and `links_section`. Schema in `<mnemo-root>/references/config-schema.md`.
+Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault`, `links_section`, `taxonomy`, and `taxonomy_roles`. Before any mapped-hub operation, require exactly the five semantic roles `fact`, `insight`, `source`, `session`, and `moc`; require every target to exist; and require `session → session` plus `moc → moc`. The deterministic legacy Zettelkasten fallback is allowed; any other missing/invalid map stops mapped routing and offers the runtime-native setup skill instead of guessing. Schema in `<mnemo-root>/references/config-schema.md`.
 
 ## Workflow
 
@@ -100,11 +99,19 @@ Links are applied **with their one-line context** (the «Why»), not as bare `[[
 ### Step 6: Apply on Confirmation
 
 If user confirms:
-1. Add new links to `{links_section}` **with a one-line context** (Luhmann — state why connected): `- [[Name]] — {why, ≤10 words}`, not a bare `[[Name]]`. Tension links get the marker: `- [[Name]] #contradiction — {what disagrees}`. Use **`mcp__obsidian__str_replace`** for the targeted insert.
-2. If MOC suggestion — add the note link to the MOC via `mcp__obsidian__str_replace`.
-3. Verify with the helper's `backlinks` action
+1. Read the target again, choose one unique stable anchor in `{links_section}`, then add new links **with a one-line context** (Luhmann — state why connected): `- [[Name]] — {why, ≤10 words}`, not a bare `[[Name]]`. Tension links get the marker: `- [[Name]] #contradiction — {what disagrees}`.
+2. Apply the confirmed block through the bundled writer:
 
-**No inline CLI write fallback:** a dynamic name or explanation can contain quotes as well as backticks/`$()`. Any of them can break shell quoting. MCP passes content as JSON; if MCP is unavailable, report that the confirmed links were not applied and leave the vault unchanged.
+```bash
+python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+{"action":"insert","vault":"{vault}","note":"{target note}","anchor":"{unique anchor copied from safe-read}","position":"after","content":"{one JSON-escaped Markdown block containing only confirmed contextual links}"}
+JSON
+```
+
+3. If a mapped hub suggestion was confirmed, repeat the same exact-anchor insert for the note reached through `taxonomy_roles.moc`.
+4. Verify with the helper's `backlinks` action.
+
+If an anchor is missing/non-unique or a concurrent edit wins, re-read and retry only the confirmed changes. A dynamic name or explanation can contain quotes, backticks, or `$()`; keep it JSON data and never use inline Obsidian CLI content.
 
 ## Advanced modes (optional)
 
@@ -116,7 +123,7 @@ python3 "<mnemo-root>/scripts/safe-read.py" shared-targets <<'JSON'
 JSON
 ```
 
-- **KJ-Canvas (bottom-up MOC, 川喜田 affinity):** for `--canvas {topic}` — gather all topic Atoms, drop them onto an Obsidian Canvas without categories, let the user group spatially so structure emerges. Then name clusters → new Molecules / MOC revision. Use when a topic has many Atoms but no clear MOC yet.
+- **KJ-Canvas (bottom-up hub, 川喜田 affinity):** for `--canvas {topic}` — gather notes mapped to the `fact` role, drop them onto an Obsidian Canvas without categories, and let the user group spatially so structure emerges. Then name clusters → new `insight` notes / mapped-hub revision. In the default taxonomy those are Atoms, Molecules, and a MOC.
 
 ## Gotchas
 

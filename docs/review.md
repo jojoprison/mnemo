@@ -99,7 +99,7 @@ Review prepares two core candidates but **never runs them without asking** (auto
 
 | Skill | When offered | What happens if accepted |
 |-------|-------------|--------------------------|
-| `/mn:save` | Unsaved decisions/findings detected | Extracts and saves to Obsidian + claude-mem + memory/ |
+| `/mn:save` | Unsaved decisions/findings detected | Extracts and routes to Obsidian, optional claude-mem, and enabled Claude auto-memory; Codex generated memory remains read-only |
 | `/mn:session` | Significant work done | Creates session note + handoff |
 
 **Skips** if the skill was already invoked this session (checked via runtime JSONL evidence).

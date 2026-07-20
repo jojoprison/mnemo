@@ -2,7 +2,6 @@
 name: setup
 description: "Use on first install, when reconfiguring mnemo, or when the user says 'setup mnemo', 'mnemo not configured', 'change vault', 'reset config', 'мнемо настрой', 'настрой мнемо', or similar — also invoked automatically when any other mnemo skill detects a missing config. Interactive onboarding that creates ~/.mnemo/config.json (vault name, taxonomy, links-section language, cascade defaults)."
 model: haiku
-context: fork
 ---
 
 # mn:setup — Interactive Onboarding
@@ -56,9 +55,14 @@ Which note taxonomy do you use?
 > 1
 ```
 
-Map the selection to `config.taxonomy` — each entry is `{ "prefix": "…", "tag": "…" }`, and every prefix **must end in a filename-safe separator** such as ` — `, `: `, or ` - `. Never allow `/`, `#`, or `.` in a prefix. Always keep `session` and `moc` regardless of choice — they are *functional* types (the canonical `session` skill reads `taxonomy.session.prefix`; hub-linking uses `moc`), not just note archetypes.
+Map the selection to two adjacent config objects:
 
-**[1] Zettelkasten** — use the full block shown in Step 5 below.
+- `taxonomy` defines physical note types. Each entry is `{ "prefix": "…", "tag": "…" }`, and every prefix **must end in a filename-safe separator** such as ` — `, `: `, or ` - `. Never allow `/`, `#`, or `.` in a prefix.
+- `taxonomy_roles` maps the stable semantic roles `fact`, `insight`, `source`, `session`, and `moc` to keys that exist in `taxonomy`. This is the only routing layer skills consume; never infer a destination from a display prefix or tag.
+
+Always keep `session` and `moc` in `taxonomy` and map those two roles to themselves — they are *functional* types. The canonical workflows still resolve them through `taxonomy_roles.session` and `taxonomy_roles.moc`; they never bypass the role map.
+
+**[1] Zettelkasten** — use the full blocks shown in Step 5 below. The role map is deterministic: `fact → atom`, `insight → molecule`, `source → source`, `session → session`, `moc → moc`.
 
 **[2] PARA:**
 ```json
@@ -69,10 +73,21 @@ Map the selection to `config.taxonomy` — each entry is `{ "prefix": "…", "ta
   "archive":  { "prefix": "Archive — ",  "tag": "archive" },
   "session":  { "prefix": "Session — ",  "tag": "session" },
   "moc":      { "prefix": "MOC — ",      "tag": "moc" }
+},
+"taxonomy_roles": {
+  "fact": "resource",
+  "insight": "resource",
+  "source": "resource",
+  "session": "session",
+  "moc": "moc"
 }
 ```
 
-**[3] Custom** — ask the user for each type's prefix + tag; enforce the separator rule on every prefix; still include `session` and `moc` (add them yourself if the user doesn't name them).
+PARA organizes by actionability rather than knowledge shape, so propose `resource` for the three durable-memory roles, show the mapping, and ask the user to confirm or choose a different existing PARA key for each role. Never silently guess `project` versus `area` from content.
+
+**[3] Custom** — ask the user for each type's key + prefix + tag; enforce the separator rule on every prefix; still include `session` and `moc` (add them yourself if the user doesn't name them). Then show the final type keys and ask once which key receives each of `fact`, `insight`, and `source`; keep `session → session` and `moc → moc`. Reject a role target that is not an exact `taxonomy` key.
+
+**Existing config migration:** preserve a `taxonomy_roles` object only when its key set is exactly `fact`, `insight`, `source`, `session`, and `moc`, every target is an existing taxonomy key, and `session → session` plus `moc → moc`. If it is absent and `taxonomy` contains the legacy Zettelkasten keys `atom`, `molecule`, `source`, `session`, and `moc`, add the deterministic [1] map without asking. For any other missing/invalid custom map, show the existing taxonomy keys and ask once for the three content-role targets; keep the functional self-maps, do not rename types, and do not guess from prefixes/tags. Preserve all unrelated config fields.
 
 ### Step 4: Links Section Name
 
@@ -115,6 +130,13 @@ Write `~/.mnemo/config.json`:
     "session": { "prefix": "Session — ", "tag": "session" },
     "moc": { "prefix": "MOC — ", "tag": "moc" }
   },
+  "taxonomy_roles": {
+    "fact": "atom",
+    "insight": "molecule",
+    "source": "source",
+    "session": "session",
+    "moc": "moc"
+  },
   "links_section": "## Связи",
   "handoff_note": "Meta — Session Handoff",
   "cascade": {
@@ -155,27 +177,15 @@ python3 "<mnemo-root>/scripts/safe-read.py" read <<'JSON'
 JSON
 ```
 
-If empty output, create via MCP (shell-safe for future edits that may contain code blocks — see `<mnemo-root>/references/tool-routing.md`):
+If empty output, create through the bundled shell-free writer in either runtime:
 
+```bash
+python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+{"action":"create","vault":"{vault}","note":"Meta — Session Handoff","content":"{one JSON-escaped Markdown string containing the meta frontmatter, Pending and Context sections, and setup date}"}
+JSON
 ```
-mcp__obsidian__create(
-  path: "Meta — Session Handoff.md",
-  file_text: """---
-type: meta
-tags: [meta, handoff, cross-session]
----
 
-# Meta — Session Handoff
-
-Cross-session continuity file. Updated by the canonical session skill.
-
-## Pending
-
-## Context
-- mnemo setup completed on {date}
-"""
-)
-```
+`create` is exclusive and atomic. If it reports `conflict`, re-read the note rather than overwriting it.
 
 ### Step 6.5: Project Hub Note (optional)
 
@@ -183,24 +193,12 @@ Offer: "Create a hub note for short-name navigation? E.g. `[[ProjectName]]` → 
 
 **Why:** Obsidian's resolver ignores frontmatter `aliases` for bare `[[Name]]` links (by design) — only a real file named `ProjectName.md` makes `[[ProjectName]]` resolve. See `<mnemo-root>/references/tool-routing.md` ("Hub notes"). Without it, every short `[[ProjectName]]` reference is a broken ghost.
 
-If user confirms — via MCP:
+If user confirms, resolve `taxonomy_roles.moc` to its configured prefix and create through the same writer:
 
-```
-mcp__obsidian__create(
-  path: "{short-name}.md",
-  file_text: """---
-type: hub
-aliases: [{short-name}]
----
-
-# {short-name}
-
-→ [[MOC — {full project name}]]
-
-{links_section}
-- [[MOC — {full project name}]]
-"""
-)
+```bash
+python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+{"action":"create","vault":"{vault}","note":"{short-name}","content":"{one JSON-escaped Markdown hub body linking to the mapped moc note}"}
+JSON
 ```
 
 Skip if a file with that name already exists (`obsidian read` returns content). Note name must not contain `#` / `.` / `/` (see `<mnemo-root>/references/tool-routing.md` naming rules).
@@ -234,4 +232,6 @@ Common failures in `<mnemo-root>/references/gotchas.md`. Full config schema in `
 - **Run once** — if `~/.mnemo/config.json` exists, show current values and ask before overwriting. User may just want to change one field, not rebuild everything.
 - **Verify Obsidian is open during vault name step** — run the Step 2 `safe-read.py search` probe with `{"query":"test","vault":"{input}"}`. It fails fast if the vault name is wrong or Obsidian isn't running, while keeping the user-provided name out of shell syntax.
 - **Don't create vault structure** — mnemo works with existing vaults. Do not create folders, templates, or sample notes. The user's vault is theirs.
-- **PARA taxonomy selection** — map to `project/area/resource/archive` prefixes. Custom taxonomy accepts any prefixes as long as each ends in a filename-safe separator such as ` — `, `: `, or ` - `; never `/`, `#`, or `.`.
+- **PARA taxonomy selection** — create `project/area/resource/archive` types plus functional `session/moc`, then confirm the explicit `taxonomy_roles` targets. Custom taxonomy accepts any prefixes as long as each ends in a filename-safe separator such as ` — `, `: `, or ` - `; never `/`, `#`, or `.`.
+- **Role-map integrity** — write exactly the five stable role keys and require every value to name an existing taxonomy key. Never route by comparing human-facing prefixes or tags.
+- **One write path in both runtimes** — all vault Markdown goes through `scripts/vault-write.py`; never require an external Obsidian MCP and never use inline `obsidian create/append content=`.

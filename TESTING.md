@@ -1,4 +1,4 @@
-# Testing — mnemo smoke tests (current: v1.2.4)
+# Testing — mnemo smoke tests (current: v1.2.5)
 
 mnemo has an automated structural/runtime regression gate plus manual end-to-end smoke tests. Run the automated gate after every skill, manifest, hook, or helper change; run the relevant manual checks after `/plugin update mnemo@mnemo` or `codex plugin add mnemo@mnemo`.
 
@@ -6,16 +6,22 @@ mnemo has an automated structural/runtime regression gate plus manual end-to-end
 
 ```bash
 python3 scripts/lint-skills.py
+python3 scripts/verify-release.py
 python3 scripts/test-runtime-compat.py
 python3 scripts/test-runtime-memory.py
+python3 scripts/test-runtime-homes.py
+python3 scripts/test-vault-write.py
+python3 scripts/test-skill-write-contracts.py
 python3 scripts/test-handoff-archive.py
+MNEMO_REQUIRE_RUNTIME_LOADERS=1 python3 scripts/test-fresh-install.py
+python3 plugins/mnemo/scripts/session-scan.py
 claude plugin validate plugins/mnemo --strict
 python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
 ```
 
-The first four commands are repository-owned regression tests. `test-runtime-compat.py` performs a real plugin install/load inside an isolated `CLAUDE_CONFIG_DIR`; CI installs the tested Claude Code loader and sets `MNEMO_REQUIRE_CLAUDE_LOADER=1`, so that check cannot skip. Release workstations must execute it too. The last two commands are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. All six must pass before release.
+The first ten commands are repository-owned gates. `verify-release.py` requires all three manifest versions, the dated CHANGELOG section, and both current compare-links to agree. `test-runtime-compat.py` and `test-fresh-install.py` perform real installs into isolated Claude/Codex homes; CI pins both loaders and makes skips fatal. The last two commands are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. Every command must pass before release.
 
-The manual suite below has two layers: the **6 per-skill checks** (version-agnostic — do the workflows still behave?) and the **"What changed in vX" feature checks** (run the groups relevant to your change).
+The manual suite below has two layers: the **7 per-skill checks** (version-agnostic — do the workflows still behave?) and the **"What changed in vX" feature checks** (run the groups relevant to your change).
 
 ## Status
 
@@ -27,7 +33,7 @@ The manual suite below has two layers: the **6 per-skill checks** (version-agnos
 - **R1 — exact inventory.** Claude Code discovers exactly `/mn:ask`, `/mn:save`, `/mn:session`, `/mn:review`, `/mn:connect`, `/mn:setup`, and `/mn:health`; Codex discovers exactly the corresponding `$mnemo:*` IDs with `mn:*` picker labels. No command routers or compatibility aliases appear.
 - **R2 — one implementation each.** Every runtime resolves the same seven `skills/<name>/SKILL.md` bodies. Claude-only presentation comes from its `mn` manifest namespace; Codex-only presentation comes from `agents/openai.yaml`, never copied workflow text.
 - **R3 — runtime hooks.** In fresh Claude and Codex sessions, SessionStart injects the runtime-native ask/save nudge, synchronous prewarm does not block startup, and the opt-in Stop nudge blocks at most once with the correct native invocation syntax.
-- **R4 — safe degradation.** With claude-mem disabled or fully absent, both runtimes continue through Obsidian and their own local-memory fallback without starting or repairing claude-mem. Dynamic vault values remain JSON/argv data, and handoff/archive paths cannot escape the resolved vault.
+- **R4 — safe degradation.** With claude-mem disabled or fully absent, both runtimes continue through Obsidian without starting or repairing claude-mem. Claude may use enabled auto-memory; Codex generated memories remain read-only and never become a shadow fallback. Dynamic vault values remain JSON data, and handoff/archive paths cannot escape the resolved vault.
 
 ## What changed in v1.2.1 — hook-parser compatibility
 
@@ -46,6 +52,13 @@ The manual suite below has two layers: the **6 per-skill checks** (version-agnos
 
 - **R12 — no duplicate default hook path.** The Claude manifest must list exactly `./hooks/claude-hooks.json`, never the auto-discovered `./hooks/hooks.json`. The required CI compatibility suite installs the plugin into an isolated Claude config and requires `Status: ✔ enabled`, so a schema-valid but loader-invalid composition cannot ship again.
 
+## What changed in v1.2.5 — dual-runtime hardening
+
+- **R13 — one vault writer.** `save`, `session`, `setup`, `connect`, and health's optional reviewed stamp all use `vault-write.py`. Create is exclusive; existing-note edits are exact/optimistic; handoff rotation is archive-first, retry-deduplicated, backed up, and covered by the original corruption suite. Markdown never enters a shell or Obsidian CLI argument.
+- **R14 — taxonomy roles end to end.** Default, PARA, and custom configs route through exactly five semantic roles. `session`/`moc` self-map; the three content roles may coalesce. Session template fields and ask's compounding save contain no built-in type/runtime hardcodes.
+- **R15 — runtime memory adversarial boundary.** Scope metadata and Claude index routing ignore fences, stripped frontmatter/comments, and non-content containers; reads are bounded and descriptor-relative; custom/unprovable paths fail closed for federation; health follows Claude's current 200-line/25KB loaded-content limits without returning memory text.
+- **R16 — custom homes + loader E2E.** `CLAUDE_CONFIG_DIR` and `CODEX_HOME` flow through all helpers, including user-skill namespace detection. Fresh isolated installs must expose exactly seven canonical skills, packaged scripts/assets, and no aliases in both runtimes.
+
 ## What changed in v0.7.3
 
 Model routing was rewritten to prevent mid-session model switches from triggering `API Error: Extra usage is required for 1M context` on Max plans. Three current skills run in isolated forked subagents (`context: fork` + `haiku` or `sonnet`); the remaining four inherit the session model (`model: inherit`). See [CHANGELOG](./CHANGELOG.md#073---2026-04-24).
@@ -58,7 +71,7 @@ Model routing was rewritten to prevent mid-session model switches from triggerin
 
 Feature checks for the releases between v0.9 and v0.14. Run after `/plugin update mnemo@mnemo`.
 
-- **A1 — Autodream-aware memory index (v0.10).** `/mn:health` Step 10: on a project whose `memory/MEMORY.md` exceeds `memory.indexWarnKB` (default 22), the report warns to run autodream (the index hard-truncates ~24.4 KB on load). Verify the threshold is read from config — set `memory.indexWarnKB: 5` on a small index → the warning fires earlier.
+- **A1 — Autodream-aware memory index (v0.10; current loader semantics hardened in v1.2.5).** `/mn:health` Step 10 checks Claude's effective `MEMORY.md` after stripping frontmatter/block comments. It warns at the configured early byte threshold and always flags either hard loader limit: more than 200 loaded lines or more than 25,000 loaded bytes. Set `memory.indexWarnKB: 5` to verify the early warning without masking hard-limit fields.
 - **A2 — Type-aware review candidates (v0.11).** `/mn:health` Step 7: a stale `atom` is flagged against the **atom** budget (60d), not a flat 30; a note whose `reviewed:` is newer than its `date:` is **not** flagged (snooze); a note with per-note `ttl: 14` ages on 14 days regardless of type. With no `review` config → falls back to a uniform 30 days.
 - **A3 — Content lint (v0.11, opt-in).** With `review.lint.enabled: true`, `/mn:health` Step 7.5 re-reads the top candidates and emits still-valid / update-needed / contradicts verdicts on `review.lint.model`. With it `false` (default) → the step is skipped silently.
 - **A4 — Recency-aware recall (v0.12).** `/mn:ask` annotates each cited source with `changed YYYY-MM-DD` (git last-commit if the vault is a repo, else file mtime) and ⚠️-flags any cited note older than its type budget. "changed today" must NOT clear a stale flag — touch ≠ fresh (staleness uses `date`/`reviewed`).
@@ -68,7 +81,7 @@ Feature checks for the releases between v0.9 and v0.14. Run after `/plugin updat
 
 Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-21)). Run these after `/plugin update mnemo@mnemo`. The **stamp check (V3) is the highest priority** — it is the first and only frontmatter write `/mn:health` can make, and it had no automated coverage.
 
-- **V1 — Compounding loop (`/mn:ask`).** Ask a question whose answer synthesizes ≥2 notes. Expect Step 6 to *offer* "save this synthesis as a Molecule" (not auto-save). Accept → confirm one `Molecule — …` note is created via `/mn:save` with a `cites:` frontmatter field and the source `[[links]]` pre-populated. Ask a question with **one** hit or **no** hits → the offer must NOT appear (Molecule-bar gate).
+- **V1 — Compounding loop (`/mn:ask`).** Ask a question whose answer synthesizes ≥2 notes. Expect Step 6 to offer saving it as the type mapped by `taxonomy_roles.insight` (a Molecule only in the default taxonomy), never auto-save. Accept → confirm `/mn:save` creates the mapped type with a `cites:` frontmatter field and the source `[[links]]` pre-populated. Ask a question with **one** hit or **no** hits → the offer must NOT appear (insight-bar gate).
 - **V2 — Research-gap candidates (`/mn:health`).** On a vault with a tag used ≥5 times and no matching `MOC — {Topic}`, the report shows a `🌱 Research-gap candidates` block suggesting the MOC. On a vault where every populous tag already has a MOC → block is omitted (no false suggestion). Never auto-creates anything.
 - **V3 — autoStampReviewed write-path (`/mn:health`, the one write).** Set `review.lint.enabled: true` in `~/.mnemo/config.json` (default leaves it off — verify that with the flag off, health writes **zero** frontmatter). With lint on and `autoStampReviewed: true` (default), run `/mn:health` on a vault holding a stale-but-still-valid note. **Read the note back** and assert: `reviewed:` was added/updated to today's date, inside the `---` frontmatter block, with the note body unchanged. Then set `autoStampReviewed: false`, re-run, and assert the report only *recommends* the stamp and the file is **not** modified. Red flag: any write to a note the lint judged `update-needed`/`contradicts`, or any body-text change — health must only ever touch the `reviewed:` field of a still-valid note.
 
@@ -108,7 +121,7 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 
 ## What changed in v1.1.11 — handoff-archive corruption fix + first automated tests
 
-- **V15 — automated regression suite.** `python3 scripts/test-handoff-archive.py` → 5 tests OK. This is the fastest check for the whole class: doc-header survival, zero glued `## date## date` headers, archive-append normalization, idempotent repeated runs, and vault containment for handoff/archive paths.
+- **V15 — automated regression suite.** `python3 scripts/test-handoff-archive.py` → 10 tests OK. This is the fastest check for the whole class: doc-header survival, zero glued `## date## date` headers, prefix/newline normalization, idempotent and multiset-correct partial retries, pending-block retention, hardlink deadlock prevention, and vault containment for handoff/archive paths.
 - **V16 — live handoff integrity after `/mn:session` (v1.1.11).** After a session where the size-guard actually archived blocks: the handoff still starts with its original header (frontmatter/guard, exactly one `SIZE-GUARD` line), `grep -c 'research##'`-style glued headers = 0, and the archive gained each cold block exactly once (no duplicate stray headers accumulating run-over-run).
 
 ## Prerequisites
@@ -121,7 +134,7 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
   ```
 - **claude-mem plugin optional**. If `cascade.claude_mem.enabled=false`, `/mn:health` Step 0 and `/mn:save` claude-mem POST should skip silently.
 
-## Test plan — 6 checks, ~10 minutes total
+## Test plan — 7 checks, ~12 minutes total
 
 ### 1. `/mn:health` — the biggest surface
 
@@ -178,11 +191,11 @@ Try a recall-style query you know is in your vault:
 
 **Expect:**
 - Skill classifies the input (fact/insight/decision/gotcha).
-- Creates Obsidian note via MCP (`mcp__obsidian__create`, not CLI).
+- Creates the Obsidian note through `vault-write.py create`; the JSON-stdin body remains inert and the Obsidian CLI receives only the vault lookup arguments.
 - POSTs to claude-mem at `127.0.0.1:37777` using the `text` key (NOT `content` — v12.3.9 API requirement).
 - `text` has a bracketed tail like `... [note: {name} | vault: main | cm: 12.3.9]` — provenance embedded because v12.3.9 silently drops `metadata.*` custom fields.
 - `metadata: {...}` block is still sent (forward-compat for when upstream fixes drop-silent).
-- Final report shows `Backends: Obsidian ✅, claude-mem ✅, memory/ ⏭` (or similar).
+- Final report shows `Backends: Obsidian ✅, claude-mem ✅/⏭, Claude auto-memory ✅/⏭`; in Codex it explicitly reports generated memory as read-only/skipped.
 
 **Verify:** POST returns `{"success": true, "id": N}` — if it returns `{"error": "text is required..."}`, the `content` → `text` rename wasn't applied.
 
@@ -204,7 +217,17 @@ Try a recall-style query you know is in your vault:
 
 **Red flag:** no `cat triggers-*.md` call visible → Step 4 fix didn't land.
 
-### 6. `/mn:setup` — idempotent handoff
+### 6. `/mn:session` — narrative + guarded handoff rotation
+
+```
+/mn:session
+```
+
+**Expect:** one mapped session note is created through `vault-write.py`; the handoff receives one exact dated block with the real runtime session ID (or an explicit unavailable marker), and any size-triggered rotation archives only closed old blocks. A repeated retry must not duplicate archive blocks, remove pending/open work, or corrupt either header.
+
+**Red flag:** a write goes through `obsidian create/append content=...`, the session type ignores `taxonomy_roles.session`, or handoff/archive content is blindly overwritten.
+
+### 7. `/mn:setup` — idempotent handoff
 
 ```
 /mn:setup
@@ -247,4 +270,4 @@ Open <https://github.com/jojoprison/mnemo/actions>. Last run should show **Skill
 
 ## Expected total time
 
-~10 minutes on a warm vault. All 6 checks independent — you can skip any that aren't relevant, but `/mn:health` and `/mn:ask` are the most important (cover the most surface).
+~12 minutes on a warm vault. All 7 checks are independent — you can skip any that aren't relevant, but `/mn:health` and `/mn:ask` cover the broadest surface.

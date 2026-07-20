@@ -46,7 +46,7 @@ Typing `$` or opening `/skills` shows the short `mn:*` labels configured in each
 | Plugin manifest | `.claude-plugin/plugin.json` | `.codex-plugin/plugin.json` |
 | Marketplace | `.claude-plugin/marketplace.json` | `.agents/plugins/marketplace.json` |
 | Session log | `~/.claude/projects/*/*.jsonl` | `~/.codex/sessions/**/*.jsonl` |
-| Local memory fallback | `~/.claude/projects/<slug>/memory/` | `~/.codex/memories/` |
+| Native memory policy | Effective Claude auto-memory; writable only when enabled | `${CODEX_HOME:-~/.codex}/memories/`; generated read-only state |
 
 There are no alias skills and no command wrappers. All seven workflows live once under `plugins/mnemo/skills/`; Codex-only presentation stays in `agents/openai.yaml`.
 
@@ -54,7 +54,7 @@ Claude's optional `model` and `context` frontmatter fields remain in the shared 
 
 ## Obsidian and claude-mem
 
-Obsidian remains the primary memory store. Search and graph operations use the indexed `obsidian` CLI through `safe-read.py` (`shell=False` for dynamic names/queries); markdown writes use MCP to avoid shell expansion.
+Obsidian remains the primary memory store. Search and graph operations use the indexed `obsidian` CLI through `safe-read.py` (`shell=False` for dynamic names/queries); every Markdown write uses the bundled JSON-stdin `vault-write.py`, so Claude Code and Codex share one optimistic atomic path without requiring an external MCP.
 
 claude-mem is optional and disabled by default. mnemo never starts ChromaDB or the claude-mem worker automatically.
 
@@ -70,6 +70,10 @@ This is federation, not synchronization. Both runtimes keep their native storage
 python3 scripts/lint-skills.py
 python3 scripts/test-runtime-compat.py
 python3 scripts/test-runtime-memory.py
+python3 scripts/test-runtime-homes.py
+python3 scripts/test-vault-write.py
+python3 scripts/test-skill-write-contracts.py
+MNEMO_REQUIRE_RUNTIME_LOADERS=1 python3 scripts/test-fresh-install.py
 python3 scripts/test-handoff-archive.py
 python3 plugins/mnemo/scripts/session-scan.py
 python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo

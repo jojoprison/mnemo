@@ -2,7 +2,7 @@
 
 ## Overview
 
-The brain of mnemo. When you say "remember this" or "save to memory", this skill routes the information to the right storage backends — Obsidian, optional claude-mem, the active runtime's local memory, and runtime-native project instructions for actionable rules — with graceful degradation. If one backend is down, others still work.
+The brain of mnemo. When you say "remember this" or "save to memory", this skill routes the information to the right storage backends — Obsidian, optional claude-mem, Claude auto-memory when applicable, and the existing project-instruction path for actionable rules — with explicit graceful degradation. Codex generated memories are a read-only recall source, not a manual write target.
 
 ## Usage
 
@@ -24,9 +24,9 @@ remember: gws gmail command is +triage not list
 Your input
   ↓ classify — recall item, or an actionable rule?
   ↓
-  recall item ─┬─→ 1. Obsidian (Atom/Molecule/Source) → if down, skip
+  recall item ─┬─→ 1. Obsidian (type mapped by semantic role) → if down, skip
                ├─→ 2. claude-mem (semantic search)    → if down, skip
-               └─→ 3. local memory (error prevention) → if not needed, skip
+               └─→ 3. Claude auto memory (error prevention) → Codex: generated state stays read-only
   ↓
   actionable rule ─→ 3.5 .claude/rules/<domain>.md (auto-inject, path-scoped)
                           → create file/dir if none matches; CLAUDE.md only as fallback
@@ -45,7 +45,7 @@ Type: decision
 Backends:
   1. Obsidian  ✅ → "Atom — SCOPE chosen over TextGrad" in MOC — Agent Self-Correction
   2. claude-mem ✅ → semantic search indexed
-  3. local memory ✅ → runtime-specific topic file updated
+  3. Claude auto memory ✅ → verified topic/index updated (Codex would report generated-state skip)
   3.5 .claude/rules ⏭  skipped (recall item, not an actionable rule)
   4. CLAUDE.md ⏭  skipped (not critical rule)
 ```
@@ -70,10 +70,10 @@ Don't have claude-mem? Set `"enabled": false` — everything else works.
 
 ## Important Notes
 
-- **Never fails completely** — at least one backend always works
-- **Classifies automatically** — you don't need to specify atom vs molecule
+- **Fails visibly, never invents a shadow store** — unavailable durable backends are reported so the user can retry
+- **Classifies automatically** — you don't choose a physical type; the exact five-key `taxonomy_roles` map resolves it
 - **Duplicate check** — always searches Obsidian before creating
-- **CLI-first reads, MCP writes** — dynamic read values go through `safe-read.py`; markdown writes use MCP
+- **Bundled adapters in both runtimes** — dynamic reads go through `safe-read.py`; every vault Markdown write goes through the JSON-stdin optimistic `vault-write.py`
 
 ## Related Skills
 

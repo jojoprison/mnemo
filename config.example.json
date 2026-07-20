@@ -7,6 +7,13 @@
     "session": { "prefix": "Session — ", "tag": "session" },
     "moc": { "prefix": "MOC — ", "tag": "moc" }
   },
+  "taxonomy_roles": {
+    "fact": "atom",
+    "insight": "molecule",
+    "source": "source",
+    "session": "session",
+    "moc": "moc"
+  },
   "links_section": "## Links",
   "handoff_note": "Meta — Session Handoff",
   "memory": { "indexWarnKB": 22 },

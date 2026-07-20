@@ -147,13 +147,13 @@ def check_skill(path: str) -> list[str]:
 
     if has_inline_obsidian_write(text):
         issues.append(
-            "generated markdown must use Obsidian MCP writes, never inline "
+            "generated markdown must use scripts/vault-write.py, never inline "
             "obsidian create/append/prepend content= shell arguments"
         )
     if has_direct_obsidian_cli(text):
         issues.append(
             "direct Obsidian CLI commands are forbidden in skill bodies; route dynamic "
-            "values through scripts/safe-read.py or markdown writes through MCP"
+            "values through scripts/safe-read.py or markdown writes through scripts/vault-write.py"
         )
 
     plugin_dir = os.path.dirname(os.path.dirname(os.path.dirname(path)))

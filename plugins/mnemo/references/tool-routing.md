@@ -1,22 +1,23 @@
-# Tool Routing — MCP-first hybrid
+# Tool Routing — bundled shell-free adapters
 
-Rule of thumb: **markdown writes → MCP; dynamic read/index values → the bundled argv adapter; only fully static reads may call the CLI directly.**
+Rule of thumb: **all vault writes → the bundled atomic JSON writer; dynamic read/index values → the bundled argv adapter; only fully static reads may call the CLI directly.** The same paths work in Claude Code and Codex and do not depend on an external Obsidian MCP being installed.
 
 ## Routing table
 
 | Operation | Tool | Why |
 |-----------|------|-----|
-| **Create note** (arbitrary markdown) | `mcp__obsidian__create` | Shell-safe — content passes as JSON parameter, no zsh expansion |
-| **Edit middle of file** | `mcp__obsidian__str_replace` | Exact-match replace, shell-safe |
-| **Insert at line** | `mcp__obsidian__insert` | Line-number-based, shell-safe |
-| **View file** | `safe-read.py read` or `mcp__obsidian__view` | Adapter keeps dynamic note/vault names out of shell parsing |
+| **Create note** (arbitrary markdown) | `vault-write.py create` | Exclusive, atomic create; JSON stdin keeps content out of shell and CLI arguments |
+| **Edit middle of file** | `vault-write.py replace` | Exact-one optimistic replacement; fails on stale/ambiguous input |
+| **Insert at anchor** | `vault-write.py insert` | Unique-anchor optimistic insertion; optional hash/line guards |
+| **Guarded append** | `vault-write.py append` | Requires an expected tail or SHA-256; no blind append |
+| **View file** | `safe-read.py read` | Adapter keeps dynamic note/vault names out of shell parsing |
 | **Search (fulltext)** | `safe-read.py search` | Wraps the indexed CLI (`shell=False`); MCP has no search |
 | **Orphans / backlinks / tags / unresolved** | Matching `safe-read.py` action | Indexed CLI graph queries without shell interpolation. ⚠️ cache lags writes 1-5s |
 | **Vault metadata** | `safe-read.py vault-path` | Returns the filesystem path without interpolating a vault name into shell |
 | **List files** | `safe-read.py files-total` | Indexed, argv-safe |
-| **Append generated wikilink / markdown** | `mcp__obsidian__str_replace` or `mcp__obsidian__insert` | Dynamic names can contain quotes or shell syntax; inline CLI content is unsafe |
+| **Append generated wikilink / markdown** | `vault-write.py insert` (preferred) or guarded `append` | Dynamic names/content stay in JSON; optimistic guard prevents lost updates |
 | **Delete** | Explicit user-confirmed agent operation | Never part of a generated fallback |
-| **Metadata JS** | Specialized `safe-read.py` action or `mcp__obsidian__obsidian_api` | Dynamic note paths are JSON-encoded as JS literals |
+| **Metadata JS** | Specialized `safe-read.py` action | Dynamic note paths are JSON-encoded as JS literals |
 
 ## Why CLI-first for read / search / index
 
@@ -26,7 +27,7 @@ Rule of thumb: **markdown writes → MCP; dynamic read/index values → the bund
 | read | ~185 | ~150-200 | Similar; CLI avoids MCP handshake |
 | orphans / backlinks | ~180 | N/A | Only CLI |
 | tags / files | ~180 | N/A | Only CLI |
-| create | ~180 (cold node start) | ~30-50 | MCP wins when you're creating content |
+| create | ~180 (cold node start) | N/A | mnemo resolves the vault once, then writes atomically through `vault-write.py` |
 
 The adapter preserves this CLI-first performance. It only changes the process boundary: values arrive as JSON on stdin and Python calls `subprocess.run([...], shell=False)`.
 
@@ -44,7 +45,7 @@ JSON
 
 The quoted `JSON` delimiter disables shell expansion in the body. The helper allowlists the action, validates the payload, passes ordinary arguments as argv elements, and JSON-encodes values embedded into its fixed metadataCache scripts. Malformed JSON fails closed. This applies to note names, vault names, search terms, paths, prefixes, and concepts — not only markdown bodies.
 
-## Why MCP-first for writes with markdown
+## Why the bundled writer owns Markdown writes
 
 CLI `obsidian create content="..."` is executed inside a zsh double-quoted context. That means:
 
@@ -63,11 +64,11 @@ make deploy-back
 
 If that string ends up in `content="..."`, zsh runs `make deploy-back`. This really happened on 2026-04-21 — session note content triggered accidental prod deploy.
 
-**MCP has no shell.** Content flows as a JSON string to the MCP server → Obsidian's internal API → disk. Backticks and `$(...)` are preserved verbatim, treated as text.
+`vault-write.py` has no shell content boundary. Content arrives as JSON on stdin; the Obsidian CLI is invoked with `shell=False` only to resolve the vault root, and Markdown is never placed in CLI arguments. The writer then uses descriptor-relative, no-symlink traversal plus same-directory atomic replacement. Backticks, `$(...)`, quotes, and newlines remain inert text.
 
 ## Why generated CLI appends are never safe
 
-Checking only for backticks or `$()` is insufficient: a generated note name containing `"` can escape the `content="..."` argument and expose following shell separators. Skills therefore never interpolate generated markdown into `obsidian append` or `obsidian create`. Use MCP `str_replace` / `insert`; if MCP is unavailable, skip the write. A human-authored, fully static CLI content literal can be safe, but it is not a runtime fallback for agent-generated text.
+Checking only for backticks or `$()` is insufficient: a generated note name containing `"` can escape the `content="..."` argument and expose following shell separators. Skills therefore never interpolate generated markdown into `obsidian append` or `obsidian create`. Use `vault-write.py replace` / `insert` / guarded `append`; an external MCP is optional and is not the canonical write path. A human-authored, fully static CLI content literal can be safe, but it is not a runtime fallback for agent-generated text.
 
 ## Referencing memory/ files (never wikilink them)
 
@@ -119,7 +120,7 @@ For graph/backlinks the position doesn't matter (Obsidian parses the whole file)
 ## Reading order of preference
 
 1. **Search / index query with dynamic values** → `safe-read.py` (indexed CLI underneath).
-2. **Write with markdown body** → MCP (safety).
-3. **Generated wikilink append** → MCP (dynamic text is never a shell argument).
-4. **Targeted edit to existing note** → MCP `str_replace`.
-5. **Read (for diff / context)** → `safe-read.py read` or MCP view.
+2. **Write with markdown body** → `vault-write.py create` (exclusive and atomic).
+3. **Generated wikilink append** → `vault-write.py insert` or guarded `append`.
+4. **Targeted edit to existing note** → `vault-write.py replace` after an exact read.
+5. **Read (for diff / context)** → `safe-read.py read`.

@@ -5,15 +5,23 @@ on:
     branches: [main]
     paths:
       - "plugins/**"
+      - ".claude-plugin/marketplace.json"
+      - "CHANGELOG.md"
       - "scripts/lint-skills.py"
       - "scripts/test-*.py"
+      - "scripts/verify-release.py"
       - ".github/workflows/skill-lint.yml"
+      - ".github/workflows/release.yml"
   pull_request:
     paths:
       - "plugins/**"
+      - ".claude-plugin/marketplace.json"
+      - "CHANGELOG.md"
       - "scripts/lint-skills.py"
       - "scripts/test-*.py"
+      - "scripts/verify-release.py"
       - ".github/workflows/skill-lint.yml"
+      - ".github/workflows/release.yml"
 
 jobs:
   lint:
@@ -26,15 +34,41 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install Claude Code loader
-        run: npm install --global @anthropic-ai/claude-code@2.1.215
+      - name: Install pinned runtime loaders
+        run: npm install --global @anthropic-ai/claude-code@2.1.215 @openai/codex@0.144.6
       - name: Validate SKILL.md files
         run: python3 scripts/lint-skills.py
+      - name: Verify release metadata
+        run: python3 scripts/verify-release.py
       - name: Test runtime compatibility
-        env:
-          MNEMO_REQUIRE_CLAUDE_LOADER: "1"
         run: python3 scripts/test-runtime-compat.py
       - name: Test runtime memory
         run: python3 scripts/test-runtime-memory.py
+      - name: Test runtime-owned homes
+        run: python3 scripts/test-runtime-homes.py
+      - name: Test canonical vault writer
+        run: python3 scripts/test-vault-write.py
+      - name: Test skill write and taxonomy contracts
+        run: python3 scripts/test-skill-write-contracts.py
       - name: Test handoff archive
         run: python3 scripts/test-handoff-archive.py
+      - name: Test fresh installs in both runtimes
+        env:
+          MNEMO_REQUIRE_RUNTIME_LOADERS: "1"
+        shell: bash
+        run: |
+          set +e
+          python3 scripts/test-fresh-install.py --runtime claude &
+          claude_pid=$!
+          python3 scripts/test-fresh-install.py --runtime codex &
+          codex_pid=$!
+          wait "$claude_pid"
+          claude_status=$?
+          wait "$codex_pid"
+          codex_status=$?
+          if (( claude_status != 0 || codex_status != 0 )); then
+            echo "fresh-install failed: claude=${claude_status}, codex=${codex_status}"
+            exit 1
+          fi
+      - name: Test session scanner graceful fallback
+        run: python3 plugins/mnemo/scripts/session-scan.py

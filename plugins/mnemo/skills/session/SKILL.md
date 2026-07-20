@@ -18,9 +18,9 @@ Create a human-readable session summary note in Obsidian after significant work.
 
 ## Prerequisites & config
 
-Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault`, `taxonomy.session`, `links_section`, `handoff_note`. Schema in `<mnemo-root>/references/config-schema.md`.
+Obsidian must be open. Config at `~/.mnemo/config.json` — reads `vault`, `taxonomy`, `taxonomy_roles`, `links_section`, and `handoff_note`. Before resolving session or hub destinations, require exactly the five role keys `fact`, `insight`, `source`, `session`, and `moc`; require every target to exist in `taxonomy`; and require `session → session` plus `moc → moc`. The deterministic legacy Zettelkasten fallback is allowed; any other missing/invalid map offers the runtime-native setup skill instead of guessing. Schema in `<mnemo-root>/references/config-schema.md`.
 
-Tool-routing (MCP for writes, CLI for reads/search) in `<mnemo-root>/references/tool-routing.md`. Frontmatter template in `<mnemo-root>/assets/session-template.md`.
+Tool-routing (bundled atomic writer for writes, bundled CLI adapter for reads/search) is in `<mnemo-root>/references/tool-routing.md`. Frontmatter template is in `<mnemo-root>/assets/session-template.md`.
 
 ## When to Trigger
 
@@ -33,7 +33,7 @@ Tool-routing (MCP for writes, CLI for reads/search) in `<mnemo-root>/references/
 
 ### Step 1: Summarize Current Session
 
-**Mid-task checkpoint vs end-of-session note.** If this is a mid-task checkpoint (a long run risks compaction and you're saving progress, not wrapping up) **and** a note for *this same session* already exists — match by the `session_id` you'd write in frontmatter (or the filename derived earlier this session) — **update that note in place** (`mcp__obsidian__str_replace` to refresh the summary and append new progress) plus refresh the handoff (Step 5). Do **not** create a second note for the same session — that fragments the record. Only a genuinely new session or a distinct topic gets a new note.
+**Mid-task checkpoint vs end-of-session note.** If this is a mid-task checkpoint (a long run risks compaction and you're saving progress, not wrapping up) **and** a note for *this same session* already exists — match by the `session_id` you'd write in frontmatter (or the filename derived earlier this session) — **update that note in place** through the bundled exact-replace/insert writer plus refresh the handoff (Step 5). Do **not** create a second note for the same session — that fragments the record. Only a genuinely new session or a distinct topic gets a new note.
 
 Analyze the conversation: what was done, key decisions, commits/PRs created, findings.
 
@@ -61,7 +61,7 @@ python3 "<mnemo-root>/scripts/safe-read.py" read <<'JSON'
 JSON
 ```
 
-If the read returns content → a note with this EXACT filename already exists. Do NOT silently skip and do NOT auto-overwrite. Offer **append / overwrite / rename**, leading with append/continuation. To append, use `mcp__obsidian__insert` (at the file's last line) or `mcp__obsidian__str_replace` to add a `## part 2` / `## continuation` section — NOT `mcp__obsidian__create` (it only creates new files and will fail or clobber an existing one). Overwrite only if the user is clearly regenerating the same session.
+If the read returns content → a note with this EXACT filename already exists. Do NOT silently skip and do NOT auto-overwrite. Offer **append / overwrite / rename**, leading with append/continuation. For continuation use `vault-write.py insert` with a unique copied anchor, or guarded `append` with the exact current tail/hash. Never call `create` for an existing note. Overwrite only if the user is clearly regenerating the same session, and implement it as an exact optimistic replacement rather than a blind file write.
 
 **Level 2 — related same-day sessions (informational only):**
 
@@ -77,9 +77,9 @@ These are NOT duplicates — same day, different topics. **Doing many sessions i
 
 Do not block creation on Level 2 matches — they're context, not conflicts.
 
-### Step 3: Create Session Note (MCP — primary; Codex fallback below)
+### Step 3: Create Session Note (same writer in both runtimes)
 
-**In Claude, always use `mcp__obsidian__create` for creation.** Never CLI with inline `content=` (shell-injection). In Codex, where the Obsidian MCP isn't available, take the **Codex fallback** at the end of this step instead — the inline-`content=` ban still holds there.
+After the exact role-map validation in Prerequisites, resolve `taxonomy_roles.session` and `taxonomy_roles.moc` to existing `config.taxonomy` entries and use their configured prefixes/tags. Legacy Zettelkasten without a role map uses the documented deterministic fallback; any other missing/invalid map must go through `setup` rather than guessing.
 
 First, read the template (provides the exact structure to follow):
 
@@ -87,20 +87,19 @@ First, read the template (provides the exact structure to follow):
 cat "<mnemo-root>/assets/session-template.md"
 ```
 
-Then create the note, filling the template placeholders (`{Session Title}`, `{YYYY-MM-DD}`, `{project}`, etc.) with the current session's context:
+Then create the note, filling every template placeholder with grounded current-session context. In particular, `{session_type}` and `{session_tag}` come from the taxonomy entry mapped by `taxonomy_roles.session`; `{mapped_moc_note}` uses the prefix from the entry mapped by `taxonomy_roles.moc`; `{session_id}` is runtime-neutral; and `{topic_tags}` contains only validated YAML-safe tag values:
 
+```bash
+python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+{"action":"create","vault":"{vault}","note":"{planned filename}","content":"{one JSON-escaped Markdown string with the filled template}"}
+JSON
 ```
-mcp__obsidian__create(
-  path: "{planned-filename}.md",
-  file_text: "<template with placeholders filled in>"
-)
-```
 
-Where `{session_prefix}` comes from `config.taxonomy.session.prefix`, `{links_section}` from `config.links_section`, and the session id comes from `CLAUDE_SESSION_ID` in Claude Code or `CODEX_THREAD_ID` in Codex (`CODEX_SESSION_ID` remains a legacy fallback; use an empty string if none is available).
+Where `{session_prefix}` comes from the taxonomy entry mapped by `taxonomy_roles.session`, `{links_section}` from `config.links_section`, and the session id comes from `CLAUDE_SESSION_ID` in Claude Code or `CODEX_THREAD_ID` in Codex (`CODEX_SESSION_ID` remains a legacy fallback; use an empty string if none is available).
 
-**Why MCP here:** frontmatter and body may contain any markdown — code blocks with backticks, `$(...)` samples, shell snippets. MCP passes `file_text` as a JSON parameter; no shell involved.
+The helper receives Markdown through JSON stdin, never shell syntax or Obsidian CLI argv. It verifies vault containment and performs an exclusive atomic create, so backticks, `$(...)`, quotes, and code blocks remain inert. On `conflict`, re-read and use the duplicate flow; never overwrite.
 
-**Codex fallback (no Obsidian MCP, no safe CLI create):** the human-readable Obsidian note is a Claude-path deliverable, and there is no shell-safe way to create it with a markdown body from Codex. So instead of failing silently or running an unsafe inline `content=`, write the filled summary to the local fallback memory — `~/.codex/memories/session-{YYYY-MM-DD}-{HHMM}.md` (include the time so two sessions the same day don't overwrite each other) — and tell the user the full vault note needs a Claude/Obsidian session. This degrades gracefully and preserves the content.
+**Codex memory ownership:** `${CODEX_HOME:-~/.codex}/memories/` is Codex-generated state. Never create, edit, append, or use it as a session-note fallback. If the vault is unavailable, report the failed durable write and retain the summary in the current response so the user can retry; do not create a shadow copy.
 
 ### Step 4: Verify MOC Link
 
@@ -114,19 +113,15 @@ JSON
 
 Check if the new session note is listed.
 
-**If missing — append link (MCP preferred):**
+**If missing — insert through the same optimistic writer:**
 
-```
-mcp__obsidian__str_replace(
-  path: "{MOC name}.md",
-  old_str: "{some stable anchor line near the session list}",
-  new_str: "{same anchor}\n- [[{session note name}]]"
-)
+```bash
+python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+{"action":"insert","vault":"{vault}","note":"{mapped moc note}","anchor":"{unique stable anchor copied from read}","position":"after","content":"\n- [[{session note name}]] — session context"}
+JSON
 ```
 
-Alternatively, if the MOC has a predictable append point, use `mcp__obsidian__insert` with a line number.
-
-There is no inline CLI write fallback. A generated name can contain quotes or other shell syntax even when it has no backticks/`$()`. If MCP is unavailable, log the skipped MOC update and continue.
+If the anchor is missing/non-unique or the file changes during publication, re-read and retry. Never use inline CLI content.
 
 ### Step 5: Update Session Handoff
 
@@ -138,35 +133,33 @@ python3 "<mnemo-root>/scripts/safe-read.py" read <<'JSON'
 JSON
 ```
 
-**Update with MCP `str_replace` — targeted, not blind append:**
+**Update with `vault-write.py replace/insert` — targeted, not blind append:**
 
 - Remove completed pending items from previous sessions
 - Add new pending items from current session (if any)
 - Update context carry-over section
 
-```
-mcp__obsidian__str_replace(
-  path: "{handoff_note}.md",
-  old_str: "{old section content}",
-  new_str: "{updated section content}"
-)
+```bash
+python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+{"action":"replace","vault":"{vault}","note":"{handoff_note}","old_str":"{exact old section copied from read}","new_str":"{updated section as one JSON-escaped string}"}
+JSON
 ```
 
-If handoff note doesn't exist, create it via `mcp__obsidian__create` (same structure as `setup` Step 6).
+If the handoff note does not exist, create it via `vault-write.py create` with the same structure as `setup` Step 6.
 
 **Size-guard — keep the handoff thin (run every session):**
 
 The handoff is a LIVE index, not an archive. After updating it, run the archival helper so closed history doesn't accumulate into a multi-MB token bomb (it no-ops when the note is at/under `handoff.maxKB`):
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" handoff-archive <<'JSON'
-{"vault":"{vault}","handoff":"{handoff_note}","max_kb":40,"keep_days":14}
+python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+{"action":"archive-handoff","vault":"{vault}","note":"{handoff_note}","max_kb":40,"keep_days":14}
 JSON
 ```
 
 Replace `40` and `14` with the configured integer values when present.
 
-Keeps HOT: entries with an open `- [ ]` + the last `keepDays`. Moves CLOSED older entries verbatim to `{handoff_note} Archive` (cold, not read at session start; a `.bak-<date>` is written for undo). Their durable detail already lives in the linked `Session — …` notes. Mirrors the MEMORY.md size-guard (thin hot index + cold archive + header pointer). If the vault path can't be resolved (Obsidian absent), skip — degrade gracefully.
+Keeps HOT: entries with an open `- [ ]` + the last `keepDays`. Moves CLOSED older entries verbatim to `{handoff_note} Archive` (cold, not read at session start; a unique `.bak-<date>` is written for undo). Archive-first publication and retry deduplication prevent loss across partial failures; the handoff/archive replacements use the same optimistic atomic writer as every other vault edit. Their durable detail already lives in the linked session notes. If the vault path can't be resolved (Obsidian absent), skip and report it.
 
 ### Step 6: Orphan Check
 
@@ -178,7 +171,7 @@ JSON
 
 If the newly created note appears in orphans, it means no `## Связи` links or the MOC didn't get updated.
 
-⚠️ **`obsidian orphans` caches & lags writes 1-5s** — a note created moments ago via MCP may show as orphan falsely. If it appears right after creation, wait 2-3s and re-run, or verify authoritatively via `obsidian eval` (`metadataCache.resolvedLinks`/`unresolvedLinks`). See `<mnemo-root>/references/gotchas.md`.
+⚠️ **`obsidian orphans` caches & lags writes 1-5s** — a freshly written note may show as orphan falsely. If it appears right after creation, wait 2-3s and re-run, or verify authoritatively via `obsidian eval` (`metadataCache.resolvedLinks`/`unresolvedLinks`). See `<mnemo-root>/references/gotchas.md`.
 
 ### Step 7: Confirm
 
@@ -190,14 +183,14 @@ Output summary:
 
 ## Rules
 
-- **MCP for any write with markdown body** — non-negotiable, shell-safety
+- **`vault-write.py` for every vault write** — one shell-free, atomic path in both runtimes
 - **CLI for read/search/index** — faster, indexed, unique functions
 - **No inline `obsidian create content="..."` with markdown** — banned: zsh expands backticks / `$(...)` in the body (real incident: nearly ran `make deploy-back`)
 - **Two-level duplicate check** — exact-read + same-day-search
 - **Include session_id in frontmatter** — disambiguates same-day sessions
 - **No session notes for trivial work** — but "trivial" = mechanical one-liners only (typo, single rename). A research / exploration / curiosity session counts as significant even with zero code; default to creating.
 - **Branch field optional** — research sessions don't have branches
-- **Handoff = thin live index, not an archive** — targeted `str_replace`, not blind append. Named ceiling: when it exceeds `handoff.maxKB` (default 40KB), `scripts/handoff-archive.py` (Step 5) rotates CLOSED blocks older than `handoff.keepDays` into `{handoff_note} Archive` (cold); open `- [ ]` + recent stay hot. Prevents multi-MB token-bomb accumulation.
+- **Handoff = thin live index, not an archive** — targeted optimistic replacement, not blind append. Named ceiling: when it exceeds `handoff.maxKB` (default 40KB), `vault-write.py archive-handoff` (Step 5) rotates CLOSED blocks older than `handoff.keepDays` into `{handoff_note} Archive` (cold); open `- [ ]` + recent stay hot. Prevents multi-MB token-bomb accumulation without a second writer.
 - **Links section is mandatory** — at least one MOC link, else the note orphans (invisible to graph navigation)
 - **Ghost notes generously** — wrap projects, technologies, people in `[[wikilinks]]`
 
@@ -205,6 +198,6 @@ Output summary:
 
 Common failures (IPC hung, shell injection) in `<mnemo-root>/references/gotchas.md`. Skill-specific rules:
 
-- **MCP `create` signature**: `path` (not `name`), `file_text` (not `content`). Path is relative to vault root, include `.md` extension.
+- **Writer contract:** `note` is vault-relative (`.md` optional); `create` fails if the target exists; `replace` requires exactly one `old_str`; `insert` requires exactly one anchor; guarded append requires an expected tail/hash.
 - **Always check duplicate before creating** — prevents clobbering same-day work. Two-level check in Step 2.
-- **`str_replace` requires exact match** — copy the anchor text verbatim from read output, including whitespace.
+- **Exact matching means exact whitespace** — copy the anchor/old section verbatim from read output.

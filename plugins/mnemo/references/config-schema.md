@@ -14,6 +14,13 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
     "session": { "prefix": "Session — ", "tag": "session" },
     "moc": { "prefix": "MOC — ", "tag": "moc" }
   },
+  "taxonomy_roles": {
+    "fact": "atom",
+    "insight": "molecule",
+    "source": "source",
+    "session": "session",
+    "moc": "moc"
+  },
   "links_section": "## Links",
   "handoff_note": "Meta — Session Handoff"
 }
@@ -31,6 +38,14 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
     "source":   { "prefix": "Source — ",   "tag": "source" },
     "session":  { "prefix": "Session — ",  "tag": "session" },
     "moc":      { "prefix": "MOC — ",      "tag": "moc" }
+  },
+
+  "taxonomy_roles": {
+    "fact":    "atom",
+    "insight": "molecule",
+    "source":  "source",
+    "session": "session",
+    "moc":     "moc"
   },
 
   "links_section": "## Links",
@@ -98,12 +113,13 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `vault` | Obsidian vault name (as shown in vault switcher) | All skills |
 | `taxonomy.{type}.prefix` | Filename prefix for each note type | save, session |
 | `taxonomy.{type}.tag` | Frontmatter tag for each note type | save, health |
+| `taxonomy_roles.{role}` | Exactly five stable semantic roles (`fact`/`insight`/`source`/`session`/`moc`) → existing taxonomy type keys. `session` and `moc` self-map; the three content roles may coalesce | ask, save, session, connect, health, setup |
 | `links_section` | Heading used for cross-references (`## Связи` / `## Links`) | All skills |
 | `handoff_note` | Cross-session continuity file name | session, setup |
 | `cascade.obsidian.enabled` | Skip Obsidian writes if false | save |
 | `cascade.claude_mem.enabled` | Enable optional claude-mem POSTs; keep false if claude-mem is disabled for CPU/RAM reasons | save |
 | `cascade.claude_mem.url` | claude-mem worker URL (default port 37777) | save |
-| `cascade.memory_dir.enabled` | Skip memory/ writes if false | save |
+| `cascade.memory_dir.enabled` | Skip Claude Code auto-memory writes if false. It never authorizes manual writes to Codex generated memories | save |
 | `cascade.project_rules.enabled` | Route an **actionable path-scoped rule** (a "never X / always Y" lesson tied to code) into `.claude/rules/<domain>.md` (project) or `~/.claude/rules/` (cross-project) so it **auto-injects** when a future agent touches the matching files — Claude Code's native path-scoped rules. Fires only for actionable-rule saves (recall items are untouched); creates the file/dir when none matches. Default **true**. Set false to keep rules out of the cascade | save |
 | `cascade.claude_md.enabled` | Write error-preventing rules to CLAUDE.md — the **fallback** for `cascade.project_rules` (prefer `.claude/rules/`). Default false | save |
 | `recall.codeGraph` | Optional structural code-search backend; `null` disables it. Default **null** | ask |
@@ -114,8 +130,8 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `hooks.sessionStartNudge` | Inject a one-line memory reminder at SessionStart, rendered as `/mn:ask` + `/mn:save` in Claude Code or `$mnemo:ask` + `$mnemo:save` in Codex. Gated on a configured `vault`. Default **true**; set false to silence | hooks/mnemo-context.sh |
 | `hooks.stopNudge` | At session end, if the session looks worth-saving but the save and/or session skill never ran, block once with the current runtime's native commands. This is **opt-in, default false**; an anti-loop governor prevents repeated blocking | hooks/mnemo-stop-nudge.sh |
 | `hooks.invocationEcho` | Claude Code only: on a `/mn:*` slash command, emit a `systemMessage` line (`🧠 mnemo: /mn:save → skill body loaded`) via the Claude-only `UserPromptExpansion` hook — a **deterministic** invocation confirmation that, unlike the in-body marker, does not depend on model compliance. Codex does not load this unsupported event. Default **true**; set false to silence | hooks/mnemo-skill-echo.sh |
-| `memory.indexWarnKB` | Warn threshold (KB) for `memory/MEMORY.md` size. Claude Code auto-memory **hard-truncates the index ~24.4KB on load** → warn earlier. Default **22** | health |
-| `handoff.maxKB` | Size ceiling (KB) for the handoff note before `scripts/handoff-archive.py` rotates CLOSED old blocks into `<handoff_note> Archive` (cold). The handoff is a live index, not a store; un-rotated it becomes a token bomb read every session. Default **40** | session |
+| `memory.indexWarnKB` | Early loaded-content byte warning for Claude `MEMORY.md`. Current loader limits are 200 lines or 25,000 bytes after stripping leading YAML frontmatter and block-level HTML comments; health always reports either hard-limit breach independently of this threshold. Default **22** | health |
+| `handoff.maxKB` | Size ceiling (KB) before `vault-write.py archive-handoff` rotates CLOSED old blocks into `<handoff_note> Archive` (cold). The handoff is a live index, not a store; un-rotated it becomes a token bomb read every session. Default **40** | session |
 | `handoff.keepDays` | Blocks newer than this stay hot regardless of status; older **and** closed (no open `- [ ]`) move to the archive. Default **14** | session |
 | `review.staleDays.default` | Days before a note becomes a review candidate when its type has no specific entry. Default **30**. (`review.staleDays` may also be a bare integer — a single uniform threshold for every type.) | health |
 | `review.staleDays.{type}` | Per-type staleness cadence (key = a taxonomy `type` you actually use: `atom`/`molecule`/`source`/`session`/`moc`). A fast-moving fact ages quicker than an architectural decision | health |
@@ -141,6 +157,8 @@ If the whole `cascade` section is absent, defaults are: obsidian=true, claude_me
 
 If `recall.runtimeMemory` is absent, cross-runtime recall is disabled. Active-runtime memory and normal Obsidian recall keep their existing behavior.
 
+If `taxonomy_roles` is absent, a legacy Zettelkasten config is migrated deterministically in memory as `fact → atom`, `insight → molecule`, `source → source`, `session → session`, `moc → moc`; the next `setup` run persists that map. For any other legacy/custom taxonomy, `setup` must show the existing taxonomy keys and ask once where `fact`, `insight`, and `source` belong instead of guessing from prefixes or tags. A configured map is valid only when its key set is exactly those five roles, every target names an existing `taxonomy` key, and the functional roles self-map as `session → session` and `moc → moc`. Only `fact`, `insight`, and `source` may intentionally coalesce onto one type.
+
 The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false, invocationEcho=true. If absent, the SessionStart nudge still fires (when a vault is configured), the Stop nudge stays off, and the invocation echo stays on (it does not require a vault).
 
 If `vault` or `taxonomy` is missing, the skill that needs them asks the user and offers to run `/mn:setup` in Claude Code or `$mnemo:setup` in Codex.
@@ -155,11 +173,22 @@ The default is Zettelkasten-inspired (atom/molecule/source). **Naming constraint
   "project":  { "prefix": "Project — ",  "tag": "project" },
   "area":     { "prefix": "Area — ",     "tag": "area" },
   "resource": { "prefix": "Resource — ", "tag": "resource" },
-  "archive":  { "prefix": "Archive — ",  "tag": "archive" }
+  "archive":  { "prefix": "Archive — ",  "tag": "archive" },
+  "session":  { "prefix": "Session — ",  "tag": "session" },
+  "moc":      { "prefix": "MOC — ",      "tag": "moc" }
+},
+"taxonomy_roles": {
+  "fact": "resource",
+  "insight": "resource",
+  "source": "resource",
+  "session": "session",
+  "moc": "moc"
 }
 ```
 
-**Custom** — any prefix/tag scheme, as long as `prefix` ends with a filename-safe separator (` — `, `: `, ` - `, etc). Never use `/`, `#`, or `.` in a prefix.
+The PARA role map above is the setup suggestion: durable knowledge defaults to `resource`, while project/area/archive notes remain organizational. Setup shows it and asks for confirmation; users may explicitly choose another existing PARA key per content role.
+
+**Custom** — any prefix/tag scheme, as long as `prefix` ends with a filename-safe separator (` — `, `: `, ` - `, etc). Never use `/`, `#`, or `.` in a prefix. Include functional `session` and `moc` types, self-map those two roles, then provide explicit targets for `fact`, `insight`, and `source`. Those three content roles may intentionally share a type; each role still has exactly one target.
 
 ## Note type semantics (Zettelkasten default)
 
