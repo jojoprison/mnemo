@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Stop nudge — if the session produced fixes/decisions worth keeping but save and/or
-# session never ran, block the stop ONCE with a reason listing what's still missing,
-# so the agent wraps up cleanly (save pins discrete facts; session writes the narrative + handoff).
+# session never ran, block the stop ONCE and recommend the one-command close-out
+# (/mn:review --full), so the agent wraps up cleanly instead of leaving the work unsaved.
 #
 # Safety design (a public plugin must not trap arbitrary users in a loop):
 #   - Config-gated: hooks.stopNudge defaults to FALSE. A blocking Stop hook only runs when
@@ -38,6 +38,11 @@ IFS=$'\t' read -r SESSION TRANSCRIPT STOP_ACTIVE < <(
   printf '%s' "$INPUT" | python3 -c "import json,sys;d=json.load(sys.stdin);print(d.get('session_id','unknown'),d.get('transcript_path',''),int(bool(d.get('stop_hook_active'))),sep='\t')" 2>/dev/null \
     || printf 'unknown\t\t0\n'
 )
+# Stable anti-loop key: Codex Stop payloads may omit session_id — fall back to the
+# Codex thread env so the once-per-session governor dedups instead of re-nudging every Stop.
+if [ -z "${SESSION:-}" ] || [ "$SESSION" = "unknown" ]; then
+  SESSION="${CODEX_THREAD_ID:-${CODEX_SESSION_ID:-unknown}}"
+fi
 [ "${STOP_ACTIVE:-0}" = 1 ] && pass
 [ -f "$TRANSCRIPT" ] || pass
 
@@ -64,21 +69,17 @@ SIGNALS="${SIGNALS:-0}"
 # Worth-saving signals threshold (both EN + RU markers).
 [ "${SIGNALS:-0}" -lt 3 ] 2>/dev/null && pass
 
-# Build the list of what's still missing (save pins discrete facts; session writes the narrative + handoff).
+# One-command close-out: recommend the review --full flag (it audits, then chains
+# save → session → connect + verify) instead of nagging save and session separately.
 if is_codex_runtime; then
-  SAVE_CMD='$mnemo:save'
-  SESSION_CMD='$mnemo:session'
+  CLOSE_CMD='$mnemo:review --full'
 else
-  SAVE_CMD='/mn:save'
-  SESSION_CMD='/mn:session'
+  CLOSE_CMD='/mn:review --full'
 fi
-MISSING=""
-[ "$SAVED" = 0 ] && MISSING="$SAVE_CMD"
-[ "$SESSIONED" = 0 ] && MISSING="${MISSING:+$MISSING and }$SESSION_CMD"
 
 MARKER_WRITTEN=$(python3 -c 'import sys;sys.path.insert(0,sys.argv[1]);from cache_utils import atomic_write_text;from pathlib import Path;print(atomic_write_text(Path(sys.argv[2]),"1"))' "$MNEMO_ROOT/scripts" "$MARKER" 2>/dev/null || echo False)
 # Fail open if the anti-loop governor cannot be persisted. Blocking without a
 # marker could trap the user in a repeated Stop cycle.
 [ "$MARKER_WRITTEN" = "True" ] || pass
-MSG="This session looks like it produced fixes or decisions worth keeping. Before wrapping up, run: ${MISSING}. Then stop again to proceed."
+MSG="This session looks like it produced fixes or decisions worth keeping, and it isn't fully saved yet. Close it out in one command: ${CLOSE_CMD} — it audits the session, then saves the facts, writes the session note + handoff, and links them. Then stop again to proceed."
 python3 -c "import json,sys; print(json.dumps({'decision':'block','reason':sys.argv[1]}, ensure_ascii=False))" "$MSG"
