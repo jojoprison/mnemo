@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.7] - 2026-07-21
+
+### Added
+
+- **First-class "how you think" capture (`principle` / `pain` / `stance`)** — `save` gains a semantic sub-type for the user's business logic, pains, and decision stance, piggybacking on the `insight` role (no `taxonomy_roles` schema change, so it works on every existing vault without re-`setup`). These are human-authored/confirmed atomic claims — never an agent-generated dossier — recorded with a searchable `kind:` field so `[kind:pain]` is enumerable in `/mn:ask`.
+- **Typed body slots** — each note's body now follows a template for its semantic type: `decision` → one Y-statement (context / choice / rejected / goal / trade-off / because); `gotcha` / business rule → GIVEN / WHEN / THEN + Because + Fails-when; `principle` / `pain` / `stance` → JTBD (Job / Pain / Done-well / Anti-goal); `fact` / `insight` → claim-title + BLUF first line + evidence. "Poured-in" polish achieved by structure, not verbosity.
+- **Optional `aliases:` retrieval keys** — EN/RU synonyms or a short name so a cross-language or short query still reaches an atom (a polyglot-vault search key, not authored content).
+
+### Changed
+
+- **`save` splits deep material into atoms, never one blob** — a new Step 0b atomicity gate requires a claim-shaped title plus a `because` rationale per typed note (hard-gated for `decision` / actionable rule / `principle`·`pain`·`stance`; a soft nudge for a plain `fact`). Material carrying ≥2 separable claims becomes ≥2 notes plus an optional synthesis, never one exhaustive note. This keeps point-precise retrieval intact and stays inside the human-authored, non-destructive principle — no auto-ingest. The `save` description and `agents/openai.yaml` presentation are updated with the new triggers; `evals/trigger-eval.json` adds W4 positives and a near-miss.
+
 ## [1.2.6] - 2026-07-20
 
 ### Changed
@@ -899,7 +911,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.6...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.7...HEAD
+[1.2.7]: https://github.com/jojoprison/mnemo/compare/v1.2.6...v1.2.7
 [1.2.6]: https://github.com/jojoprison/mnemo/compare/v1.2.5...v1.2.6
 [1.2.5]: https://github.com/jojoprison/mnemo/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/jojoprison/mnemo/compare/v1.2.3...v1.2.4

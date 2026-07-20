@@ -1,4 +1,4 @@
 interface:
   display_name: "mn:save"
-  short_description: "Save durable findings to your memory system"
-  default_prompt: "Use $mnemo:save to preserve this durable decision or gotcha."
+  short_description: "Save decisions, gotchas, and how you think as atomic notes"
+  default_prompt: "Use $mnemo:save to preserve this durable decision, gotcha, or the way you think about it — as an atomic, claim-titled note."

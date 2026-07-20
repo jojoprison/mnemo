@@ -1,6 +1,6 @@
 ---
 name: save
-description: "Use right after something worth keeping appears — you solved a tricky bug, made a non-obvious decision, or hit a gotcha — proactively, without being asked, so a future session doesn't relearn it. Also when the user says 'remember this', 'save this', 'запомни', 'запоминай', 'сохрани', 'сохрани в память', 'сохрани в обсидиан', 'сохрани в базу знаний', 'помни', 'отложи в память', 'в мнемо', or similar. Routes recall to the configured Obsidian taxonomy, optional claude-mem, and Claude auto memory when appropriate; Codex memories remain generated read-only state. Actionable never-X / always-Y rules keep the existing project-instruction routing."
+description: "Use right after something worth keeping appears — you solved a tricky bug, made a non-obvious decision, hit a gotcha, or the user voiced a business rule, a pain, or how they think/decide — proactively, without being asked, so a future session doesn't relearn it. Also when the user says 'remember this', 'save this', 'запомни', 'запоминай', 'сохрани', 'сохрани в память', 'сохрани в обсидиан', 'сохрани в базу знаний', 'помни', 'отложи в память', 'в мнемо', 'сохрани принцип', 'это моя боль', 'запомни как я думаю', 'запиши мой подход', 'моё правило', or similar. Splits deep material into atomic, claim-titled notes with typed slots (decision / gotcha / principle·pain·stance) — never one blob — and routes recall to the configured Obsidian taxonomy, optional claude-mem, and Claude auto memory when appropriate; Codex memories remain generated read-only state. Actionable never-X / always-Y rules keep the existing project-instruction routing."
 model: inherit
 ---
 
@@ -36,6 +36,7 @@ Then determine what type of information is being saved:
 | **insight** | Obsidian `taxonomy_roles.insight` + optional claude-mem | "CLI-first is 70,000x cheaper because of token savings" |
 | **decision** | Obsidian `taxonomy_roles.fact` + optional claude-mem + Claude auto memory when error-preventing | "We chose SCOPE over TextGrad for self-correction" |
 | **gotcha** | Obsidian `taxonomy_roles.fact` + Claude auto memory + possibly CLAUDE.md | "execSync with shell=true is banned in antomate" |
+| **principle / pain / stance** (how the user thinks / what pains them / their quality bar — the business-logic & mental-model layer) | Obsidian `taxonomy_roles.insight` (narrower semantic type in `kind:`) + optional claude-mem | "the user prefers ambitious-first with honest trade-offs" · "pain: pasting a wall of prompt every session" |
 | **source** | Obsidian `taxonomy_roles.source` + optional claude-mem | External article, tool, research finding |
 | **actionable rule** | `.claude/rules/<domain>.md` (auto-inject, path-scoped) — Step 3.5 only | "After touching `sign_epl.py`, always gate the Kontur call on the flag" |
 
@@ -43,11 +44,34 @@ Then determine what type of information is being saved:
 >
 > **Routing consequence — apply this to every step below.** A *recall* item flows through **Steps 1-4** normally. An *actionable rule* goes to **Step 3.5 only**: skip Steps 1-3 (Obsidian / claude-mem / memory/ are superseded by the auto-injecting rule file — don't double-write), and Step 4 (CLAUDE.md) fires only as the fallback if Step 3.5 declined (e.g. `project_rules` disabled). One kind → one home.
 
+### Step 0b: Shape the note — typed slots, atomicity, one rationale
+
+Depth comes from **structure, not volume.** The unit you retrieve must equal the unit you address — a well-titled atom, never a 5000-word blob. A blob is unretrievable point-precisely (you can't grab the right slice from it) and drifts straight into the auto-ingest fork mnemo's founding principle rejects (`docs/design-decisions.md`).
+
+**Split, don't dump.** If the material carries ≥2 separable claims, create ≥2 atomic notes — plus, *only* if a genuine cross-note insight emerges, one `insight`-role synthesis linking them. Never truncate; never fuse unrelated claims into one note. "Maximally detailed" is a property of the *corpus* (many atoms + one narrative `session` note + `connect` links), never of a single note.
+
+**Two non-negotiables per typed note:**
+- **Claim-shaped title** (title-as-API): a statement, not a topic — `{fact_prefix}Redis fail-open keeps reads alive when cache is down`, not `{fact_prefix}Redis`. If no single claim fits the whole note, it isn't atomic → split.
+- **`because` / rationale** in the body: the premise the claim rests on, so a future agent sees *why* and never silently revokes a decision whose condition it can't see.
+- **Gate strength:** **hard** for `decision` / actionable rule / `principle`·`pain`·`stance` — reject the write until both exist. **Soft nudge** for a plain `fact` (a bare fact may legitimately have no deeper because).
+
+**Route the body into the slot template for its semantic type** (these are body *shapes* written into the same Markdown string — not new backends, scripts, or frontmatter machinery):
+
+- **decision** → one Y-statement: *In the context of `<X>`, facing `<concern>`, we chose `<option>` over `<alt>`, to achieve `<quality>`, accepting `<downside>`, because `<rationale>`.* (Carries context + choice + rejected + goal + trade-off + reason in a single atom.)
+- **gotcha / business rule** → `GIVEN <precondition>` / `WHEN <action>` / `THEN <observable>` + `Because:` + `Fails-when:` (the provoking input → wrong outcome, so the rule is grep-able by its symptom).
+- **principle / pain / stance** (the how-the-user-thinks / business-logic / pain layer — W4) → JTBD slots: `Job:` (what they're trying to get done) / `Pain:` (functional · emotional · social) / `Done-well:` (the quality bar that makes output acceptable) / `Anti-goal:` (what they explicitly reject). Turns taste into a checkable bar a future agent can self-audit against.
+- **fact / insight** → claim-title + a **BLUF first line** (the load-bearing statement on top — it survives context down-weighting) + evidence/links.
+- **source** → external material + your annotations (unchanged).
+
+**W4 notes are human-authored, not psychoanalysis.** A `principle`/`pain`/`stance` note pins **one** atomic claim about how the *user* thinks, decides, or hurts — authored or confirmed by the user in the conversation, never the agent inventing a dossier (that would be auto-ingest by the back door, violating the human-authored principle). On a proactive (unprompted) W4 save, draft the atom and **confirm the claim with the user before writing.**
+
+**Record the semantic sub-type.** Write `kind: <decision|gotcha|principle|pain|stance>` into frontmatter whenever the semantic type is narrower than its taxonomy role — this makes `[kind:pain]` property-searchable in `/mn:ask`. Plain `fact`/`insight`/`source` omit `kind:` (it would only echo the role).
+
 ### Step 1: Obsidian (Primary — for the user)
 
 **Skip if:** `cascade.obsidian.enabled` is false, or Obsidian CLI returns "Unable to connect"
 
-Validate the role map before naming the note: its key set must be exactly `fact`, `insight`, `source`, `session`, and `moc`; every target must name an entry in `config.taxonomy`; and the functional roles must self-map as `session → session` and `moc → moc`. Then resolve `fact`/`decision`/`gotcha` through `taxonomy_roles.fact`, `insight` through `taxonomy_roles.insight`, and `source` through `taxonomy_roles.source`, using the mapped entry's `prefix` and `tag` for the filename/frontmatter. If the role map is absent and all five legacy Zettelkasten taxonomy keys exist, use the documented deterministic fallback. Otherwise stop this backend and offer `setup` — never infer routing from a human-facing prefix.
+Validate the role map before naming the note: its key set must be exactly `fact`, `insight`, `source`, `session`, and `moc`; every target must name an entry in `config.taxonomy`; and the functional roles must self-map as `session → session` and `moc → moc`. Then resolve `fact`/`decision`/`gotcha` through `taxonomy_roles.fact`, `insight`/`principle`/`pain`/`stance` through `taxonomy_roles.insight`, and `source` through `taxonomy_roles.source`, using the mapped entry's `prefix` and `tag` for the filename/frontmatter (record the narrower semantic type in `kind:` — Step 0b). The W4 types piggyback on the `insight` role exactly as `decision`/`gotcha` piggyback on `fact` — **no `taxonomy_roles` schema change**, so it works on every existing vault without re-`setup`. If the role map is absent and all five legacy Zettelkasten taxonomy keys exist, use the documented deterministic fallback. Otherwise stop this backend and offer `setup` — never infer routing from a human-facing prefix.
 
 ```bash
 python3 "<mnemo-root>/scripts/safe-read.py" search <<'JSON'
@@ -65,13 +89,15 @@ python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
 JSON
 ```
 
-The Markdown string contains `type: {mapped taxonomy key}`, the mapped configured tag, date/source, body, `{links_section}`, a mapped `moc` link, and useful ghost links. Serialize it as JSON data; do not interpolate it into `obsidian create/append`. The helper discovers the vault via argv-only CLI, then performs a contained atomic create. Backticks, quotes, and `$(...)` remain inert data. A conflict means another writer created the note — re-read instead of overwriting.
+The Markdown string contains `type: {mapped taxonomy key}`, the mapped configured tag, date/source, an optional `kind:` semantic sub-type and optional `aliases:` (Step 0b + note-quality rules), the body shaped by its typed slot, `{links_section}`, a mapped `moc` link, and useful ghost links. Serialize it as JSON data; do not interpolate it into `obsidian create/append`. The helper discovers the vault via argv-only CLI, then performs a contained atomic create. Backticks, quotes, and `$(...)` remain inert data. A conflict means another writer created the note — re-read instead of overwriting.
 
 **Note quality rules** (details + tables in `<mnemo-root>/references/tool-routing.md`):
 - **Naming:** never `#` / `.` / `/` / `.md` in the title — they break wikilinks (`#`→heading anchor) or the CLI (`.`→truncation). Sanitize before `create`. Use `—` or space.
 - **Fact-role title = a statement, not a topic** (Matuschak «title as API» / Умэсао): `{fact_prefix}Redis fail-open keeps reads alive when cache is down`, NOT `{fact_prefix}Redis`.
 - **Insight-role note = non-trivial synthesis** of ≥2 facts (new insight not present in either alone), not "linked two notes."
 - **Insight handed off with `cites:` (e.g. from `/mn:ask` compounding):** when the caller passes an insight plus a `cites:` source list and a pre-built `{links_section}`, write `cites: [{sources}]` into frontmatter (right after `date:`) and use the caller's links block verbatim instead of generating a bare hub link.
+- **Body follows the typed slot for its semantic type** (Step 0b) — decision→Y-statement, gotcha→GIVEN/WHEN/THEN, principle·pain·stance→JTBD, fact·insight→claim+BLUF+evidence. Depth is distributed across atoms, never concentrated in one blob.
+- **`aliases:` are retrieval keys, not content** — add EN/RU synonyms or a short name to frontmatter when a future search would plausibly reach for a different term than the title (`aliases: [save redesign, редизайн save]`). A polyglot vault: an English-titled note should still answer a Russian query. Add when obvious; never fabricate — a key, not authored prose.
 - **Two link layers:** inline with context in the body («contradicts [[X]]», «builds on [[Y]]») + `{links_section}` for MOC/nav. A bare link without context is noise.
 - **Short project names** (`[[Diadoc]]`, `[[BTS Holding]]`) need a **hub note** — Obsidian doesn't resolve bare links via alias (by design). If `[[ShortName]]` is referenced and no `ShortName.md` exists, create it: a one-liner redirecting to the note type mapped by `taxonomy_roles.moc`.
 - **Staleness is type-driven, not stamped here.** The `date` you write *is* the review anchor — `health` derives review cadence from the note's `type` (config `review.staleDays`), so you don't add a review date. **Exception:** for a fast-rotting fact (a volatile API quirk, a "current as of" price) add an optional `ttl: <days>` to the frontmatter to age it faster than its type default. Don't add `reviewed:` — that's the snooze health/the user stamps later. See `<mnemo-root>/references/config-schema.md` → "Optional per-note frontmatter".
@@ -243,6 +269,7 @@ Or with failures:
 | Insight (synthesized) | ✅ mapped insight role | Optional | ❌ | read-only | ❌ | ❌ |
 | External source | ✅ mapped source role | Optional | ❌ | read-only | ❌ | ❌ |
 | Decision | ✅ mapped fact role | Optional | ✅ if prevents errors | read-only | ❌ | ❌ |
+| Principle / pain / stance (how-the-user-thinks, W4) | ✅ mapped insight role (`kind:` set) | Optional | ❌ | read-only | ❌ | ❌ |
 | Gotcha | ✅ mapped fact role | ✅ | ✅ | read-only | ❌ (path-scoped + code-tied → classify as rule, row below) | rare |
 | Command/convention | ✅ mapped fact role | ✅ | ✅ | read-only | ❌ | ❌ |
 | Actionable path-scoped rule | ❌ | ❌ | ❌ | read-only | ✅ **primary** | ⚠️ fallback only |
@@ -259,6 +286,7 @@ Common failures in `<mnemo-root>/references/gotchas.md`. Tool-routing rationale 
 - **`.claude/rules/` ≠ CLAUDE.md** — native path-scoped auto-load. `paths:` is the load trigger (not `description:`); no `paths:` = always-on. A new rule **creates** the `<domain>.md` (and the dir) when none matches — don't wedge it into an unrelated file. Verify the YAML: a broken-indent `paths:` entry silently drops the whole file from loading.
 - **`.claude/rules/` files live outside the vault** — like runtime memory files, never `[[wikilink]]` them and never write them via the Obsidian CLI/writer. Plain `Write`/`Edit`.
 - **Codex is blind to `.claude/rules/`** — it reads only `AGENTS.md` (nested, 32 KiB silent-truncate). For a repo with Codex devs, route the critical rule into the AGENTS.md build-step (or by hand) too, and keep `wc -c AGENTS.md < 32768`.
+- **Depth = structure, not volume (Step 0b)** — split deep material into atomic, claim-titled notes with typed slots; never one exhaustive blob (unretrievable point-precisely + drifts into the rejected auto-ingest fork). Every typed note needs a claim title + `because` (hard-gated for `decision` / actionable rule / `principle`·`pain`·`stance`). `principle`/`pain`/`stance` capture the user's mental model **only** as user-authored/confirmed atoms — never an agent-invented dossier.
 - **Always check duplicates** before creating Obsidian notes — clobbering a note silently is worse than any write latency.
 - **Ghost notes generously** — wrap entities in `[[wikilinks]]` even when the target doesn't exist yet. Enables future entity discovery.
 - **Never `[[wikilink]]` a runtime-memory file — use inline code** — runtime memory and project files (`CLAUDE.md`, `AGENTS.md`) live **outside** the Obsidian vault graph. A wikilink to them becomes a permanent unresolved ghost. If a real vault counterpart exists, link that mapped taxonomy note instead.
