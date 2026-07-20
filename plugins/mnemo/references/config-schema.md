@@ -151,6 +151,15 @@ Two optional fields override the config cadence on a single note. Neither is wri
 
 This is deliberately **not** an absolute `review-by:` date. Computed-from-type plus an optional relative `ttl` does not rot the way a hand-typed future date does, and avoids the "guilt-debt" failure mode where stale review dates pile up as unactioned nags.
 
+## Optional per-note frontmatter (retrieval)
+
+Two optional fields sharpen retrieval; both are written by `save` (see `Step 0b` in `../skills/save/SKILL.md`), never required:
+
+| Field | Meaning | Example |
+|-------|---------|---------|
+| `kind` | Semantic sub-type when it is **narrower** than the taxonomy role: `decision`/`gotcha` (on the `fact` role), `principle`/`pain`/`stance` (on the `insight` role). Makes `[kind:pain]` property-searchable in `/mn:ask`. Omit for a plain `fact`/`insight`/`source` — there it would only echo the role | `kind: pain` |
+| `aliases` | Retrieval keys — EN/RU synonyms or a short name so a cross-language or short query still finds the note. A search key, **not** authored content; add only when a future search would plausibly use a different term than the title | `aliases: [save redesign, редизайн save]` |
+
 ## Defaults when fields are missing
 
 If the whole `cascade` section is absent, defaults are: obsidian=true, claude_mem=false, memory_dir=true, project_rules=true, claude_md=false.
@@ -201,6 +210,18 @@ The PARA role map above is the setup suggestion: durable knowledge defaults to `
 | **MOC** | Navigation hub (create at 5+ notes OR when you lose overview — Milo «mental squeeze point») | `MOC — {domain}` |
 
 **Atom vs Molecule:** if one source note supports the claim → Atom. If the insight only emerges by combining ≥2 → Molecule. "Linked two notes" alone is not a Molecule.
+
+## Semantic sub-types (the `kind` field)
+
+The five `taxonomy_roles` are the physical routing targets; a note may also carry a narrower **semantic sub-type** in `kind:` that shapes its body (typed slots) without changing where it is stored. These piggyback on a role — no schema change, works on every vault:
+
+| `kind` | Piggybacks on role | Body slot (see `save` Step 0b) |
+|--------|--------------------|-------------------------------|
+| `decision` | `fact` | Y-statement: context / choice / rejected / goal / trade-off / because |
+| `gotcha` | `fact` | GIVEN / WHEN / THEN + Because + Fails-when |
+| `principle` / `pain` / `stance` | `insight` | JTBD: Job / Pain (func·emo·social) / Done-well / Anti-goal |
+
+`principle`/`pain`/`stance` capture the **user's** business logic, pains, and decision stance as human-authored/confirmed atomic claims — never an agent-generated dossier (that would be the rejected auto-ingest fork; see `../../../docs/design-decisions.md`). A plain `fact`/`insight`/`source` note omits `kind:`.
 
 ## Internationalization
 

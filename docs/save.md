@@ -10,6 +10,8 @@ The brain of mnemo. When you say "remember this" or "save to memory", this skill
 /mn:save "we decided to use SCOPE over TextGrad for self-correction"
 /mn:save "gotcha: execSync with shell=true is banned in antomate"
 /mn:save "HisPO algorithm stabilizes RL training for MoE models"
+/mn:save "принцип: сначала ambitious-вариант с честными trade-offs"
+/mn:save "это моя боль: вставляю стену промпта каждую сессию"
 ```
 
 Or just say naturally:
@@ -68,10 +70,21 @@ In `~/.mnemo/config.json`:
 
 Don't have claude-mem? Set `"enabled": false` — everything else works.
 
+## Depth via structure, not volume
+
+`save` never writes one exhaustive blob — depth is distributed across many atomic, claim-titled notes so a future agent can grab the exact slice. Each note's body follows a **typed slot** for its semantic type (Step 0b):
+
+- **decision** → a single Y-statement (context / choice / rejected / goal / trade-off / because)
+- **gotcha / business rule** → GIVEN / WHEN / THEN + Because + Fails-when
+- **principle / pain / stance** → JTBD (Job / Pain / Done-well / Anti-goal) — captures your business logic, pains, and how you think/decide as human-authored/confirmed atoms (recorded with a searchable `kind:` field), never an agent-invented dossier
+- **fact / insight** → claim-title + BLUF first line + evidence
+
+Material with ≥2 separable claims becomes ≥2 notes (plus an optional synthesis), never a single note. Every typed note carries a claim-shaped title + a `because` rationale (hard-gated for decision / rule / pain).
+
 ## Important Notes
 
 - **Fails visibly, never invents a shadow store** — unavailable durable backends are reported so the user can retry
-- **Classifies automatically** — you don't choose a physical type; the exact five-key `taxonomy_roles` map resolves it
+- **Classifies automatically** — you don't choose a physical type; the exact five-key `taxonomy_roles` map resolves it, and a narrower `kind:` sub-type shapes the body
 - **Duplicate check** — always searches Obsidian before creating
 - **Bundled adapters in both runtimes** — dynamic reads go through `safe-read.py`; every vault Markdown write goes through the JSON-stdin optimistic `vault-write.py`
 
