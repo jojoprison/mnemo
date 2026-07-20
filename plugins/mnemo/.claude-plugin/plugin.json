@@ -1,8 +1,8 @@
 {
   "name": "mn",
   "displayName": "mnemo",
-  "version": "1.2.4",
-  "description": "Persistent memory layer for Claude Code and Codex via Obsidian — 7 skills for vault health, knowledge search, verified cross-runtime project recall, connection discovery, session continuity, memory routing, skill-aware session review, and interactive setup. MCP-first hybrid (shell-safe writes), dual-runtime helpers, hybrid model routing, parallel CLI calls, SessionStart prewarm, incremental JSONL parsing, shared references (naming rules, hub-note pattern, metadataCache resolution checks). Any taxonomy.",
+  "version": "1.2.5",
+  "description": "Persistent memory layer for Claude Code and Codex via Obsidian — 7 skills for vault health, knowledge search, verified cross-runtime project recall, connection discovery, session continuity, memory routing, skill-aware session review, and interactive setup. Bundled JSON-stdin atomic vault writer, argv-safe indexed reads, dual-runtime helpers, hybrid model routing, parallel CLI calls, SessionStart prewarm, incremental JSONL parsing, shared references, and semantic taxonomy roles.",
   "author": {
     "name": "jojoprison",
     "url": "https://github.com/jojoprison"

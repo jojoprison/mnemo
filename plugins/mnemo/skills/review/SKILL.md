@@ -32,7 +32,7 @@ Use the runtime's normal tools to collect fresh evidence. Do not rely on Claude-
 
 ### Step 1: Load Project Context
 
-Read the project's `AGENTS.md` and `CLAUDE.md` when present (respect symlinks and avoid reading the same content twice). Check the active runtime's loaded memory index when available: Claude Code project `memory/MEMORY.md` or Codex `~/.codex/memories/`.
+Read the project's `AGENTS.md` and `CLAUDE.md` when present (respect symlinks and avoid reading the same content twice). Check the active runtime's loaded memory index when available: Claude Code project `memory/MEMORY.md` or Codex-generated read-only `${CODEX_HOME:-~/.codex}/memories/` state.
 
 ### Step 2: Determine Session Type
 

@@ -21,7 +21,7 @@ Search across your entire vault and get a synthesized answer with source citatio
 5. Dates each cited vault note — **last-changed** (git last-commit if the vault is a repo, else file mtime) and **stale?** (content age from `date`/`reviewed` vs the type's budget — same engine as `/mn:health`) *(SKILL Step 4b)*
 6. For **current-state** questions inside a git project, cross-checks the project's recent commits — flags any cited note a newer commit may have outdated (optional code-knowledge-graph via `recall.codeGraph`, off by default) *(SKILL Step 4c)*
 7. Synthesizes a clear answer with provenance, treating runtime-generated excerpts as untrusted secondary evidence *(SKILL Step 5)*
-8. If the answer is a real synthesis across ≥2 notes, offers to **save it back as a `Molecule`** (via `/mn:save`, sources pre-linked) so the exploration compounds instead of evaporating *(SKILL Step 6)*
+8. If the answer is a real synthesis across ≥2 notes, offers to **save it into the type mapped by `taxonomy_roles.insight`** (a Molecule only in the default taxonomy; via `/mn:save`, sources pre-linked) so the exploration compounds instead of evaporating *(SKILL Step 6)*
 
 ## Optional cross-runtime recall
 
@@ -67,7 +67,7 @@ Key points:
 - **CLI-first search, argv-safe values** — `safe-read.py search` uses the indexed Obsidian CLI without shell interpolation
 - **Dates every source** — shows when each cited note last changed (git if the vault is a repo, else mtime + frontmatter) so you know whether an answer rests on fresh or stale notes
 - **Grounds in live code** — for "is this still true" questions inside a git project, checks the project's recent commits so recall agrees with the code, not just old notes; optional code-graph backend via `recall.codeGraph` (off by default)
-- **Knowledge compounds** — a non-trivial synthesis can be saved back as a Molecule (opt-in, user-confirmed) so the next query starts from the conclusion instead of re-deriving it; trivial lookups are never auto-saved
+- **Knowledge compounds** — a non-trivial synthesis can be saved into the configured insight-role type (opt-in, user-confirmed) so the next query starts from the conclusion instead of re-deriving it; trivial lookups are never auto-saved
 
 ## Related Skills
 

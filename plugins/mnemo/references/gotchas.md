@@ -16,7 +16,7 @@ Common failure modes and their fixes. Any mnemo skill can reference this file in
 
 ## Obsidian must be open
 
-All `obsidian` CLI commands and all `mcp__obsidian__*` tools require the running Obsidian app. Skills don't probe for this on every step — they fail-fast on the first IPC call and gracefully fall back when possible (e.g., save skips Obsidian and continues to claude-mem + memory/).
+All indexed reads and the bundled writer's vault-root lookup require the running Obsidian app. Skills don't probe for this on every step — they fail fast on the first IPC call and report any backend they had to skip. Claude Code may still save an error-prevention item to its enabled auto-memory or optional claude-mem; Codex does not fabricate a shadow copy in generated `${CODEX_HOME:-~/.codex}/memories/` state.
 
 If a skill is supposed to only write (not search/read), check whether it can proceed offline: `save` and `save`-flavored skills degrade gracefully, search/connect/health skills can't.
 
@@ -43,11 +43,10 @@ ls ~/.claude/plugins/cache/thedotmack/claude-mem/
 **Don't** pass generated markdown through `obsidian create content="..."` or `obsidian append content="..."` from Bash. Also don't paste a vault-derived note name, query, concept, prefix, or path into a read/index command. zsh expands backticks, `$()`, and variables inside generated double-quoted literals; a generated `"` can close the argument and expose shell separators. A real 2026-04-21 incident accidentally ran `make deploy-back` on production because a session note contained a bash code block.
 
 **Use instead:**
-- `mcp__obsidian__create(path=..., file_text=...)` — content passes as JSON, shell uninvolved
-- `mcp__obsidian__str_replace` / `mcp__obsidian__insert` for edits
+- `<mnemo-root>/scripts/vault-write.py <<'JSON' ... JSON` for create/replace/insert/guarded append — content passes as JSON stdin, shell uninvolved, writes are optimistic and atomic
 - `<mnemo-root>/scripts/safe-read.py ACTION <<'JSON' ... JSON` for dynamic reads/index queries — strict action allowlist + argv (`shell=False`) + safe JS literals
 
-**Direct CLI is safe only when the entire command is a static, human-authored literal.** Canonical skills use `safe-read.py` even for `search`, `read`, `orphans`, `backlinks`, `tags`, and `vault`, because their vault/query/note arguments are dynamic. Generated wikilink appends still go through MCP.
+**Direct CLI is safe only when the entire command is a static, human-authored literal.** Canonical skills use `safe-read.py` even for `search`, `read`, `orphans`, `backlinks`, `tags`, and `vault`, because their vault/query/note arguments are dynamic. Generated wikilink appends go through `vault-write.py insert` or its guarded append action.
 
 ## claude-mem worker not responding on 127.0.0.1:37777
 
@@ -60,16 +59,16 @@ ls ~/.claude/plugins/cache/thedotmack/claude-mem/
 
 ## Runtime memory is NOT `./memory/`
 
-`save` writes agent-facing memory files to the active runtime's user store:
+Runtime-generated memory belongs to each runtime:
 
-- Claude Code: `~/.claude/projects/-{slugified-cwd}/memory/`
-- Codex: `~/.codex/memories/`
+- Claude Code: the effective auto-memory directory (the documented `autoMemoryDirectory` override when configured, otherwise `${CLAUDE_CONFIG_DIR:-~/.claude}/projects/<verified-project>/memory/`). `save` may update it only when auto-memory is enabled.
+- Codex: `${CODEX_HOME:-~/.codex}/memories/`. This is generated state; mnemo may read verified project-scoped groups for recall but must never create or edit it manually.
 
-**Never** write to `./memory/` in the project root — that puts agent memory files into git. In Claude Code, find the correct slug from the `MEMORY.md` path already loaded in context, or slugify the cwd (`/` → `-`, leading `-` kept). In Codex, use its fixed memories directory.
+**Never** write to `./memory/` in the project root — that puts agent memory files into git. Never guess a Claude slug or use Codex generated memory as a fallback save surface.
 
-## "Unable to connect" specifically on `mcp__obsidian__*` calls
+## `vault-write.py` reports `vault_unavailable`
 
-Same root cause as CLI IPC hung — restart Obsidian. MCP and CLI share the same socket.
+The writer resolves the named vault through the Obsidian CLI before opening it safely. Treat this like the CLI IPC failure above: restart Obsidian and retry. Do not bypass containment by guessing the vault path.
 
 ## CLI orphans / unresolved / backlinks cache lag — `eval` for truth
 

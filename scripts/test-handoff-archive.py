@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression tests for plugins/mnemo/scripts/handoff-archive.py.
+"""Regression tests for vault-write.py's archive-handoff action.
 
 Covers the v1.1.11 header-corruption class: the archiver silently corrupted the
 live handoff on every --execute run (glued `## date## date` headers, eaten doc
@@ -20,6 +20,7 @@ Stdlib-only (unittest + subprocess), no framework — run directly:
 
     python3 scripts/test-handoff-archive.py
 """
+import json
 import os
 import re
 import subprocess
@@ -28,7 +29,7 @@ import tempfile
 import unittest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(REPO, 'plugins', 'mnemo', 'scripts', 'handoff-archive.py')
+SCRIPT = os.path.join(REPO, 'plugins', 'mnemo', 'scripts', 'vault-write.py')
 
 DOC_HEADER = (
     '---\ntype: meta\ntags: [meta, handoff]\n---\n\n'
@@ -43,6 +44,10 @@ OLD_OPEN_BLOCK = (
     'Has a live checkbox, must stay hot.\n'
     '- [ ] pending item\n\n'
 )
+OLD_PENDING_HEADER_BLOCK = (
+    '## 2026-04-01 — WAITING FEEDBACK\n'
+    'No checkbox, but the header says this is still live.\n\n'
+)
 # Deliberately NO trailing newline: the last block of a real file often lacks it,
 # and this is what glued headers in production.
 OLD_CLOSED_LAST_BLOCK = (
@@ -51,11 +56,36 @@ OLD_CLOSED_LAST_BLOCK = (
 )
 
 
-def run_archiver(vault, today='2026-07-16', extra=()):
+def run_archiver(vault, today='2026-07-16', archive=None):
+    bin_dir = os.path.join(os.path.dirname(vault), 'bin')
+    os.makedirs(bin_dir, exist_ok=True)
+    cli = os.path.join(bin_dir, 'obsidian')
+    write(
+        cli,
+        '#!/usr/bin/env python3\n'
+        'import os\n'
+        "print('path\\t' + os.environ['FAKE_OBSIDIAN_VAULT'])\n",
+    )
+    os.chmod(cli, 0o755)
+    payload = {
+        'action': 'archive-handoff',
+        'vault': 'main',
+        'note': 'Handoff',
+        'max_kb': 0,
+        'keep_days': 14,
+        'today': today,
+    }
+    if archive is not None:
+        payload['archive'] = archive
+    env = {
+        **os.environ,
+        'PATH': bin_dir + os.pathsep + os.environ.get('PATH', ''),
+        'FAKE_OBSIDIAN_VAULT': vault,
+    }
     return subprocess.run(
-        [sys.executable, SCRIPT, '--vault-path', vault, '--handoff', 'Handoff',
-         '--max-kb', '0', '--keep-days', '14', '--today', today, '--execute', *extra],
-        capture_output=True, text=True,
+        [sys.executable, SCRIPT],
+        input=json.dumps(payload), capture_output=True, text=True, env=env,
+        timeout=5,
     )
 
 
@@ -118,6 +148,17 @@ class HandoffArchiveTest(unittest.TestCase):
         self.assertLess(archived.index('## 2026-03-25'), archived.index('## 2026-01-01'))
         self.assertEqual(archived.count('## 2026-03-25 old closed research'), 1)
 
+    def test_prefix_only_archive_without_newline_gets_a_clean_boundary(self):
+        write(self.archive, '# Handoff Archive')
+        write(self.handoff, DOC_HEADER + FRESH_BLOCK + OLD_CLOSED_LAST_BLOCK)
+
+        res = run_archiver(self.vault)
+
+        self.assertEqual(res.returncode, 0, res.stderr)
+        archived = read(self.archive)
+        self.assertIn('# Handoff Archive\n\n## 2026-03-25', archived)
+        self.assert_no_glued_headers(archived, 'archive')
+
     def test_repeated_runs_do_not_accumulate_stray_headers(self):
         """Production symptom: every run added another stray copy of the last header."""
         write(self.handoff, DOC_HEADER + FRESH_BLOCK + OLD_OPEN_BLOCK + OLD_CLOSED_LAST_BLOCK)
@@ -129,14 +170,63 @@ class HandoffArchiveTest(unittest.TestCase):
         self.assertEqual(read(self.handoff), first_pass, 'handoff must be idempotent when nothing to archive')
         self.assertEqual(read(self.archive).count('## 2026-03-25 old closed research'), 1)
 
+    def test_pending_header_without_checkbox_stays_hot(self):
+        write(self.handoff, DOC_HEADER + OLD_PENDING_HEADER_BLOCK + OLD_CLOSED_LAST_BLOCK)
+        res = run_archiver(self.vault)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertIn('WAITING FEEDBACK', read(self.handoff))
+        self.assertNotIn('WAITING FEEDBACK', read(self.archive))
+
+    def test_partial_retry_deduplicates_exact_archive_blocks(self):
+        write(self.handoff, DOC_HEADER + FRESH_BLOCK + OLD_CLOSED_LAST_BLOCK)
+        write(
+            self.archive,
+            '---\ntype: meta\n---\n\n# Handoff Archive\n\n' + OLD_CLOSED_LAST_BLOCK + '\n',
+        )
+        res = run_archiver(self.vault)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertNotIn('2026-03-25', read(self.handoff))
+        self.assertEqual(read(self.archive).count('## 2026-03-25 old closed research'), 1)
+
+    def test_partial_retry_preserves_duplicate_block_multiplicity(self):
+        duplicate = OLD_CLOSED_LAST_BLOCK + '\n'
+        write(self.handoff, DOC_HEADER + FRESH_BLOCK + duplicate + duplicate)
+        write(
+            self.archive,
+            '---\ntype: meta\n---\n\n# Handoff Archive\n\n' + duplicate,
+        )
+
+        res = run_archiver(self.vault)
+
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertNotIn('2026-03-25', read(self.handoff))
+        self.assertEqual(read(self.archive).count('## 2026-03-25 old closed research'), 2)
+
+    def test_hardlinked_archive_fails_instead_of_locking_twice(self):
+        write(self.handoff, DOC_HEADER + FRESH_BLOCK + OLD_CLOSED_LAST_BLOCK)
+        os.link(self.handoff, self.archive)
+
+        res = run_archiver(self.vault)
+
+        self.assertEqual(res.returncode, 2, res.stderr)
+        self.assertEqual(json.loads(res.stdout)['error']['code'], 'input_error')
+        self.assertEqual(read(self.handoff), DOC_HEADER + FRESH_BLOCK + OLD_CLOSED_LAST_BLOCK)
+
     def test_handoff_name_cannot_escape_vault(self):
         outside = os.path.join(os.path.dirname(self.vault), 'Outside.md')
         write(outside, DOC_HEADER + OLD_CLOSED_LAST_BLOCK)
         before = read(outside)
+        bin_dir = os.path.join(os.path.dirname(self.vault), 'bin')
+        os.makedirs(bin_dir, exist_ok=True)
+        cli = os.path.join(bin_dir, 'obsidian')
+        write(cli, '#!/usr/bin/env python3\nimport os\nprint("path\\t" + os.environ["FAKE_OBSIDIAN_VAULT"])\n')
+        os.chmod(cli, 0o755)
         res = subprocess.run(
-            [sys.executable, SCRIPT, '--vault-path', self.vault, '--handoff', '../Outside',
-             '--max-kb', '0', '--today', '2026-07-16', '--execute'],
-            capture_output=True, text=True,
+            [sys.executable, SCRIPT],
+            input=json.dumps({'action': 'archive-handoff', 'vault': 'main', 'note': '../Outside', 'max_kb': 0}),
+            capture_output=True,
+            text=True,
+            env={**os.environ, 'PATH': bin_dir + os.pathsep + os.environ.get('PATH', ''), 'FAKE_OBSIDIAN_VAULT': self.vault},
         )
         self.assertEqual(res.returncode, 2)
         self.assertEqual(read(outside), before)
@@ -144,7 +234,7 @@ class HandoffArchiveTest(unittest.TestCase):
     def test_archive_name_cannot_escape_vault(self):
         write(self.handoff, DOC_HEADER + FRESH_BLOCK + OLD_CLOSED_LAST_BLOCK)
         outside = os.path.join(os.path.dirname(self.vault), 'Outside Archive.md')
-        res = run_archiver(self.vault, extra=('--archive', '../Outside Archive'))
+        res = run_archiver(self.vault, archive='../Outside Archive')
         self.assertEqual(res.returncode, 2)
         self.assertFalse(os.path.exists(outside))
 

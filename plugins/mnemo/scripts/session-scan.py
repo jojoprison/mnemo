@@ -19,7 +19,7 @@ import re
 import sys
 import time
 
-from cache_utils import atomic_write_json, cache_path, is_fresh, read_json
+from cache_utils import atomic_write_json, cache_path, configured_root, is_fresh, read_json
 
 
 FRESH_TTL = 60  # seconds
@@ -47,8 +47,8 @@ def safe_mtime(path: str) -> float:
 
 
 def find_claude_jsonl(session_id: str) -> str | None:
-    home = os.path.expanduser("~")
-    for d in glob.glob(os.path.join(home, ".claude/projects/*/")):
+    config_root = configured_root("CLAUDE_CONFIG_DIR", ".claude")
+    for d in glob.glob(os.path.join(config_root, "projects/*/")):
         candidate = os.path.join(d, session_id + ".jsonl")
         if os.path.exists(candidate):
             return candidate
@@ -56,10 +56,10 @@ def find_claude_jsonl(session_id: str) -> str | None:
 
 
 def find_codex_jsonl(session_id: str = "") -> str | None:
-    home = os.path.expanduser("~")
+    config_root = configured_root("CODEX_HOME", ".codex")
     filename = f"*{glob.escape(session_id)}*.jsonl" if session_id else "*.jsonl"
     candidates = sorted(
-        glob.glob(os.path.join(home, ".codex/sessions/**", filename), recursive=True),
+        glob.glob(os.path.join(config_root, "sessions/**", filename), recursive=True),
         key=safe_mtime,
         reverse=True,
     )

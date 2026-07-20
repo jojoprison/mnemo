@@ -6,6 +6,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.5] - 2026-07-20
+
+### Added
+
+- **Stable semantic taxonomy roles** — `taxonomy_roles` maps exactly `fact`, `insight`, `source`, `session`, and `moc` onto configured note types. Default Zettelkasten, PARA, and custom taxonomies now share one skill implementation without hard-coded Atom/Molecule routing; the two functional roles self-map and contract tests protect the schema.
+- **Required dual-runtime packaging E2E** — CI pins current tested Claude Code and Codex loaders, installs mnemo into isolated `CLAUDE_CONFIG_DIR` / `CODEX_HOME` homes, and requires exactly seven skills plus all packaged references, scripts, assets, and hooks. The release workflow now rejects tags that disagree with any manifest or lack a dated changelog section.
+
+### Changed
+
+- **One bundled vault write boundary** — every Obsidian Markdown create/update, reviewed stamp, and handoff rotation now goes through the JSON-stdin `vault-write.py` adapter. The Obsidian CLI only resolves the vault by argv; Markdown never enters a shell or CLI argument. The old archive writer is removed, while indexed reads remain in the separate argv-safe `safe-read.py` adapter.
+- **Current runtime-memory semantics** — Claude index health measures the content Claude actually loads after stripping frontmatter and block HTML comments, with the documented 200-line / 25,000-byte limits. All helpers honor custom runtime homes; ambiguous project/local `autoMemoryDirectory` precedence or workspace trust fails closed instead of guessing.
+- **Runtime-owned save policy** — Claude auto-memory remains an enabled, runtime-specific error-prevention backend; Codex `${CODEX_HOME}/memories/` is treated as generated read-only state. Cross-runtime recall stays opt-in federation, never synchronization or a shared writer. Existing actionable-rule routing through `.claude/rules/` is intentionally unchanged.
+
+### Fixed
+
+- **Crash/race-safe handoff rotation** — archive-first updates now preserve backups, exact block multiplicity, pending/open blocks, clean prefix/newline boundaries, and idempotent partial retries. Same-inode handoff/archive aliases fail before a second lock, preventing a hardlink or case-fold deadlock.
+- **Optimistic writer conflicts** — atomic exchange detects changes both before and during publication, keeps a later writer at the public path, preserves displaced content in a durable conflict file, retains note mode, and rejects symlink, traversal, foreign-owner, oversized, non-UTF-8, or ambiguous targeted edits.
+- **Custom-home discovery** — `CLAUDE_CONFIG_DIR` and `CODEX_HOME` now flow through session scanning, skill discovery, claude-mem helpers, and user-skill namespace classification instead of assuming literal `~/.claude` / `~/.codex` segments.
+- **Relevant-first Codex recall** — task groups are scored before exact-project Git probes, with per-search identity caching. Unrelated history no longer spawns one Git check per group or emits a false scope warning; regressions also cover publish-time create races and byte-exact handoff backups.
+
+### Security
+
+- **Structure-aware scope parsing** — fenced code, YAML frontmatter, block comments, and raw HTML can no longer forge Codex task-group scope or Claude index links. Every memory component is opened descriptor-relative with no-follow checks and before/after metadata validation; unobservable managed-policy or `--settings` state is reported as an honest fail-closed limitation.
+
 ## [1.2.4] - 2026-07-20
 
 ### Fixed
@@ -865,7 +889,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.4...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.5...HEAD
+[1.2.5]: https://github.com/jojoprison/mnemo/compare/v1.2.4...v1.2.5
 [1.2.4]: https://github.com/jojoprison/mnemo/compare/v1.2.3...v1.2.4
 [1.2.3]: https://github.com/jojoprison/mnemo/compare/v1.2.2...v1.2.3
 [1.2.2]: https://github.com/jojoprison/mnemo/compare/v1.2.1...v1.2.2

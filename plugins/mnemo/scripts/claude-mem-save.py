@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
-"""Save one claude-mem observation from a shell-safe JSON stdin payload."""
+"""Probe claude-mem or save one observation from shell-safe JSON stdin."""
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
+
+from cache_utils import configured_root
 
 
 MAX_INPUT_BYTES = 1024 * 1024
+
+
+class ClaudeMemProbe(NamedTuple):
+    version: str
+    stale: int
+    path: str
 
 
 def required_text(payload: dict[str, Any], key: str) -> str:
@@ -38,13 +45,37 @@ def version_key(value: str) -> list[tuple[int, int | str]]:
     ]
 
 
-def claude_mem_version(home: str | None = None) -> str:
-    root = Path(home or os.path.expanduser("~")) / ".claude/plugins/cache/thedotmack/claude-mem"
+def claude_mem_cache_root(home: str | None = None) -> Path:
+    config_root = configured_root("CLAUDE_CONFIG_DIR", ".claude", home)
+    return Path(config_root) / "plugins/cache/thedotmack/claude-mem"
+
+
+def claude_mem_probe(home: str | None = None) -> ClaudeMemProbe:
+    root = claude_mem_cache_root(home)
+    try:
+        installed = root.is_dir()
+    except OSError:
+        installed = False
+    if not installed:
+        return ClaudeMemProbe("", 0, "")
+
     try:
         versions = [path.name for path in root.iterdir() if path.is_dir()]
     except OSError:
-        return "unknown"
-    return max(versions, key=version_key) if versions else "unknown"
+        versions = []
+    latest = max(versions, key=version_key) if versions else ""
+    return ClaudeMemProbe(latest, max(0, len(versions) - 1), str(root))
+
+
+def claude_mem_version(home: str | None = None) -> str:
+    return claude_mem_probe(home).version or "unknown"
+
+
+def print_claude_mem_probe(home: str | None = None) -> None:
+    probe = claude_mem_probe(home)
+    print("version:" + (f" {probe.version}" if probe.version else ""))
+    print(f"stale: {probe.stale}")
+    print("path:" + (f" {probe.path}" if probe.path else ""))
 
 
 def build_payload(value: dict[str, Any], *, version: str | None = None) -> tuple[str, dict[str, Any]]:
@@ -68,7 +99,15 @@ def build_payload(value: dict[str, Any], *, version: str | None = None) -> tuple
     }
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if args == ["--probe"]:
+        print_claude_mem_probe()
+        return 0
+    if args:
+        print("usage: claude-mem-save.py [--probe]", file=sys.stderr)
+        return 2
+
     raw = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
     if len(raw) > MAX_INPUT_BYTES:
         print("claude-mem-save: input exceeds 1 MiB", file=sys.stderr)

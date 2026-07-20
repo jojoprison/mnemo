@@ -19,7 +19,7 @@ Run a comprehensive health check on the Obsidian vault: orphans, broken links, m
 
 ## Prerequisites & config
 
-Obsidian must be open; `obsidian` CLI on PATH. Config at `~/.mnemo/config.json` (required fields: `vault`, `taxonomy`, `links_section`) — schema in `<mnemo-root>/references/config-schema.md`.
+Obsidian must be open; `obsidian` CLI on PATH. Config at `~/.mnemo/config.json` requires `vault`, `taxonomy`, `taxonomy_roles`, and `links_section` for new configs; the deterministic legacy Zettelkasten fallback remains supported. Validate the exact role contract in Step 4 before semantic labeling. Schema in `<mnemo-root>/references/config-schema.md`.
 
 ## Workflow
 
@@ -80,7 +80,7 @@ python3 "<mnemo-root>/scripts/safe-read.py" top-unresolved <<'JSON'
 JSON
 ```
 
-A short name with many refs (e.g. `[[Diadoc]]` ×30) = create a hub note `Diadoc.md` → `[[MOC — …]]` so all those links resolve (alias doesn't work for bare links — by design).
+A short name with many refs (e.g. `[[Diadoc]]` ×30) = create a hub note `Diadoc.md` → `[[{configured moc prefix}…]]` so all those links resolve (alias doesn't work for bare links — by design).
 
 ### Step 3: Tag Distribution
 
@@ -94,7 +94,9 @@ Show top 15 tags. Flag tags used only once (potential typos).
 
 ### Step 4: Notes by Type
 
-**Reuse the `obsidian tags counts` output from Step 3 — do not call it again** (the tag index is one query; Steps 3 and 4 are two views of the same result). From it, extract counts for taxonomy tags: `#atom`, `#molecule`, `#source`, `#session`, `#moc`. These correspond to `config.taxonomy.*.tag` values.
+**Reuse the `obsidian tags counts` output from Step 3 — do not call it again** (the tag index is one query; Steps 3 and 4 are two views of the same result). Read `config.taxonomy` and `config.taxonomy_roles` once, then enumerate **every configured taxonomy entry** as `{type key, prefix, tag, mapped roles}`. Extract its count using that entry's configured tag; never assume a tag from the type key, prefix, or a built-in Zettelkasten name.
+
+Validate `taxonomy_roles` before labeling semantic roles: its key set must be exactly `fact`, `insight`, `source`, `session`, and `moc`; every target must be an existing taxonomy key; and the functional roles must self-map as `session → session` and `moc → moc`. If the map is absent but all five legacy Zettelkasten keys exist, use the deterministic legacy mapping documented in `config-schema.md` for this report and recommend persisting it with setup. For any other missing/invalid map, still report raw configured taxonomy types, but mark semantic role routing unavailable and ask the user to run the runtime-native setup command — do not guess.
 
 Total notes count:
 
@@ -110,17 +112,17 @@ JSON
 
 ```bash
 python3 "<mnemo-root>/scripts/safe-read.py" missing-links <<'JSON'
-{"vault":"{vault}","links_section":"{links_section}","prefixes":["Atom — ","Molecule — ","Source — ","Session — ","MOC — "]}
+{"vault":"{vault}","links_section":"{links_section}","prefixes":["{prefix_1}","{prefix_2}","{prefix_N}"]}
 JSON
 ```
 
-Replace the sample `prefixes` array with **every configured taxonomy prefix** from `config.taxonomy`; do not silently omit a custom note type.
+Replace the placeholders in `prefixes` with **every configured taxonomy prefix** from `config.taxonomy`; do not silently omit a custom note type.
 
 **Measured on 999-note vault: ~49ms vs ~180s serial** — 3600x speedup. Safe to run always.
 
 Report notes missing the section.
 
-### Step 6: Bad Filenames (`#` in names → permanent orphans)
+### Step 6: Bad Filenames (`#` or `.` in the filename stem)
 
 ```bash
 python3 "<mnemo-root>/scripts/safe-read.py" bad-filenames <<'JSON'
@@ -156,7 +158,15 @@ When enabled, take the top `review.lint.maxCandidates` (default **15**) candidat
 
 Emit a verdict per candidate:
 
-- **still-valid** → close the loop: stamp `reviewed: {today}` into the note's frontmatter via `mcp__obsidian__str_replace` — anchor on the **frontmatter** line inside the leading `---` block (not a `date:`/`reviewed:` mention in the body): replace the existing `reviewed:` value, or if absent insert after `date:` (`date: {d}` → `date: {d}\nreviewed: {today}`). A confirmed-valid note then stops resurfacing without a manual edit. This auto-stamp is **on by default** (`config.json` → `review.lint.autoStampReviewed`, default **true**); **only if the user set it to `false`** do you just *recommend* the stamp and write nothing. When the lint runs in a spawned subagent (model ≠ haiku), that subagent does the stamping — it already holds the verdict and the note path. If a stamp write fails (Obsidian offline, or `mcp__obsidian__str_replace` unavailable in the subagent context), don't drop it silently — collect those note paths and surface them under the Content lint report block so the user can stamp them manually.
+- **still-valid** → close the loop: stamp `reviewed: {today}` into the note's **leading frontmatter** with the bundled optimistic writer. Read the note first, then replace the exact leading frontmatter block (never a `date:`/`reviewed:` mention in the body) with the same block containing the updated field:
+
+  ```bash
+  python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+  {"action":"replace","vault":"{vault}","note":"{candidate note}","old_str":"{exact leading frontmatter block copied from safe-read}","new_str":"{same JSON-escaped frontmatter block with reviewed: today}"}
+  JSON
+  ```
+
+  This exact-one replacement fails closed if the note changed after the read. A confirmed-valid note then stops resurfacing without a manual edit. This auto-stamp is **on by default** (`config.json` → `review.lint.autoStampReviewed`, default **true**); **only if the user set it to `false`** do you just *recommend* the stamp and write nothing. When the lint runs in a spawned subagent (model ≠ haiku), that subagent does the stamping — it already holds the verdict and the note path. If a stamp write fails (Obsidian offline, concurrent edit, or validation failure), don't drop it silently — collect those note paths and surface them under the Content lint report block so the user can stamp them manually.
 - **update-needed** → one line on what specifically looks outdated.
 - **contradicts [[Other Note]]** → name the conflicting note; flag the *older* one against the newer.
 
@@ -164,7 +174,7 @@ Verdicts are **triage, not truth** — on `haiku` especially, expect false posit
 
 ### Step 8: Top Hubs
 
-Enumerate the MOC notes (by the `moc` taxonomy prefix), then count backlinks for each:
+Resolve the `moc` semantic role through `taxonomy_roles`, enumerate notes by that mapped type's configured prefix, then count backlinks for each:
 
 ```bash
 python3 "<mnemo-root>/scripts/safe-read.py" moc-names <<'JSON'
@@ -172,7 +182,7 @@ python3 "<mnemo-root>/scripts/safe-read.py" moc-names <<'JSON'
 JSON
 ```
 
-For each enumerated MOC name, count backlinks:
+For each enumerated hub name, count backlinks:
 
 ```bash
 python3 "<mnemo-root>/scripts/safe-read.py" backlinks <<'JSON'
@@ -180,14 +190,14 @@ python3 "<mnemo-root>/scripts/safe-read.py" backlinks <<'JSON'
 JSON
 ```
 
-Sort by count, show top 5. **Keep the enumerated MOC-name list** — Step 8.5 reuses it to find topics that have no MOC.
+Sort by count, show top 5. **Keep the enumerated hub-name list** — Step 8.5 reuses it to find topics that have no mapped `moc` note.
 
 ### Step 8.5: Research-Gap Candidates (report-only — where the vault wants to grow)
 
 Karpathy's lint also proposes *what to research next*. Steps 1-8 already collected the raw signal — turn it into growth suggestions **without any new CLI calls** (reuse Step 2's `obsidian eval` top-10 unresolved targets, Step 3/4's tag counts, and the MOC-name list enumerated in Step 8). Two cheap, computable gap types:
 
-- **Topic cluster with no MOC** — a non-taxonomy topic tag with **≥5 notes** (Milo's "mental squeeze point", the same trigger `config-schema.md` uses for creating a MOC) whose `{moc_prefix}{Topic}` is **absent from Step 8's enumerated MOC-name list**. Suggest: "12 notes tagged `#auth`, no MOC → create `MOC — Auth`?"
-- **Recurring external with no Source note** — a top unresolved target from **Step 2's `obsidian eval` list** (the authoritative metadataCache top-10, not the CLI `unresolved` output) cited **≥5 times** that reads like an external tool/paper/vendor (not a short *project* name, which instead wants a hub note) and has no `Source — …` note. Suggest: "`[[LangGraph]]` cited ×9, no Source note → capture one?"
+- **Topic cluster with no mapped `moc` note** — a non-taxonomy topic tag with **≥5 notes** (Milo's "mental squeeze point", the same trigger `config-schema.md` uses for creating a hub) whose `{moc_prefix}{Topic}` is **absent from Step 8's enumerated hub-name list**. Suggest using the configured prefix: "12 notes tagged `#auth`, no hub → create `{moc_prefix}Auth`?"
+- **Recurring external with no mapped `source` note** — a top unresolved target from **Step 2's `obsidian eval` list** (the authoritative metadataCache top-10, not the CLI `unresolved` output) cited **≥5 times** that reads like an external tool/paper/vendor (not a short *project* name, which instead wants a hub note) and has no note using the prefix reached through `taxonomy_roles.source`. Suggest: "`[[LangGraph]]` cited ×9, no source-role note → capture `{source_prefix}LangGraph`?"
 
 These are **suggestions, never auto-created** (same non-destructive stance as the rest of health). Skip a type silently when it yields nothing. Do **not** web-search to fill the gap — mnemo maintains a human-authored vault: it points at the gap, the user decides whether to fill it. (This is the on-philosophy half of Karpathy's "suggest new article candidates"; the auto-web-imputation half is deliberately omitted.)
 
@@ -200,8 +210,10 @@ These are **suggestions, never auto-created** (same non-destructive stance as th
 🔄 Cross-runtime recall: {Claude memory available | Codex memory available | enabled, counterpart unavailable ({reason})}
 
 Total: {N} notes
-  Atoms: {N} | Molecules: {N} | Sources: {N}
-  Sessions: {N} | MOCs: {N} | Other: {N}
+Configured taxonomy (all entries, including types with no semantic role):
+  - {type_key}: {N} | prefix `{prefix}` | tag `#{tag}` | roles: {role} (repeat role names, or `none`)
+Semantic routing (`taxonomy_roles`): fact→{type_key}, insight→{type_key}, source→{type_key}, session→{type_key}, moc→{type_key}
+Other (no configured taxonomy tag): {N}
 
 🔴 Orphans: {N}
   - Note Name 1
@@ -211,7 +223,7 @@ Total: {N} notes
   - Note Name 1
 
 🚫 Bad filenames (`#`/`.`): {N} — permanent broken links, rename
-  - Atom — Foo (PR #12)  → rename to "PR 12"
+  - {configured prefix}Foo (PR #12)  → rename to "PR 12"
 
 🔍 Top unresolved targets (missing hub notes?):
   1. [[Diadoc]] ×34 → create hub note?
@@ -221,23 +233,23 @@ Total: {N} notes
 📏 Tags: {N} total, {N} used once
 
 🏆 Top-5 Hubs (most backlinks):
-  1. MOC — Security (34)
-  2. MOC — AI ML Tools (28)
+  1. {moc_prefix}Security (34)
+  2. {moc_prefix}AI ML Tools (28)
   ...
 
 💤 Review candidates (stale by type-aware age): {N}
-  - Atom — API X gotcha — 45d overdue (atom, 60d budget)
-  - Source — vendor API pricing — 35d overdue (source, 180d budget)
+  - {fact_prefix}API X gotcha — 45d overdue ({fact_type}, {N}d budget)
+  - {source_prefix}vendor API pricing — 35d overdue ({source_type}, {N}d budget)
   (snooze a still-valid note: add `reviewed: {today}` to its frontmatter)
 
 🔬 Content lint: {N judged} — {S} still-valid, {U} update-needed, {C} contradicts   ← only when review.lint.enabled
   (counts MUST equal the lint's actual verdicts — never default to all-still-valid; see Step 7.5)
-  - Atom — API X gotcha → UPDATE-NEEDED: superseded by [[Atom — API X v2]]
-  - Source — vendor API pricing → still-valid (stamped reviewed: {today})
+  - {fact_prefix}API X gotcha → UPDATE-NEEDED: superseded by [[{fact_prefix}API X v2]]
+  - {source_prefix}vendor API pricing → still-valid (stamped reviewed: {today})
 
 🌱 Research-gap candidates (where the vault wants to grow): {N}
-  - #auth ×12 notes, no MOC → create MOC — Auth?
-  - [[LangGraph]] ×9, no Source note → capture one?
+  - #auth ×12 notes, no hub → create {moc_prefix}Auth?
+  - [[LangGraph]] ×9, no source-role note → capture {source_prefix}LangGraph?
 
 🧠 Claude memory/ index: {KB}KB / {lines} lines {✅ lean | ⚠️ bloated → autodream}
 ```
@@ -248,18 +260,17 @@ Both Claude-specific lines are conditional: skip the `⚠️ claude-mem` line if
 
 ### Step 10: Claude memory/ index health (autodream check)
 
-**Claude Code only.** In Codex, skip this step and omit its report line; never scan `~/.claude/projects/` broadly as a proxy for Codex memory. Step 0.5 may verify one exact counterpart mapping without reading memory content, but Codex local memory lives under `~/.codex/memories/`, is not governed by Claude's auto-memory truncation behavior, and remains outside this size audit.
+**Claude Code only.** In Codex, skip this step and omit its report line; never scan `~/.claude/projects/` broadly as a proxy for Codex memory. Step 0.5 may verify one exact counterpart mapping without reading memory content, but Codex-generated read-only state lives under `${CODEX_HOME:-~/.codex}/memories/`, is not governed by Claude's auto-memory truncation behavior, and remains outside this size audit.
 
-In Claude Code, separate from the Obsidian vault, an **always-loaded** index lives at `memory/MEMORY.md`. Claude Code auto-memory **hard-truncates this index at ~24.4 KB on load** — beyond that, trailing rows silently vanish from Claude's context. So warn *early* (before the cliff), not at some lax size. Threshold is configurable via `config.json` → `memory.indexWarnKB` (default **22**):
+In Claude Code, separate from the Obsidian vault, an **always-loaded** index lives at the discoverable auto-memory directory's `MEMORY.md`. Claude's current loader includes only the first **200 loaded-content lines or 25,000 loaded-content bytes**; leading YAML frontmatter and block-level HTML comments are stripped before those limits are counted. Warn *early* (before either cliff), not at some lax raw-file size. The early byte threshold is configurable via `config.json` → `memory.indexWarnKB` (default **22**). Use the bounded metadata-only helper so `CLAUDE_CONFIG_DIR`, discoverable settings, and auto-memory disable controls share the same fail-closed path resolution as cross-runtime recall:
 
 ```bash
-WARN=$(python3 -c "import json,os;print(json.load(open(os.path.expanduser('~/.mnemo/config.json'))).get('memory',{}).get('indexWarnKB',22))" 2>/dev/null || echo 22)
-for f in "$HOME"/.claude/projects/-*/memory/MEMORY.md; do
-  [ -f "$f" ] || continue
-  kb=$(( $(wc -c < "$f") / 1024 )); ln=$(wc -l < "$f")
-  [ "$kb" -gt "$WARN" ] && echo "⚠️ $(basename "$(dirname "$(dirname "$f")")"): ${kb}KB / ${ln} lines — >${WARN}KB warn (auto-memory truncates ~24.4KB) → run autodream (move sessions → MEMORY-archive-index.md, target <20KB)"
-done
+python3 "<mnemo-root>/scripts/runtime-memory.py" claude-index-status <<'JSON'
+{}
+JSON
 ```
+
+The JSON returns only availability, reason, verified directory, raw and loaded-content byte/line counts, both hard limits, configured early threshold, and typed warning reasons — never index text. Treat `hard_byte_limit` and `hard_line_limit` as loader-limit failures and `early_byte_threshold` as the configurable early warning. If unavailable, report the reason without guessing another project or scanning `~/.claude/projects/` broadly. The helper cannot observe managed-policy or ad-hoc `--settings` inputs, so report its path as **discoverable**, not guaranteed effective, when those scopes may apply.
 
 If flagged → recommend **autodream** (memory consolidation): slim the index into topic files + `MEMORY-archive-index.md`, **no loss**. Procedure: `~/.claude/memory/autodream-principles.md`. This is the only `memory/` check here — health otherwise audits Obsidian, not Claude's memory/.
 

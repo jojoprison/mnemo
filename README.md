@@ -29,7 +29,7 @@ You work → mnemo remembers → Your vault grows → You find things later
 
 | Skill | Command | What it does |
 |-------|---------|-------------|
-| **save** | `/mn:save` | Routing cascade — sends a recall item to Obsidian (+ the active runtime's local memory when applicable, + optional claude-mem), or an actionable project rule, with graceful degradation |
+| **save** | `/mn:save` | Routing cascade — sends recall to Obsidian (+ optional claude-mem and enabled Claude auto-memory); Codex generated memory stays read-only. Actionable project-rule routing is separate |
 | **session** | `/mn:session` | Session summary note + cross-session handoff for the next session |
 | **review** | `/mn:review` | End-of-session orchestrator — audits the session, recommends save + session + the rest, asks before running anything |
 | **ask** | `/mn:ask` | Search the vault + active runtime memory (+ optional verified counterpart memory), synthesize a cited answer, date sources, and ground current-state answers in git history |
@@ -58,11 +58,11 @@ Obsidian plugins run inside Obsidian. mnemo runs inside your coding agent — **
 
 - **Cross-runtime recall without synchronization** (v1.2.3) — opt-in `recall.runtimeMemory` lets Codex see verified Claude project memory and Claude see project-scoped Codex memory. It is a bounded read-only overlay: exact git-repository proof, no transcript scan, symlink, shared writer, mirror, daemon, or duplicate store. Obsidian remains authoritative; native memory is cited as untrusted secondary evidence.
 - **One canonical surface across Claude Code and Codex** (v1.2.0; Codex hook parsing hardened in v1.2.1; Claude default-hook discovery hardened in v1.2.4) — the same seven implementations now register directly as `/mn:*` in Claude Code and as `$mnemo:*` with matching `mn:*` picker labels in Codex. Legacy command routers and alias skill copies are gone; runtime-composed hooks, portable runtime discovery, private caches, and argv-safe Obsidian access keep both runtimes aligned without duplicated behavior.
-- **Knowledge compounds + self-snoozing lint + research gaps** (v0.14.0) — three opt-in, on-philosophy distillations from a full audit of Karpathy's "LLM Wiki" pattern. `/mn:ask` can fold a real synthesis **back into the vault as a Molecule** (sources pre-linked) so explorations accumulate; `review.lint.autoStampReviewed` lets the lint stamp `reviewed:` on still-valid notes to close the snooze loop; `/mn:health` surfaces **research-gap candidates** (populous topic with no MOC, recurring external with no Source note). All opt-in: a default install writes nothing (the content lint is off), the compounding save is user-confirmed, and the lone auto-write — the `reviewed:` stamp — only fires once you turn the lint on.
+- **Knowledge compounds + self-snoozing lint + research gaps** (v0.14.0) — three opt-in, on-philosophy distillations from a full audit of Karpathy's "LLM Wiki" pattern. `/mn:ask` can fold a real synthesis **back into the type mapped by `taxonomy_roles.insight`** (a Molecule in the default taxonomy; sources pre-linked) so explorations accumulate; `review.lint.autoStampReviewed` lets the lint stamp `reviewed:` on still-valid notes to close the snooze loop; `/mn:health` surfaces **research-gap candidates** (populous topic with no MOC, recurring external with no Source note). All opt-in: a default install writes nothing (the content lint is off), the compounding save is user-confirmed, and the lone auto-write — the `reviewed:` stamp — only fires once you turn the lint on.
 - **Recall grounded in live code** (v0.13.0) — for "is this still true / what changed" questions inside a git project, `/mn:ask` cross-checks the repo's recent commits and flags any note a newer commit may have outdated. Optional code-knowledge-graph backend via `recall.codeGraph` (Graphify / Sourcegraph / ast-grep…), off by default.
 - **Recency-aware recall** (v0.12.0) — `/mn:ask` now dates every source it cites (git last-commit when the vault is a repo, else file mtime + `reviewed`/`date` frontmatter) and flags an answer that rests on stale notes.
 - **Type-aware review + content lint** (v0.11.0) — `/mn:health` flags stale notes by a per-**type** budget (`review.staleDays`) instead of a flat 30 days, with a `reviewed:` snooze and per-note `ttl:`; an opt-in LLM lint (`review.lint.enabled`) re-reads candidates for outdated/contradicting claims — Karpathy's "lint your wiki". Changelog moved to Keep a Changelog v2 + GitHub Releases.
-- **Autodream-aware memory index** (v0.10.0–0.10.1) — Claude's `memory/MEMORY.md` is a *lean* index: one `| File | Read when… |` row per topic file, never a paragraph. Claude Code hard-truncates it at ~24.4 KB on load, so `/mn:health` warns past a configurable `memory.indexWarnKB` (default 22) in Claude only. `/mn:ask` also recalls from the active runtime's local memory (`memory/` in Claude, `~/.codex/memories/` in Codex), not just the vault.
+- **Autodream-aware memory index** (v0.10.0–0.10.1; effective-path detection hardened in v1.2.5) — Claude's effective auto-memory `MEMORY.md` is a *lean* index: one `| File | Read when… |` row per topic file, never a paragraph. `/mn:health` honors `CLAUDE_CONFIG_DIR`, `autoMemoryDirectory`, and disable controls before applying the configurable `memory.indexWarnKB` threshold (default 22). `/mn:ask` can cite verified runtime-generated memory, but mnemo never edits Codex-owned `${CODEX_HOME:-~/.codex}/memories/` state.
 - **PKM-canon + leaner skill set** (v0.9.0) — removed `inbox-triage` (**8 → 7 skills**): in an agent-driven flow, typed notes are written directly, so there's nothing to triage. Baked in note-naming rules (`# . / .md` forbidden), hub notes for short names, and `metadataCache`-over-CLI-cache for accurate link checks.
 - **Dual-runtime** (v0.8.0–0.8.2) — renamed `claude-mnemo` → `mnemo`; native Codex support alongside Claude Code from one shared skill set.
 
@@ -74,7 +74,7 @@ Full version-by-version history: [CHANGELOG.md](CHANGELOG.md).
 ┌─────────────────────┐       ┌────────────────────────┐
 │ Claude plugin `mn`  │─/mn:*─┤                        │
 └─────────────────────┘       │  7 shared skills       │
-                              │  ask · save · session  │────▶ Obsidian + local memory
+                              │  ask · save · session  │────▶ Obsidian + native memory policy
 ┌─────────────────────┐       │  review · connect      │
 │ Codex plugin `mnemo`│─$mnemo:*───────────────────────┤
 └─────────────────────┘       │  setup · health        │
@@ -86,7 +86,7 @@ Full version-by-version history: [CHANGELOG.md](CHANGELOG.md).
 Both runtimes invoke the same seven canonical skill directories directly. Claude Code derives `/mn:*` from its runtime namespace; Codex derives `$mnemo:*` and exposes the shorter `mn:*` picker labels through `agents/openai.yaml`. There are no command wrappers, aliases, or forked skill bodies.
 
 **Key design decisions:**
-- **CLI-first, argv-safe** — indexed reads/search still use `obsidian` CLI ([70,000x cheaper](https://x.com/kepano)), but dynamic vault/note/query values go through a `shell=False` adapter; markdown writes use MCP
+- **One shell-free vault path** — indexed reads/search still use `obsidian` CLI ([70,000x cheaper](https://x.com/kepano)) through a `shell=False` adapter; every Markdown write uses the bundled JSON-stdin, optimistic atomic writer in both runtimes
 - **Config-driven** — vault name, taxonomy, rules in `config.json`
 - **Non-destructive** — skills report and suggest, never auto-delete or overwrite
 - **Federated, not synchronized** — each runtime keeps its native memory; optional counterpart recall is exact-project, read-only, and fail-closed
@@ -134,7 +134,9 @@ Codex:       $mnemo:health
 /mn:save "We chose PostgreSQL over DynamoDB for the audit log — better JSON querying"
 ```
 
-Routes a recall item to Obsidian (an Atom note) + the active runtime's local memory (`~/.claude/projects/.../memory/` or `~/.codex/memories/`) + optional claude-mem; routes an actionable rule ("never X / always Y" tied to code) to the runtime's project instructions instead. If any backend is down, the others still work.
+Routes a recall item to Obsidian (the type mapped by its semantic role), optional claude-mem, and Claude auto-memory when applicable; routes an actionable rule ("never X / always Y" tied to code) to the existing project-instruction path instead. Codex-owned `${CODEX_HOME:-~/.codex}/memories/` is generated read-only state, never a manual fallback. Each unavailable backend is reported explicitly.
+
+Physical note types are resolved only through the exact five semantic roles `fact`/`insight`/`source`/`session`/`moc`. Every target must exist in `taxonomy`; `session → session` and `moc → moc` are required, while the three content roles may intentionally share a type.
 
 ### End-of-session orchestrator (the one command to close a session)
 
@@ -204,6 +206,13 @@ cp config.example.json ~/.mnemo/config.json
     "session": { "prefix": "Session — ", "tag": "session" },
     "moc": { "prefix": "MOC — ", "tag": "moc" }
   },
+  "taxonomy_roles": {
+    "fact": "atom",
+    "insight": "molecule",
+    "source": "source",
+    "session": "session",
+    "moc": "moc"
+  },
   "links_section": "## Links",
   "handoff_note": "Meta — Session Handoff",
   "memory": { "indexWarnKB": 22 },
@@ -230,7 +239,7 @@ cp config.example.json ~/.mnemo/config.json
 }
 ```
 
-All fields are optional. Skills ask on first use. `review.*` tunes `/mn:health`; `recall.runtimeMemory` is the off-by-default, read-only Claude↔Codex project-memory overlay — see [config-schema.md](plugins/mnemo/references/config-schema.md).
+The minimal core is `vault`, `taxonomy`, the exact five-key `taxonomy_roles` map, `links_section`, and `handoff_note`; optional sections keep their documented defaults. Every role target must exist, while `session → session` and `moc → moc` are required functional self-maps. Skills offer setup when the core is missing or invalid. `review.*` tunes `/mn:health`; `recall.runtimeMemory` is the off-by-default, read-only Claude↔Codex project-memory overlay — see [config-schema.md](plugins/mnemo/references/config-schema.md).
 
 ### Custom Taxonomy
 
@@ -241,7 +250,16 @@ mnemo doesn't force a note structure. Change `taxonomy` to match yours:
   "taxonomy": {
     "permanent": { "prefix": "", "tag": "permanent" },
     "fleeting": { "prefix": "F: ", "tag": "fleeting" },
-    "literature": { "prefix": "L: ", "tag": "literature" }
+    "literature": { "prefix": "L: ", "tag": "literature" },
+    "session": { "prefix": "Session — ", "tag": "session" },
+    "moc": { "prefix": "MOC — ", "tag": "moc" }
+  },
+  "taxonomy_roles": {
+    "fact": "permanent",
+    "insight": "permanent",
+    "source": "literature",
+    "session": "session",
+    "moc": "moc"
   }
 }
 ```
@@ -285,7 +303,7 @@ mnemo/
 │   ├── references/                  # Shared docs (progressive disclosure)
 │   │   ├── gotchas.md               # Common failures (IPC, stale cache, shell injection)
 │   │   ├── config-schema.md         # Full ~/.mnemo/config.json reference
-│   │   ├── tool-routing.md          # MCP-for-writes / CLI-for-reads rule + rationale
+│   │   ├── tool-routing.md          # bundled writer / argv-safe reader rule + rationale
 │   │   ├── triggers-implementation.md
 │   │   ├── triggers-research.md
 │   │   ├── triggers-debugging.md
@@ -294,13 +312,13 @@ mnemo/
 │   │   └── session-template.md
 │   ├── scripts/                     # Shell & Python helpers
 │   │   ├── safe-read.py             # argv-safe dynamic reads/index queries (no shell interpolation)
+│   │   ├── vault-write.py           # JSON-stdin atomic writes + guarded handoff rotation
 │   │   ├── runtime-memory.py         # bounded read-only Claude↔Codex recall adapter
 │   │   ├── cache_utils.py           # private atomic helper caches (0700/0600)
 │   │   ├── claude-mem-save.py       # shell-safe optional claude-mem HTTP adapter
 │   │   ├── session-scan.py          # JSONL parser (Claude + Codex) with incremental cache
 │   │   ├── skills-discover.py       # Auto-discovery across Claude/Codex skill paths
 │   │   ├── review-candidates.py     # type-aware staleness scan for /mn:health
-│   │   ├── handoff-archive.py       # size-guard rotation: closed old handoff blocks → cold archive
 │   │   └── check-cm-version.sh      # claude-mem cache inspector
 │   └── hooks/                       # Harness hooks
 │       ├── hooks.json               # Codex-safe shared SessionStart + Stop baseline
@@ -352,7 +370,7 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 
 | Скилл | Команда | Что делает |
 |-------|---------|-----------|
-| **save** | `/mn:save` | Каскад роутинга — отправляет факт/решение/находку в Obsidian (+ локальную память активного runtime, когда уместно, + опциональный claude-mem), с graceful degradation |
+| **save** | `/mn:save` | Каскад роутинга — сохраняет в Obsidian (+ опциональный claude-mem и включённую auto-memory Claude); generated memory Codex остаётся read-only |
 | **session** | `/mn:session` | Сессионная заметка + cross-session handoff для следующей сессии |
 | **review** | `/mn:review` | Оркестратор конца сессии — аудит, единый список рекомендаций и подтверждение перед любым запуском |
 | **ask** | `/mn:ask` | Поиск по vault + памяти активного runtime (+ опционально проверенная память второго runtime), синтез с цитатами и сверка актуальности по git |
@@ -381,11 +399,11 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 
 - **Cross-runtime recall без синхронизации** (v1.2.3) — opt-in `recall.runtimeMemory` даёт Codex видеть проверенную проектную память Claude, а Claude — project-scoped память Codex. Это ограниченный read-only слой с точным доказательством git-репозитория: без transcript scan, symlink, общего writer, зеркала, демона и второй копии. Obsidian остаётся главным источником, runtime-memory цитируется как недоверенное вторичное свидетельство.
 - **Одна каноническая поверхность в Claude Code и Codex** (v1.2.0; парсинг Codex hooks усилен в v1.2.1; автодискавери стандартного Claude hook-файла исправлен в v1.2.4) — те же семь реализаций напрямую регистрируются как `/mn:*` в Claude Code и как `$mnemo:*` с совпадающими UI-именами `mn:*` в Codex. Старые command-router’ы и alias-копии удалены; hooks компонуются по runtime, а portable discovery, приватные кеши и argv-safe доступ к Obsidian держат обе среды синхронными без дублирования логики.
-- **Знание накапливается + самоснузящийся линт + research-гэпы** (v0.14.0) — три opt-in, на-философии вывода из полного аудита паттерна Карпати «LLM Wiki». `/mn:ask` может свернуть настоящий синтез **обратно в vault как Molecule** (источники уже слинкованы), чтобы исследования накапливались; `review.lint.autoStampReviewed` позволяет линту штамповать `reviewed:` на still-valid заметках, замыкая петлю снуза; `/mn:health` показывает **research-gap кандидатов** (популярный топик без MOC, частый внешний источник без Source-заметки). Всё opt-in: дефолтная установка ничего не пишет (контент-линт выключен), сохранение синтеза — по подтверждению, а единственная авто-запись (штамп `reviewed:`) срабатывает только когда ты включишь линт.
+- **Знание накапливается + самоснузящийся линт + research-гэпы** (v0.14.0) — три opt-in, на-философии вывода из полного аудита паттерна Карпати «LLM Wiki». `/mn:ask` может свернуть настоящий синтез **обратно в vault в тип, заданный `taxonomy_roles.insight`** (в дефолте Molecule; источники уже слинкованы), чтобы исследования накапливались; `review.lint.autoStampReviewed` позволяет линту штамповать `reviewed:` на still-valid заметках, замыкая петлю снуза; `/mn:health` показывает **research-gap кандидатов** (популярный топик без MOC, частый внешний источник без Source-заметки). Всё opt-in: дефолтная установка ничего не пишет (контент-линт выключен), сохранение синтеза — по подтверждению, а единственная авто-запись (штамп `reviewed:`) срабатывает только когда ты включишь линт.
 - **Recall, заземлённый в живом коде** (v0.13.0) — на вопросы «актуально ли / что изменилось» внутри git-проекта `/mn:ask` сверяется со свежими коммитами репо и флажит заметки, которые новый коммит мог устаревшить. Опц. code-graph бэкенд через `recall.codeGraph` (Graphify / Sourcegraph / ast-grep…), выключен по умолчанию.
 - **Recall со свежестью** (v0.12.0) — `/mn:ask` теперь датирует каждый цитируемый источник (git last-commit если vault под git, иначе mtime файла + frontmatter `reviewed`/`date`) и помечает ответ, опирающийся на устаревшие заметки.
 - **Type-aware ревью + контент-линт** (v0.11.0) — `/mn:health` помечает устаревшие заметки по бюджету на **тип** (`review.staleDays`), а не единым «30 дней»; снуз `reviewed:` + per-note `ttl:`; опц. LLM-линт (`review.lint.enabled`) перечитывает кандидатов на устаревшие/противоречащие утверждения — «lint your wiki» Карпати. Changelog переехал в Keep a Changelog v2 + GitHub Releases.
-- **Autodream-aware индекс памяти** (v0.10.0–0.10.1) — Claude `memory/MEMORY.md` это *тощий* индекс: одна строка `| File | Read when… |` на topic-файл, не абзац. Claude Code жёстко обрезает его на ~24.4 KB при загрузке, поэтому `/mn:health` предупреждает после настраиваемого `memory.indexWarnKB` (дефолт 22) только в Claude. `/mn:ask` вспоминает из локальной памяти активного runtime (`memory/` в Claude, `~/.codex/memories/` в Codex), не только из vault.
+- **Autodream-aware индекс памяти** (v0.10.0–0.10.1; effective-path hardening в v1.2.5) — `/mn:health` проверяет реально выбранную auto-memory Claude с учётом runtime config и лимитов загрузчика. `/mn:ask` может цитировать verified runtime-generated memory, но mnemo никогда вручную не редактирует `${CODEX_HOME:-~/.codex}/memories/`.
 - **PKM-канон + меньше скиллов** (v0.9.0) — убран `inbox-triage` (**8 → 7 скиллов**): в agent-driven потоке типизированные заметки пишутся напрямую, триажить нечего. Вшиты правила именования (`# . / .md` запрещены), hub-заметки для коротких имён, `metadataCache`-вместо-CLI-кеша для точной проверки ссылок.
 - **Dual-runtime** (v0.8.0–0.8.2) — переименование `claude-mnemo` → `mnemo`; нативная поддержка Codex рядом с Claude Code из одного набора скиллов.
 
@@ -431,7 +449,9 @@ Codex:       $mnemo:health
 /mn:save "Выбрали PostgreSQL вместо DynamoDB для audit log — лучше JSON querying"
 ```
 
-Роутит в Obsidian (Atom) + локальную память активного runtime (`~/.claude/projects/.../memory/` или `~/.codex/memories/`) + опциональный claude-mem. Если backend упал — остальные работают.
+Роутит в Obsidian, опциональный claude-mem и включённую auto-memory Claude, когда уместно. `${CODEX_HOME:-~/.codex}/memories/` — generated read-only state Codex, не fallback для ручной записи. Недоступные backend’ы показываются явно.
+
+Физические типы заметок определяются только через пять точных ролей `fact`/`insight`/`source`/`session`/`moc`: каждая цель существует в `taxonomy`, `session → session` и `moc → moc` обязательны, а три контентные роли могут делить один тип.
 
 ### Оркестратор конца сессии (единственная команда на закрытие)
 
@@ -523,7 +543,7 @@ cp config.example.json ~/.mnemo/config.json
 
 | 技能 | 命令 | 功能 |
 |------|------|------|
-| **save** | `/mn:save` | 路由级联 —— 将事实/决策/发现发送到 Obsidian（+ 适用时写入当前运行时的本地记忆，+ 可选 claude-mem），并支持优雅降级 |
+| **save** | `/mn:save` | 路由级联 —— 保存到 Obsidian（+ 可选 claude-mem 与已启用的 Claude auto-memory）；Codex 生成的记忆保持只读 |
 | **session** | `/mn:session` | 会话摘要笔记 + 跨会话上下文传递 |
 | **review** | `/mn:review` | 会话结束编排器 —— 审计会话、统一推荐，并在运行任何技能前请求确认 |
 | **ask** | `/mn:ask` | 搜索 vault + 当前运行时记忆（+ 可选且已验证的另一运行时记忆），综合引用并用 git 核验当前状态 |
@@ -552,11 +572,11 @@ Obsidian 插件在 Obsidian 内部运行。mnemo 在你的编码代理 —— **
 
 - **跨运行时回忆，无需同步**（v1.2.3）—— 可选的 `recall.runtimeMemory` 让 Codex 读取已验证的 Claude 项目记忆，也让 Claude 读取项目范围内的 Codex 记忆。这是有界只读层：严格匹配同一 git 仓库，不扫描 transcript，不用 symlink、共享写入器、镜像、daemon 或重复存储。Obsidian 仍是权威来源；运行时记忆仅作为带出处的不可信次级证据。
 - **Claude Code 与 Codex 共用唯一规范入口**（v1.2.0；v1.2.1 加强 Codex hook 解析兼容性；v1.2.4 修正 Claude 默认 hook 自动发现）—— 同一套七个实现现在在 Claude Code 中直接注册为 `/mn:*`，在 Codex 中注册为 `$mnemo:*`，并显示对应的 `mn:*` 选择器标签。旧 command router 与 alias 技能副本已移除；按运行时组合的 hooks、可移植运行时发现、私有缓存和 argv-safe Obsidian 访问让两个运行时保持一致且不重复逻辑。
-- **知识复利 + 自我延后的 lint + 研究缺口**（v0.14.0）—— 对 Karpathy "LLM Wiki" 模式做完整审计后提炼出的三个可选、契合理念的增强。`/mn:ask` 可将真正的综合**作为 Molecule 写回 vault**（来源已预先链接），让探索得以累积；`review.lint.autoStampReviewed` 让 lint 给仍然有效的笔记盖上 `reviewed:`，闭合延后回路；`/mn:health` 会提示**研究缺口候选**（笔记众多却无 MOC 的主题、被频繁引用却无 Source 笔记的外部实体）。全部可选：默认安装不写入任何内容（内容 lint 默认关闭），综合写回需用户确认，唯一的自动写入（`reviewed:` 标记）仅在你开启 lint 后才发生。
+- **知识复利 + 自我延后的 lint + 研究缺口**（v0.14.0）—— 对 Karpathy "LLM Wiki" 模式做完整审计后提炼出的三个可选、契合理念的增强。`/mn:ask` 可将真正的综合**写回 `taxonomy_roles.insight` 指定的类型**（默认为 Molecule；来源已预先链接），让探索得以累积；`review.lint.autoStampReviewed` 让 lint 给仍然有效的笔记盖上 `reviewed:`，闭合延后回路；`/mn:health` 会提示**研究缺口候选**（笔记众多却无 MOC 的主题、被频繁引用却无 Source 笔记的外部实体）。全部可选：默认安装不写入任何内容（内容 lint 默认关闭），综合写回需用户确认，唯一的自动写入（`reviewed:` 标记）仅在你开启 lint 后才发生。
 - **基于实时代码的回忆**（v0.13.0）—— 在 git 项目内回答"是否仍然成立/有何变化"类问题时，`/mn:ask` 会对照仓库最近的提交，标记可能已被新提交过时的笔记。可选代码知识图谱后端 `recall.codeGraph`（Graphify / Sourcegraph / ast-grep…），默认关闭。
 - **带时效的回忆**（v0.12.0）—— `/mn:ask` 现在为每个引用来源标注更新时间（vault 是 git 仓库则用 git last-commit，否则用文件 mtime + `reviewed`/`date` frontmatter），并标记基于陈旧笔记的答案。
 - **按类型的复查 + 内容 lint**（v0.11.0）—— `/mn:health` 按**类型**预算（`review.staleDays`）标记陈旧笔记，而非统一的 30 天；`reviewed:` 缓刑 + 单笔记 `ttl:`；可选 LLM lint（`review.lint.enabled`）重读候选以发现过时/矛盾的声明 —— Karpathy 的 "lint your wiki"。Changelog 迁移到 Keep a Changelog v2 + GitHub Releases。
-- **Autodream 感知的记忆索引**（v0.10.0–0.10.1）—— Claude 的 `memory/MEMORY.md` 是*精简*索引：每个主题文件一行 `| File | Read when… |`，而非段落。Claude Code 在加载时会在 ~24.4 KB 处硬截断，因此 `/mn:health` 仅在 Claude 中按可配置的 `memory.indexWarnKB`（默认 22）发出警告。`/mn:ask` 也会从当前运行时的本地记忆（Claude 的 `memory/`，Codex 的 `~/.codex/memories/`）回忆，而不只是 vault。
+- **Autodream 感知的记忆索引**（v0.10.0–0.10.1；v1.2.5 加固 effective-path）—— `/mn:health` 按 Claude 当前实际 auto-memory 路径和加载限制检查索引。`/mn:ask` 可以引用已验证的运行时生成记忆，但 mnemo 从不手动修改 `${CODEX_HOME:-~/.codex}/memories/`。
 - **PKM 规范 + 更精简的技能集**（v0.9.0）—— 移除 `inbox-triage`（**8 → 7 个技能**）：在代理驱动的流程中，类型化笔记被直接写入，没有需要分类的收件箱。内置笔记命名规则（禁用 `# . / .md`）、短名称的 hub 笔记、用 `metadataCache` 而非 CLI 缓存进行准确的链接检查。
 - **双运行时**（v0.8.0–0.8.2）—— 更名 `claude-mnemo` → `mnemo`；从同一套共享技能原生支持 Codex 与 Claude Code。
 
@@ -602,7 +622,9 @@ Codex:       $mnemo:health
 /mn:save "选择了 PostgreSQL 而不是 DynamoDB 用于审计日志——JSON 查询更好"
 ```
 
-路由到 Obsidian（Atom 笔记）+ 当前运行时的本地记忆（`~/.claude/projects/.../memory/` 或 `~/.codex/memories/`）+ 可选 claude-mem。任何后端宕机，其他仍然工作。
+路由到 Obsidian、可选 claude-mem，以及适用且已启用的 Claude auto-memory。`${CODEX_HOME:-~/.codex}/memories/` 是 Codex 生成的只读状态，不作为手动写入 fallback；不可用的后端会明确报告。
+
+物理笔记类型只通过五个精确语义角色 `fact`/`insight`/`source`/`session`/`moc` 解析：所有目标必须存在于 `taxonomy`，`session → session` 与 `moc → moc` 必须自映射，三个内容角色可以有意共享同一类型。
 
 ### 会话结束编排器（结束会话只需这一个）
 

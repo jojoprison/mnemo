@@ -16,8 +16,8 @@ No arguments. Summarizes the current conversation automatically.
 
 1. Analyzes current conversation (what was done, decisions, PRs)
 2. Checks for duplicate session notes (same day)
-3. Creates `Session — YYYY-MM-DD description` note
-4. Verifies the note is linked in the relevant MOC
+3. Creates a note with the prefix/tag reached through `taxonomy_roles.session`
+4. Verifies the note is linked in the hub reached through `taxonomy_roles.moc`
 5. Updates `Meta — Session Handoff` with pending items
 6. Checks for orphans after creation
 
@@ -56,7 +56,9 @@ When the next session starts, it reads `Meta — Session Handoff`:
 
 ## Important Notes
 
-- **Handoff: append, don't overwrite** — pending items accumulate
+- **Handoff: targeted optimistic update** — replace/insert exact sections after a read; guarded archive rotation keeps open/recent items hot and closed history cold without blind append
+- **Semantic routing** — requires exactly `fact`/`insight`/`source`/`session`/`moc`, valid taxonomy targets, and the functional self-maps `session → session`, `moc → moc`
+- **One vault writer** — note, hub, and handoff updates all use the bundled JSON-stdin `vault-write.py`
 - **MOC verification** — automatically adds to MOC if missing
 - **Branch field optional** — research sessions don't have branches
 - **Ghost notes generously** — wraps projects, technologies, people in `[[wikilinks]]`

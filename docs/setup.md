@@ -56,6 +56,13 @@ Try: /mn:health
     "session": { "prefix": "Session — ", "tag": "session" },
     "moc": { "prefix": "MOC — ", "tag": "moc" }
   },
+  "taxonomy_roles": {
+    "fact": "atom",
+    "insight": "molecule",
+    "source": "source",
+    "session": "session",
+    "moc": "moc"
+  },
   "links_section": "## Связи",
   "handoff_note": "Meta — Session Handoff",
   "recall": {
@@ -72,6 +79,8 @@ Try: /mn:health
 
 Cross-runtime recall is off by default. Turning it on does not synchronize files: `ask` performs a bounded read-only lookup only after proving the same git repository. Global Claude topic files remain per-query explicit.
 
+`taxonomy_roles` is mandatory for new configs. It is the stable semantic routing layer: exactly five keys, every target names a configured taxonomy type, and the functional roles self-map as `session → session` and `moc → moc`. Legacy Atom/Molecule configs are migrated deterministically; custom/PARA mappings are confirmed instead of guessed.
+
 ## Optional: Memory Cascade
 
 Add `cascade` to config for multi-backend saves via `/mn:save`:
@@ -87,7 +96,7 @@ Add `cascade` to config for multi-backend saves via `/mn:save`:
 }
 ```
 
-Don't have claude-mem? Leave it out — save works with Obsidian alone.
+Don't have claude-mem? Leave it out — save works with Obsidian alone. `memory_dir` controls Claude auto-memory only; it never enables manual writes to Codex generated memories.
 
 ## Important Notes
 

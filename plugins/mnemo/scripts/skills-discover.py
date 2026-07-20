@@ -14,13 +14,15 @@ import re
 import sys
 from functools import lru_cache
 
-from cache_utils import atomic_write_text, cache_path, is_fresh, read_text
+from cache_utils import atomic_write_text, cache_path, configured_root, is_fresh, read_text
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover - Python < 3.11 fallback
     tomllib = None
 
 HOME = os.path.expanduser("~")
+CLAUDE_ROOT = configured_root("CLAUDE_CONFIG_DIR", ".claude")
+CODEX_ROOT = configured_root("CODEX_HOME", ".codex")
 IS_CODEX = any(
     os.environ.get(k)
     for k in (
@@ -32,13 +34,13 @@ IS_CODEX = any(
     )
 )
 CLAUDE_ONLY_ROOTS = (
-    os.path.join(HOME, ".claude/skills"),
-    os.path.join(HOME, ".claude/plugins"),
+    os.path.join(CLAUDE_ROOT, "skills"),
+    os.path.join(CLAUDE_ROOT, "plugins"),
 )
 CODEX_ONLY_ROOTS = (
-    os.path.join(HOME, ".codex/plugins/cache"),
-    os.path.join(HOME, ".codex/.tmp/marketplaces"),
-    os.path.join(HOME, ".codex/skills"),
+    os.path.join(CODEX_ROOT, "plugins/cache"),
+    os.path.join(CODEX_ROOT, ".tmp/marketplaces"),
+    os.path.join(CODEX_ROOT, "skills"),
     os.path.join(HOME, ".agents/skills"),
     "/etc/codex/skills",
 )
@@ -83,16 +85,16 @@ def project_bases() -> list[str]:
 def discovery_patterns() -> list[str]:
     patterns = [
         # Claude Code user/plugin scopes.
-        os.path.join(HOME, ".claude/skills/*/SKILL.md"),
-        os.path.join(HOME, ".claude/plugins/*/skills/*/SKILL.md"),
-        os.path.join(HOME, ".claude/plugins/cache/*/*/*/skills/*/SKILL.md"),
-        os.path.join(HOME, ".claude/plugins/marketplaces/*/plugins/*/skills/*/SKILL.md"),
+        os.path.join(CLAUDE_ROOT, "skills/*/SKILL.md"),
+        os.path.join(CLAUDE_ROOT, "plugins/*/skills/*/SKILL.md"),
+        os.path.join(CLAUDE_ROOT, "plugins/cache/*/*/*/skills/*/SKILL.md"),
+        os.path.join(CLAUDE_ROOT, "plugins/marketplaces/*/plugins/*/skills/*/SKILL.md"),
         # Codex documented and plugin scopes.
         os.path.join(HOME, ".agents/skills/*/SKILL.md"),
         "/etc/codex/skills/*/SKILL.md",
-        os.path.join(HOME, ".codex/skills/*/SKILL.md"),
-        os.path.join(HOME, ".codex/plugins/cache/*/*/*/skills/*/SKILL.md"),
-        os.path.join(HOME, ".codex/.tmp/marketplaces/*/plugins/*/skills/*/SKILL.md"),
+        os.path.join(CODEX_ROOT, "skills/*/SKILL.md"),
+        os.path.join(CODEX_ROOT, "plugins/cache/*/*/*/skills/*/SKILL.md"),
+        os.path.join(CODEX_ROOT, ".tmp/marketplaces/*/plugins/*/skills/*/SKILL.md"),
     ]
     for base in project_bases():
         patterns.extend(
@@ -110,7 +112,7 @@ def disabled_codex_plugins() -> set[str]:
     if tomllib is None:
         return set()
 
-    config_path = os.path.join(HOME, ".codex/config.toml")
+    config_path = codex_config_path()
     try:
         with open(config_path, "rb") as f:
             config = tomllib.load(f)
@@ -124,6 +126,10 @@ def disabled_codex_plugins() -> set[str]:
     return disabled
 
 
+def codex_config_path() -> str:
+    return os.path.join(CODEX_ROOT, "config.toml")
+
+
 def codex_plugin_id(path: str) -> str:
     """Map cache/temp skill paths back to plugin@marketplace ids."""
     coords = cache_coordinates(path)
@@ -133,7 +139,7 @@ def codex_plugin_id(path: str) -> str:
 
     abs_path = os.path.abspath(path)
 
-    for tmp_root in (os.path.join(HOME, ".codex/.tmp/marketplaces"),):
+    for tmp_root in (os.path.join(CODEX_ROOT, ".tmp/marketplaces"),):
         tmp_prefix = tmp_root + os.sep
         if abs_path.startswith(tmp_prefix):
             rel = abs_path[len(tmp_prefix):].split(os.sep)
@@ -144,14 +150,26 @@ def codex_plugin_id(path: str) -> str:
     return ""
 
 
-def cache_coordinates(path: str, home: str = HOME) -> tuple[str, str, str, str, str] | None:
+def runtime_roots(home: str | None = None) -> tuple[str, str]:
+    """Return Claude/Codex roots; an explicit home preserves legacy test callers."""
+    if home is None:
+        return CLAUDE_ROOT, CODEX_ROOT
+    return (
+        configured_root("CLAUDE_CONFIG_DIR", ".claude", home),
+        configured_root("CODEX_HOME", ".codex", home),
+    )
+
+
+def cache_coordinates(
+    path: str, home: str | None = None
+) -> tuple[str, str, str, str, str] | None:
     """Return runtime, marketplace, plugin, version, and version root for cache paths."""
     abs_path = os.path.abspath(path)
-    for runtime, relative_root in (
-        ("claude", ".claude/plugins/cache"),
-        ("codex", ".codex/plugins/cache"),
+    claude_root, codex_root = runtime_roots(home)
+    for runtime, cache_root in (
+        ("claude", os.path.join(claude_root, "plugins/cache")),
+        ("codex", os.path.join(codex_root, "plugins/cache")),
     ):
-        cache_root = os.path.join(home, relative_root)
         prefix = cache_root + os.sep
         if not abs_path.startswith(prefix):
             continue
@@ -164,9 +182,7 @@ def cache_coordinates(path: str, home: str = HOME) -> tuple[str, str, str, str, 
     return None
 
 
-def select_current_cache_paths(
-    paths: list[str], home: str = HOME
-) -> list[str]:
+def select_current_cache_paths(paths: list[str], home: str | None = None) -> list[str]:
     """Keep one newest cache generation per plugin."""
     grouped: dict[tuple[str, str, str], dict[str, list[str]]] = {}
     passthrough: list[str] = []
@@ -234,7 +250,7 @@ def local_plugin_names(paths: list[str]) -> set[str]:
     return names
 
 
-def plugin_package_name(path: str, home: str = HOME) -> str:
+def plugin_package_name(path: str, home: str | None = None) -> str:
     """Return the marketplace/repo plugin folder name for a skill path."""
     coords = cache_coordinates(path, home)
     if coords:
@@ -242,10 +258,11 @@ def plugin_package_name(path: str, home: str = HOME) -> str:
 
     abs_path = os.path.abspath(path)
     repo_plugins = os.path.join(project_root(), "plugins")
+    claude_root, codex_root = runtime_roots(home)
     roots = (
         repo_plugins,
-        os.path.join(home, ".codex/.tmp/marketplaces"),
-        os.path.join(home, ".claude/plugins/marketplaces"),
+        os.path.join(codex_root, ".tmp/marketplaces"),
+        os.path.join(claude_root, "plugins/marketplaces"),
     )
     for root in roots:
         prefix = root + os.sep
@@ -262,6 +279,19 @@ def plugin_package_name(path: str, home: str = HOME) -> str:
 def is_repo_local_plugin(path: str) -> bool:
     plugins_root = os.path.join(project_root(), "plugins") + os.sep
     return os.path.abspath(path).startswith(plugins_root)
+
+
+def is_codex_user_skill(path: str) -> bool:
+    """Recognize Codex user-scope skills without assuming a `.codex` dirname."""
+    candidate = os.path.realpath(path)
+    roots = (
+        os.path.join(CODEX_ROOT, "skills"),
+        os.path.join(HOME, ".agents/skills"),
+    )
+    return any(
+        candidate.startswith(os.path.realpath(root) + os.sep)
+        for root in roots
+    )
 
 
 def skip_for_runtime(path: str) -> bool:
@@ -319,10 +349,8 @@ def discover() -> list[str]:
         desc = desc_m.group(1).strip()[:100] if desc_m else ""
 
         plugin = plugin_namespace(path)
-        if not plugin:
-            parts = path.replace(HOME, "~").split("/")
-            if ".agents" in parts or ".codex" in parts:
-                plugin = "user"
+        if not plugin and is_codex_user_skill(path):
+            plugin = "user"
 
         qualified = f"{plugin}:{name}" if plugin else name
         if qualified not in seen_qualified:

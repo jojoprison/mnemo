@@ -1,10 +1,10 @@
 ---
-type: session
-tags: [session, {project}, {topics}]
+type: {session_type}
+tags: [{session_tag}, {topic_tags}]
 date: {YYYY-MM-DD}
 branch: {branch-name if exists}
 project: {project-name}
-session_id: {CLAUDE_SESSION_ID}
+session_id: {session_id}
 ---
 
 # {Session Title}
@@ -33,6 +33,6 @@ session_id: {CLAUDE_SESSION_ID}
 
 {links_section}
 
-- [[MOC — {relevant MOC}]]
+- [[{mapped_moc_note}]]
 - [[Related Note 1]]
 - [[Ghost wikilinks for entities mentioned]]

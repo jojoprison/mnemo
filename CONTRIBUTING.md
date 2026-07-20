@@ -20,7 +20,7 @@ The directory and `name` must match and use lowercase letters, digits, and singl
    - **Workflow** — step-by-step with exact CLI commands
    - **Gotchas** — real failure points, edge cases
 
-4. Config fields: use `{vault}`, `{links_section}`, `{taxonomy.*}` placeholders — never hardcode values.
+4. Config fields: use `{vault}`, `{links_section}`, and semantic `taxonomy_roles` lookups — never hardcode built-in type keys. Resolve a role to a `taxonomy` entry, then use that entry's prefix/tag.
 
 5. Add `agents/openai.yaml`, update README.md in English, Russian, and Chinese, and extend the structural checks in `scripts/lint-skills.py`.
 
@@ -30,16 +30,20 @@ The directory and `name` must match and use lowercase letters, digits, and singl
    python3 scripts/lint-skills.py
    python3 scripts/test-runtime-compat.py
    python3 scripts/test-runtime-memory.py
+   python3 scripts/test-runtime-homes.py
+   python3 scripts/test-vault-write.py
+   python3 scripts/test-skill-write-contracts.py
    python3 scripts/test-handoff-archive.py
+   MNEMO_REQUIRE_RUNTIME_LOADERS=1 python3 scripts/test-fresh-install.py
    claude plugin validate plugins/mnemo --strict
    python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
    ```
 
-   The CI job installs the tested Claude Code loader and sets `MNEMO_REQUIRE_CLAUDE_LOADER=1`, making the isolated real-loader test mandatory. Release workstations must run the same test without a skip; the schema validator alone does not detect duplicate paths between Claude's default component discovery and manifest-listed additions.
+   CI pins and installs both tested runtime loaders, makes the isolated compatibility/fresh-install checks mandatory, and runs the writer/security suites. Release workstations must use the same strict gate; schema validation alone does not detect loader composition or packaging failures.
 
 ## Skill Design Principles
 
-- **CLI-first for reads, shell-free for values** — indexed reads/search/orphans/backlinks run through `scripts/safe-read.py`, which invokes the CLI with argv (`shell=False`); use MCP (`mcp__obsidian__create` / `str_replace`) for markdown writes
+- **Bundled adapters for every vault operation** — indexed reads/search/orphans/backlinks run through `scripts/safe-read.py`, which invokes the CLI with argv (`shell=False`); all Markdown writes use `scripts/vault-write.py` with JSON stdin and optimistic atomic guards
 - **Non-destructive** — report and suggest, never auto-delete
 - **Config-driven** — all user-specific values in `~/.mnemo/config.json`
 - **Description = trigger** — write as "Use when [situation]", not "This skill does [function]"
@@ -49,10 +53,11 @@ The directory and `name` must match and use lowercase letters, digits, and singl
 
 To support a new note taxonomy (beyond Zettelkasten/PARA):
 
-1. Define type names, prefixes, and tags in `config.example.json`
-2. Ensure all skills read from `config.taxonomy` instead of hardcoding
-3. Add the taxonomy option to `setup` Step 3
-4. Document in README under "Custom Taxonomy"
+1. Define type names, prefixes, and tags in `config.example.json`; retain functional `session` and `moc` entries
+2. Define the exact five-key `taxonomy_roles` map; `session` and `moc` self-map, while `fact`/`insight`/`source` may share a destination
+3. Ensure every skill resolves semantic roles through `taxonomy_roles` before reading `config.taxonomy`; never consume built-in type keys directly
+4. Add the taxonomy option to `setup` Step 3 and extend the role-map regression tests
+5. Document a copy/paste-safe config in all README languages
 
 ## Reporting Issues
 

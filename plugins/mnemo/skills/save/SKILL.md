@@ -1,6 +1,6 @@
 ---
 name: save
-description: "Use right after something worth keeping appears — you solved a tricky bug, made a non-obvious decision, or hit a gotcha — proactively, without being asked, so a future session doesn't relearn it. Also when the user says 'remember this', 'save this', 'запомни', 'запоминай', 'сохрани', 'сохрани в память', 'сохрани в обсидиан', 'сохрани в базу знаний', 'помни', 'отложи в память', 'в мнемо', or similar. Routes a recall item to Obsidian + optional claude-mem + the active runtime's local memory, or an actionable never-X / always-Y rule to runtime-native project instructions, with graceful degradation if a backend is down."
+description: "Use right after something worth keeping appears — you solved a tricky bug, made a non-obvious decision, or hit a gotcha — proactively, without being asked, so a future session doesn't relearn it. Also when the user says 'remember this', 'save this', 'запомни', 'запоминай', 'сохрани', 'сохрани в память', 'сохрани в обсидиан', 'сохрани в базу знаний', 'помни', 'отложи в память', 'в мнемо', or similar. Routes recall to the configured Obsidian taxonomy, optional claude-mem, and Claude auto memory when appropriate; Codex memories remain generated read-only state. Actionable never-X / always-Y rules keep the existing project-instruction routing."
 model: inherit
 ---
 
@@ -32,11 +32,11 @@ Then determine what type of information is being saved:
 
 | Type | Goes to | Example |
 |------|---------|---------|
-| **fact** | Obsidian Atom + optional claude-mem | "Heroku standard-0 has 25 auto-backups" |
-| **insight** | Obsidian Molecule + optional claude-mem | "CLI-first is 70,000x cheaper because of token savings" |
-| **decision** | Obsidian Atom + optional claude-mem + memory/ | "We chose SCOPE over TextGrad for self-correction" |
-| **gotcha** | Obsidian Atom + memory/ + possibly CLAUDE.md | "execSync with shell=true is banned in antomate" |
-| **source** | Obsidian Source + optional claude-mem | External article, tool, research finding |
+| **fact** | Obsidian `taxonomy_roles.fact` + optional claude-mem | "Heroku standard-0 has 25 auto-backups" |
+| **insight** | Obsidian `taxonomy_roles.insight` + optional claude-mem | "CLI-first is 70,000x cheaper because of token savings" |
+| **decision** | Obsidian `taxonomy_roles.fact` + optional claude-mem + Claude auto memory when error-preventing | "We chose SCOPE over TextGrad for self-correction" |
+| **gotcha** | Obsidian `taxonomy_roles.fact` + Claude auto memory + possibly CLAUDE.md | "execSync with shell=true is banned in antomate" |
+| **source** | Obsidian `taxonomy_roles.source` + optional claude-mem | External article, tool, research finding |
 | **actionable rule** | `.claude/rules/<domain>.md` (auto-inject, path-scoped) — Step 3.5 only | "After touching `sign_epl.py`, always gate the Kontur call on the flag" |
 
 > **Recall vs actionable rule — the fork this cascade turns on.** A *recall* item (fact / insight / decision / source) answers "what / why" and is **fetched on demand**. An *actionable rule* — "never do X / always do Y" tied to specific code — must **auto-surface** when a future agent opens the relevant file, *before* it repeats the mistake. Its home is `.claude/rules/` (native path-scoped auto-load, Step 3.5), **not** recall memory. Most saves are recall; route to `.claude/rules/` only when the rule would have prevented an error by appearing at the right moment.
@@ -47,6 +47,8 @@ Then determine what type of information is being saved:
 
 **Skip if:** `cascade.obsidian.enabled` is false, or Obsidian CLI returns "Unable to connect"
 
+Validate the role map before naming the note: its key set must be exactly `fact`, `insight`, `source`, `session`, and `moc`; every target must name an entry in `config.taxonomy`; and the functional roles must self-map as `session → session` and `moc → moc`. Then resolve `fact`/`decision`/`gotcha` through `taxonomy_roles.fact`, `insight` through `taxonomy_roles.insight`, and `source` through `taxonomy_roles.source`, using the mapped entry's `prefix` and `tag` for the filename/frontmatter. If the role map is absent and all five legacy Zettelkasten taxonomy keys exist, use the documented deterministic fallback. Otherwise stop this backend and offer `setup` — never infer routing from a human-facing prefix.
+
 ```bash
 python3 "<mnemo-root>/scripts/safe-read.py" search <<'JSON'
 {"query":"{key words}","vault":"{vault}"}
@@ -55,52 +57,35 @@ JSON
 
 If duplicate found → ask: update existing or create new?
 
-**Create note — MCP (shell-safe for markdown with code blocks):**
+**Create through the bundled JSON-stdin writer (both runtimes):**
 
-```
-mcp__obsidian__create(
-  path: "{type_prefix}{descriptive title}.md",
-  file_text: """---
-type: {type}
-tags: [{type}, {topic_tags}]
-date: {YYYY-MM-DD}
-source: "{where this came from}"
----
-
-# {type_prefix}{title}
-
-{content}
-
-{links_section}
-- [[{relevant MOC}]]
-- [[{ghost notes for entities}]]
-"""
-)
+```bash
+python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+{"action":"create","vault":"{vault}","note":"{mapped_prefix}{descriptive title}","content":"{one JSON-escaped Markdown string containing frontmatter, body, and links}"}
+JSON
 ```
 
-**Why MCP:** content may contain code blocks with backticks or `$(...)` — CLI `obsidian create content="..."` would trigger zsh command substitution. See `<mnemo-root>/references/tool-routing.md` for the full rule.
+The Markdown string contains `type: {mapped taxonomy key}`, the mapped configured tag, date/source, body, `{links_section}`, a mapped `moc` link, and useful ghost links. Serialize it as JSON data; do not interpolate it into `obsidian create/append`. The helper discovers the vault via argv-only CLI, then performs a contained atomic create. Backticks, quotes, and `$(...)` remain inert data. A conflict means another writer created the note — re-read instead of overwriting.
 
 **Note quality rules** (details + tables in `<mnemo-root>/references/tool-routing.md`):
 - **Naming:** never `#` / `.` / `/` / `.md` in the title — they break wikilinks (`#`→heading anchor) or the CLI (`.`→truncation). Sanitize before `create`. Use `—` or space.
-- **Atom title = a statement, not a topic** (Matuschak «title as API» / Умэсао): `Atom — Redis fail-open keeps reads alive when cache is down`, NOT `Atom — Redis`.
-- **Molecule = non-trivial synthesis** of ≥2 atoms (new insight not in either alone), not "linked two notes."
-- **Molecule handed off with `cites:` (e.g. from `/mn:ask` compounding):** when the caller passes `type: molecule` plus a `cites:` source list and a pre-built `{links_section}`, write `cites: [{sources}]` into frontmatter (right after `date:`) and use the caller's links block verbatim instead of generating a bare MOC link.
+- **Fact-role title = a statement, not a topic** (Matuschak «title as API» / Умэсао): `{fact_prefix}Redis fail-open keeps reads alive when cache is down`, NOT `{fact_prefix}Redis`.
+- **Insight-role note = non-trivial synthesis** of ≥2 facts (new insight not present in either alone), not "linked two notes."
+- **Insight handed off with `cites:` (e.g. from `/mn:ask` compounding):** when the caller passes an insight plus a `cites:` source list and a pre-built `{links_section}`, write `cites: [{sources}]` into frontmatter (right after `date:`) and use the caller's links block verbatim instead of generating a bare hub link.
 - **Two link layers:** inline with context in the body («contradicts [[X]]», «builds on [[Y]]») + `{links_section}` for MOC/nav. A bare link without context is noise.
-- **Short project names** (`[[Diadoc]]`, `[[BTS Holding]]`) need a **hub note** — Obsidian doesn't resolve bare links via alias (by design). If `[[ShortName]]` is referenced and no `ShortName.md` exists, create it: a one-liner redirecting to `[[MOC — …]]`.
+- **Short project names** (`[[Diadoc]]`, `[[BTS Holding]]`) need a **hub note** — Obsidian doesn't resolve bare links via alias (by design). If `[[ShortName]]` is referenced and no `ShortName.md` exists, create it: a one-liner redirecting to the note type mapped by `taxonomy_roles.moc`.
 - **Staleness is type-driven, not stamped here.** The `date` you write *is* the review anchor — `health` derives review cadence from the note's `type` (config `review.staleDays`), so you don't add a review date. **Exception:** for a fast-rotting fact (a volatile API quirk, a "current as of" price) add an optional `ttl: <days>` to the frontmatter to age it faster than its type default. Don't add `reviewed:` — that's the snooze health/the user stamps later. See `<mnemo-root>/references/config-schema.md` → "Optional per-note frontmatter".
 - **Load-bearing `[[links]]` go OUTSIDE code fences** — a wikilink inside a ` ``` ` block is NOT parsed into the graph (by design), so it's silently lost to backlinks. Agents emit code blocks constantly — keep navigable links in prose. Full vault conventions (Bases-first computed indexes, schema self-policing, concurrent-edit safety): `<mnemo-root>/references/vault-conventions.md`.
 
-**Add to MOC — MCP `str_replace` for a targeted insert:**
+**Add to the mapped hub with an optimistic targeted insert:**
 
-```
-mcp__obsidian__str_replace(
-  path: "{MOC}.md",
-  old_str: "{stable anchor line near list}",
-  new_str: "{same anchor}\n- [[{note name}]]"
-)
+```bash
+python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
+{"action":"insert","vault":"{vault}","note":"{mapped hub note}","anchor":"{unique stable anchor copied from safe-read}","position":"after","content":"\n- [[{note name}]] — {why it belongs here}"}
+JSON
 ```
 
-There is no inline CLI write fallback. Even a plain-looking dynamic wikilink can contain a quote that escapes `content="..."` and turns the rest into shell syntax. If MCP is unavailable, log the skipped MOC update and continue; never interpolate a generated note name into a shell command.
+If the anchor is missing/non-unique or the note changes during publication, the helper fails closed; re-read and retry. Never fall back to inline CLI content.
 
 **On error:** Log `⚠️ Obsidian: skipped (not connected)`, continue to next backend.
 
@@ -128,29 +113,27 @@ JSON
 
 **On error:** Log `⚠️ claude-mem: skipped (port {port} not responding)`, continue. Do not start ChromaDB or the claude-mem worker automatically.
 
-### Step 3: Runtime Memory (coding-agent error prevention)
+### Step 3: Runtime-owned memory (Claude write; Codex read-only)
 
 **Skip if:** `cascade.memory_dir.enabled` is false — **or this is an actionable rule** (it goes to Step 3.5; `.claude/rules/` supersedes a memory/ copy, never write both).
 
-Only write here if the information **prevents the coding agent from making errors** in future sessions **and is not an actionable rule**:
+Only consider this layer if the information **prevents the coding agent from making errors** in future sessions **and is not an actionable rule**:
 - Gotchas, commands, conventions
 - NOT business context (that's Obsidian's job)
 
-**Path resolution:**
-- Claude Code: `~/.claude/projects/-{slugified-cwd}/memory/`, **not** `./memory/` in the project root.
-- Codex: `~/.codex/memories/`.
+**Claude Code:** write only to the active auto-memory directory already exposed by Claude. Honor `${CLAUDE_CONFIG_DIR:-~/.claude}/settings.json` → `autoMemoryDirectory`; otherwise use the repository-derived `projects/<project>/memory/` location. If `autoMemoryEnabled` or `CLAUDE_CODE_DISABLE_AUTO_MEMORY` disables it, skip. Never write `./memory/` in the repo.
 
-Find the correct Claude path by reading the `MEMORY.md` already loaded in the conversation context when available. Use `~/.claude/memory/` only for cross-project Claude rules. See `<mnemo-root>/references/gotchas.md` for why this matters.
+**Codex:** skip this write. `${CODEX_HOME:-~/.codex}/memories/` is generated state owned by Codex; it may be inspected/read for recall, but mnemo must not create, edit, append, or maintain its index manually. Obsidian is the durable user-authored save surface in Codex.
 
 **How to write — keep the index lean (autodream discipline):**
 
-`memory/` is two layers: **topic files** (the detail) + **`MEMORY.md`** (a lean index — a table `| File | Read when… |`, one short "Read when…" row of recall triggers per topic, ≤~200 chars). Never dump prose into `MEMORY.md` — a bloated index gets **truncated on load** and old entries become invisible to Claude.
+Claude auto memory is two layers: **topic files** (the detail) + **`MEMORY.md`** (a lean index — a table `| File | Read when… |`, one short "Read when…" row of recall triggers per topic, ≤~200 chars). Never dump prose into `MEMORY.md` — a bloated index gets truncated on load and old entries become invisible.
 
 1. Write the detail to a **topic file** (`{topic}.md`) — create or update it.
 2. Add/refresh **one thin index row** in `MEMORY.md` pointing to it (link + "Read when…" triggers: names / IDs / PR# / domain terms). Never a paragraph.
 3. If `MEMORY.md` links a **`MEMORY-archive-index.md`** at the top, aged/older rows live there — add aged rows there (not the lean index) and read it when recalling old context.
 
-The index is periodically re-slimmed by **autodream** (memory consolidation). Full 4-phase procedure + no-loss rules: `~/.claude/memory/autodream-principles.md`.
+The index is periodically re-slimmed by **autodream** (memory consolidation). Resolve that cross-project guide under `${CLAUDE_CONFIG_DIR:-~/.claude}/memory/autodream-principles.md`.
 
 **On error:** Log `⚠️ memory/: skipped (directory not found)`, continue.
 
@@ -212,12 +195,12 @@ This is almost never needed. Most things go to Obsidian + claude-mem. **For any 
 💾 Memory saved:
 
 Content: "{short summary}"
-Type: {atom/molecule/source/decision/gotcha/actionable rule}
+Type: {semantic type} → taxonomy `{mapped type key}`
 
 Backends:
-  1. Obsidian   ✅ → "Atom — {title}" in MOC — {name}
+  1. Obsidian   ✅ → "{mapped prefix}{title}" in {mapped hub name}
   2. claude-mem ⏭  skipped (disabled)
-  3. memory/    ⏭  skipped (not error-preventing)
+  3. runtime memory ⏭  {Claude: skipped/not error-preventing | Codex: read-only generated state}
   3.5 .claude/rules ⏭  skipped (recall item, not an actionable rule)
   4. CLAUDE.md  ⏭  skipped (not critical rule)
 ```
@@ -233,7 +216,7 @@ Type: actionable rule
 Backends:
   1. Obsidian   ⏭  skipped (rule, not recall)
   2. claude-mem ⏭  skipped (rule, not recall)
-  3. memory/    ⏭  skipped (rule → .claude/rules supersedes a memory/ copy)
+  3. runtime memory ⏭  skipped (rule → .claude/rules supersedes a memory copy)
   3.5 .claude/rules ✅ → .claude/rules/te5-frontend.md (path-scoped) — appended
   4. CLAUDE.md  ⏭  skipped (Step 3.5 handled it)
 ```
@@ -245,7 +228,7 @@ Or with failures:
 
   1. Obsidian  ⚠️ skipped (not connected — restart Obsidian)
   2. claude-mem ⏭  skipped (disabled)
-  3. memory/   ✅ → ~/.claude/memory/topic.md updated
+  3. Claude auto memory ✅ → {active auto-memory directory}/topic.md updated
 
 ⚠️ Restart Obsidian, then run this `save` skill again (`/mn:save` in Claude Code, `$mnemo:save` in Codex) to complete sync.
 ```
@@ -254,29 +237,29 @@ Or with failures:
 
 ## Decision Matrix
 
-| Information type | Obsidian | claude-mem | memory/ | .claude/rules/ | CLAUDE.md |
-|-----------------|----------|-----------|---------|----------------|-----------|
-| Fact (atomic) | ✅ Atom | Optional | ❌ | ❌ | ❌ |
-| Insight (synthesized) | ✅ Molecule | Optional | ❌ | ❌ | ❌ |
-| External source | ✅ Source | Optional | ❌ | ❌ | ❌ |
-| Decision | ✅ Atom | Optional | ✅ if prevents errors | ❌ | ❌ |
-| Gotcha | ✅ Atom | ✅ | ✅ | ❌ (path-scoped + code-tied → classify as rule, row below) | rare |
-| Command/convention | ✅ Atom | ✅ | ✅ | ❌ | ❌ |
-| Actionable path-scoped rule | ❌ | ❌ | ❌ | ✅ **primary** | ⚠️ fallback only |
+| Information type | Obsidian | claude-mem | Claude auto memory | Codex generated memory | .claude/rules/ | CLAUDE.md |
+|-----------------|----------|-----------|--------------------|------------------------|----------------|-----------|
+| Fact (atomic) | ✅ mapped fact role | Optional | ❌ | read-only | ❌ | ❌ |
+| Insight (synthesized) | ✅ mapped insight role | Optional | ❌ | read-only | ❌ | ❌ |
+| External source | ✅ mapped source role | Optional | ❌ | read-only | ❌ | ❌ |
+| Decision | ✅ mapped fact role | Optional | ✅ if prevents errors | read-only | ❌ | ❌ |
+| Gotcha | ✅ mapped fact role | ✅ | ✅ | read-only | ❌ (path-scoped + code-tied → classify as rule, row below) | rare |
+| Command/convention | ✅ mapped fact role | ✅ | ✅ | read-only | ❌ | ❌ |
+| Actionable path-scoped rule | ❌ | ❌ | ❌ | read-only | ✅ **primary** | ⚠️ fallback only |
 
 ## Gotchas
 
 Common failures in `<mnemo-root>/references/gotchas.md`. Tool-routing rationale in `<mnemo-root>/references/tool-routing.md`. Skill-specific rules:
 
 - **Graceful degradation is the point** — never fail completely. If Obsidian IPC is hung, skip it and save to enabled fallback backends. The user can retry when Obsidian recovers.
-- **Don't duplicate Obsidian content in memory/** — different audiences. Obsidian is for the user (cite-able, searchable in vault); memory/ is for Claude (error prevention across sessions).
+- **Don't duplicate Obsidian content in Claude auto memory** — different audiences. Obsidian is for the user (cite-able, searchable in vault); Claude auto memory is only for error prevention. Codex memory is never a manual write target.
 - **claude-mem is optional** — many users won't have it running on :37777. Skip silently, don't warn.
 - **CLAUDE.md is almost never written to** — only 1-2 line rules that prevent actual errors. Target: <120 lines total to preserve prompt budget.
 - **Recall vs actionable rule is the routing fork (Step 3.5)** — recall ("what / why") is fetched on demand; an actionable rule ("never X / always Y" tied to code) must auto-surface when the agent opens the file. Misrouting a rule into recall = it never fires when it matters. Misrouting recall into `.claude/rules/` = idle context bloat. When unsure, ask "would this have *prevented* an error by appearing at the right file?"
 - **`.claude/rules/` ≠ CLAUDE.md** — native path-scoped auto-load. `paths:` is the load trigger (not `description:`); no `paths:` = always-on. A new rule **creates** the `<domain>.md` (and the dir) when none matches — don't wedge it into an unrelated file. Verify the YAML: a broken-indent `paths:` entry silently drops the whole file from loading.
-- **`.claude/rules/` files live outside the vault** — like `memory/` files, never `[[wikilink]]` them and never write them via the Obsidian CLI/MCP. Plain `Write`/`Edit`.
+- **`.claude/rules/` files live outside the vault** — like runtime memory files, never `[[wikilink]]` them and never write them via the Obsidian CLI/writer. Plain `Write`/`Edit`.
 - **Codex is blind to `.claude/rules/`** — it reads only `AGENTS.md` (nested, 32 KiB silent-truncate). For a repo with Codex devs, route the critical rule into the AGENTS.md build-step (or by hand) too, and keep `wc -c AGENTS.md < 32768`.
 - **Always check duplicates** before creating Obsidian notes — clobbering a note silently is worse than any write latency.
 - **Ghost notes generously** — wrap entities in `[[wikilinks]]` even when the target doesn't exist yet. Enables future entity discovery.
-- **Never `[[wikilink]]` a memory/ file — use inline code** — `memory/` files (`feedback-*.md`, `reference-*.md`, etc.) and project files (`CLAUDE.md`, `AGENTS.md`) live **outside** the Obsidian vault graph. Writing `[[memory/foo]]` or `[[foo.md]]` from a note creates a permanent unresolved link (a phantom ghost that pollutes `orphans`/`unresolved` reports forever). Reference them as `` `memory/foo.md` `` instead. If the memory file has a real vault counterpart (a MOC or Atom on the same topic), link THAT note — it strengthens the graph instead of dangling. See `<mnemo-root>/references/tool-routing.md`.
-- **MOC link mandatory** for typed Obsidian notes (Atom/Molecule/Source/Session).
+- **Never `[[wikilink]]` a runtime-memory file — use inline code** — runtime memory and project files (`CLAUDE.md`, `AGENTS.md`) live **outside** the Obsidian vault graph. A wikilink to them becomes a permanent unresolved ghost. If a real vault counterpart exists, link that mapped taxonomy note instead.
+- **Mapped hub link mandatory** for every typed Obsidian note.
