@@ -123,6 +123,23 @@ class ReviewFullContractTests(unittest.TestCase):
         self.assertIn("never add a link here", review)
         self.assertIn("memory-not-CI", review)        # prod/e2e reported, never run
 
+    def test_auto_connect_is_opt_in_and_standalone_never_auto_applies(self) -> None:
+        review = skill("review")
+        connect = skill("connect")
+        schema = (REPO_ROOT / "plugins/mnemo/references/config-schema.md").read_text()
+        # v1.2.10 flag: documented in review, connect, and the schema, and default-off.
+        self.assertIn("review.full.autoConnect", review)
+        self.assertIn("review.full.autoConnect", connect)
+        self.assertIn("review.full.autoConnect", schema)
+        self.assertIn('"full": { "autoConnect": false }', schema)  # default off in the sample schema
+        # connect gained an auto-apply mode gated on the --full directive...
+        self.assertIn("Auto-apply mode", connect)
+        self.assertIn("auto-apply directive", connect)
+        # ...but the standalone path still never auto-applies.
+        self.assertIn("Never auto-apply on the standalone path", connect)
+        # review's chain step reads the flag; the verify pass still never links.
+        self.assertIn("auto-applies only under the opt-in flag", review)
+
     def test_depth_contract_routes_mental_model_to_save_not_narrative(self) -> None:
         contract = (REPO_ROOT / "plugins/mnemo/references/depth-contract.md").read_text()
         self.assertIn("one kind → one home", contract)

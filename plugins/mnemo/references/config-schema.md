@@ -69,6 +69,7 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
   },
 
   "review": {
+    "full": { "autoConnect": false },
     "staleDays": {
       "default": 30,
       "atom": 60,
@@ -98,7 +99,7 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
 }
 ```
 
-The whole `review` section is **optional** — if absent, `health` falls back to a uniform 30-day staleness threshold (the legacy behavior) and the content-lint pass stays off. Add it only when you want type-aware cadence or the LLM lint.
+The whole `review` section is **optional** — if absent, `health` falls back to a uniform 30-day staleness threshold (the legacy behavior), the content-lint pass stays off, and `review.full.autoConnect` defaults to **false** so `review --full`'s connect step stays suggest-only. Add it only when you want type-aware cadence, the LLM lint, or one-command auto-linking.
 
 The `recall` section is optional and ships off. `recall.codeGraph` (default `null`) is a seam for `/mn:ask` Step 4c: set it to a code-knowledge-graph backend you have installed — `"graphify"` (reads its `graph.json` / `GRAPH_REPORT.md`) or an MCP server (`"sourcegraph"` / `"ast-grep"` / `"tree-sitter-analyzer"`) — and recall gains structural "what's where" context. With no backend it's a no-op. (The project-repo **git-log** grounding in Step 4c runs regardless whenever `/mn:ask` is invoked inside a git project — it needs no config.)
 
@@ -133,6 +134,7 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `memory.indexWarnKB` | Early loaded-content byte warning for Claude `MEMORY.md`. Current loader limits are 200 lines or 25,000 bytes after stripping leading YAML frontmatter and block-level HTML comments; health always reports either hard-limit breach independently of this threshold. Default **22** | health |
 | `handoff.maxKB` | Size ceiling (KB) before `vault-write.py archive-handoff` rotates CLOSED old blocks into `<handoff_note> Archive` (cold). The handoff is a live index, not a store; un-rotated it becomes a token bomb read every session. Default **40** | session |
 | `handoff.keepDays` | Blocks newer than this stay hot regardless of status; older **and** closed (no open `- [ ]`) move to the archive. Default **14** | session |
+| `review.full.autoConnect` | In `review --full`, the internal `connect` step **applies** its link suggestions without a per-suggestion prompt instead of only showing them (connect Step 5.5, review Step 9A). The user typing `--full` **and** setting this flag is the consent — mirroring `review.lint.autoStampReviewed`, the opt-in that lets a skill write. A standalone `/mn:connect` is unaffected and never auto-applies. Default **false** (non-destructive default; connect stays suggest-only for everyone who doesn't opt in) | review, connect |
 | `review.staleDays.default` | Days before a note becomes a review candidate when its type has no specific entry. Default **30**. (`review.staleDays` may also be a bare integer — a single uniform threshold for every type.) | health |
 | `review.staleDays.{type}` | Per-type staleness cadence (key = a taxonomy `type` you actually use: `atom`/`molecule`/`source`/`session`/`moc`). A fast-moving fact ages quicker than an architectural decision | health |
 | `review.lint.enabled` | Run the content-lint deep pass (LLM re-reads candidates, emits still-valid/update-needed/contradicts verdicts). Default **false** — it reads note bodies and costs tokens | health |

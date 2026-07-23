@@ -96,9 +96,15 @@ Apply these? (y/N, or pick numbers: 1,3)
 
 Links are applied **with their one-line context** (the «Why»), not as bare `[[wikilinks]]` (Luhmann: state why you linked).
 
+### Step 5.5: Auto-apply mode (the `review --full` chain only)
+
+**Fires only when the invoking payload carries an explicit auto-apply directive** — the `review --full` chain sends one after reading `review.full.autoConnect: true` from `~/.mnemo/config.json` (see `<mnemo-root>/references/config-schema.md`). A standalone `/mn:connect` / `$mnemo:connect` — anything a user typed, or any invocation without that directive — **never** auto-applies; it renders Step 5 and waits. This is the same shape as the other `--full` writes: the user opting into `--full` *and* flipping the config flag is the consent, exactly as `review.lint.autoStampReviewed` gates the one write `health` makes.
+
+When the directive is present, skip the Step 5 confirmation prompt and go straight to **Step 6** for the ranked, deduplicated, backlink-excluded suggestions this run produced — then report every link written (tension links included and clearly marked) so nothing is applied invisibly. The suggestions are still the same high-quality set (max 5-7, meaningful-not-generic, orphans excluded); auto-apply removes the keystroke, not the quality bar. If the config flag is off, or the directive is absent, this step does not run — fall through to Step 5.
+
 ### Step 6: Apply on Confirmation
 
-If user confirms:
+If the user confirms (Step 5) — or auto-apply mode is active (Step 5.5):
 1. Read the target again, choose one unique stable anchor in `{links_section}`, then add new links **with a one-line context** (Luhmann — state why connected): `- [[Name]] — {why, ≤10 words}`, not a bare `[[Name]]`. Tension links get the marker: `- [[Name]] #contradiction — {what disagrees}`.
 2. Apply the confirmed block through the bundled writer:
 
@@ -133,4 +139,4 @@ Common failures in `<mnemo-root>/references/gotchas.md`. Tool-routing rationale 
 - **Don't suggest links to orphan notes** — they need their own fixing first (run `/mn:health` if interested).
 - **Ghost notes are normal** — `[[Technology]]` pointing to a non-existent note enables entity discovery. Not "unresolved" in the bad sense.
 - **Avoid generic connections** — "both mention Claude" is noise. A connection is meaningful if it shares a concept, approach, or unresolved question.
-- **Never auto-apply** — always ask the user before writing new wikilinks.
+- **Never auto-apply on the standalone path** — a user-typed `/mn:connect` / `$mnemo:connect`, or any invocation without the explicit `review --full` auto-apply directive, always asks before writing new wikilinks (Step 5). The **only** exception is Step 5.5: the `review --full` chain with `review.full.autoConnect: true` — there the user opted into `--full` and flipped the config flag, so the links apply without a per-suggestion `y` and every write is reported. Default config keeps the flag off, so the default connect behavior is unchanged.
