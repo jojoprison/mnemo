@@ -252,7 +252,7 @@ Codex: read `<mnemo-root>/skills/save/SKILL.md` completely, then follow it with 
 1. **save** — persist the Step 7 candidates (decisions, findings, and any `principle` / `pain` / `stance` material routed by `depth-contract.md` into typed atoms, never the narrative). Actionable rules still route to `.claude/rules/` (save Step 3.5).
 2. **session** — write the single narrative note + handoff (never a duplicate of today's).
 3. **[focus / extras]** — apply any focus text left in the invocation after `--full` (Step 0 item 6) here, between session and connect.
-4. **connect** — discover genuine links on the notes just parked, including non-obvious ones; suggest-only, never auto-applied.
+4. **connect** — discover genuine links on the notes just parked, including non-obvious ones. Read `review.full.autoConnect` from `~/.mnemo/config.json` (default **false**): when **true**, delegate to `connect` with an explicit **auto-apply directive** so it writes the links without a per-suggestion prompt (connect Step 5.5) and reports every write; when **false/absent**, delegate **suggest-only** (connect renders its Step 5 offer and stops — the v1.2.8 default, unchanged). The user typing `--full` *and* setting the flag is the consent; a standalone `/mn:connect` never auto-applies regardless of the flag. Discover genuinely — including non-obvious links — never manufacture links to hit a count.
 
 `health` is **excluded** — heavy and manual; surface it as a recommendation in the report, don't run it. Recommendations flow **down** from this audit into the chain; `connect` never reaches back up to re-drive the list.
 
@@ -284,5 +284,6 @@ All-green → "🏛 palace in order". Otherwise emit the residual-gap list (advi
 - **`--full` = consent, not autorun** — the explicit flag chains save → session → connect without per-skill `y`; plain `/mn:review` still never auto-runs (v0.16.0 intact). Only the user typing `--full` triggers the chain
 - **`health` stays manual** — never in the `--full` chain (heavy); recommend it, don't run it
 - **Verify grounds externally, never self-grades** — every Step 9 check cites git / orphans / `session-scan.py` / the Step-0 snapshot, never the agent's own assertion
-- **Verify never links** — an orphan is delegated to `connect`; Step 9 adds no link itself, and link *count* is never a green signal
+- **Verify never links** — an orphan is delegated to `connect`; the Step 9 **verify** pass adds no link itself, and link *count* is never a green signal
+- **`connect` auto-applies only under the opt-in flag** — the Step 9A **chain** step (distinct from the verify pass above) writes links without a prompt only when `review.full.autoConnect: true` (default false); otherwise it stays suggest-only, and a standalone `/mn:connect` never auto-applies regardless of the flag
 - **memory-not-CI** — `--full` REPORTS a missing prod/e2e verification as a gap; it never runs tests, hits prod, or fires a trigger

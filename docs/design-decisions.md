@@ -9,7 +9,7 @@ Why mnemo is shaped the way it is, and which tempting features it deliberately d
 Three consequences:
 
 - **Human-authored** — the atomic claims are written by you (or by the agent, in-conversation, on your behalf). mnemo does not generate vault content from a document corpus. The agent "was there" when the insight happened and pins the discrete claim. Contrast: an LLM that ingests a folder of PDFs and auto-explodes them into pages.
-- **Non-destructive** — skills report and suggest; they never auto-delete, overwrite, or author content. The single, opt-in exception is the `reviewed:` snooze stamp (`review.lint.autoStampReviewed`), and only on notes the lint judged still-valid.
+- **Non-destructive** — skills report and suggest; they never auto-delete, overwrite, or author content. There are two **opt-in, default-off** exceptions, each a config flag the user must flip: the `reviewed:` snooze stamp (`review.lint.autoStampReviewed`), written only on notes the lint judged still-valid; and `review --full` auto-linking (`review.full.autoConnect`), where the chain's `connect` step writes its suggested links without a per-suggestion prompt. Both stay suggest-only until the user opts in — a standalone `/mn:connect` never auto-applies, and the default install writes neither.
 - **In-agent** — mnemo runs inside Claude Code / Codex. The harness already injects the `memory/MEMORY.md` index and the live conversation as hot context, so mnemo never has to re-create the agent's working memory.
 
 ## Cross-runtime recall is federation, not synchronization (v1.2.3)

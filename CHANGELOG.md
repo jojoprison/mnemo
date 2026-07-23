@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.10] - 2026-07-23
+
+### Added
+
+- **`review --full` can auto-apply connect's links (opt-in, `review.full.autoConnect`, default false).** When the flag is on, the `--full` chain's `connect` step writes its suggested links without a per-suggestion prompt (connect Step 5.5) and reports every write — so closing a session no longer stops on "apply these? (y/N)". The user typing `--full` **and** setting the flag is the consent, mirroring `review.lint.autoStampReviewed`: it's the second, default-off exception to the non-destructive principle (`docs/design-decisions.md`). A standalone `/mn:connect` / `$mnemo:connect` never auto-applies regardless of the flag, and the default install is byte-for-byte unchanged (connect stays suggest-only). Dual-runtime by construction — the behavior lives in the shared `SKILL.md` prose that both Claude Code and Codex read; the Claude-only `model:` frontmatter is untouched. `test-skill-write-contracts.py` pins the new invariants (flag default false, standalone never auto-applies, verify pass still never links).
+
 ## [1.2.9] - 2026-07-21
 
 ### Changed
@@ -933,7 +939,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.9...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.10...HEAD
+[1.2.10]: https://github.com/jojoprison/mnemo/compare/v1.2.9...v1.2.10
 [1.2.9]: https://github.com/jojoprison/mnemo/compare/v1.2.8...v1.2.9
 [1.2.8]: https://github.com/jojoprison/mnemo/compare/v1.2.7...v1.2.8
 [1.2.7]: https://github.com/jojoprison/mnemo/compare/v1.2.6...v1.2.7

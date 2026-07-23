@@ -2,7 +2,7 @@
 
 ## Overview
 
-Analyzes a note and discovers connections to other notes you'd never think of. Shows suggestions with explanations — you confirm before applying.
+Analyzes a note and discovers connections to other notes you'd never think of. Shows suggestions with explanations — you confirm before applying. (One exception: `/mn:review --full` with `review.full.autoConnect` turned on applies them for you — the standalone command never does.)
 
 ## Usage
 
@@ -18,7 +18,7 @@ Analyzes a note and discovers connections to other notes you'd never think of. S
 3. Searches vault for each concept
 4. Compares found notes vs already linked notes
 5. Suggests new connections with reasoning
-6. Applies only what you approve
+6. Applies only what you approve (the `review --full` chain can auto-apply when `review.full.autoConnect` is on)
 
 ## Example Output
 
@@ -41,7 +41,7 @@ Apply these? (y/N, or pick numbers: 1,2)
 ## Important Notes
 
 - **Max 5-7 suggestions** — won't overwhelm you
-- **Never auto-applies** — you confirm each connection
+- **Standalone never auto-applies** — you confirm each connection; only `review --full` with `review.full.autoConnect` (default off) applies them for you
 - **Ignores generic matches** — "both mention Claude" is not a meaningful connection
 - **Won't suggest orphans** — they need their own fixing first
 

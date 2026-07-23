@@ -33,7 +33,7 @@ You work → mnemo remembers → Your vault grows → You find things later
 | **session** | `/mn:session` | Session summary note + cross-session handoff for the next session |
 | **review** | `/mn:review` | End-of-session orchestrator — audits the session, recommends save + session + the rest, asks before running anything |
 | **ask** | `/mn:ask` | Search the vault + active runtime memory (+ optional verified counterpart memory), synthesize a cited answer, date sources, and ground current-state answers in git history |
-| **connect** | `/mn:connect` | Discover hidden connections between notes — suggests, never auto-applies |
+| **connect** | `/mn:connect` | Discover hidden connections between notes — suggests; standalone never auto-applies (`review --full` can, opt-in `review.full.autoConnect`) |
 | **health** | `/mn:health` | Vault audit: orphans, broken links, type-aware review candidates (+ optional LLM lint), growth stats |
 | **setup** | `/mn:setup` | Interactive onboarding — vault, taxonomy, language, optional cross-runtime recall |
 
