@@ -27,7 +27,7 @@ Step 0b, applied across the whole close-out.
 | A cross-note synthesis (≥2 notes) | `save` → insight role | non-trivial insight, `cites:` the sources |
 | An actionable never-X / always-Y rule tied to code | `save` Step 3.5 → `.claude/rules/` | path-scoped auto-inject, not recall |
 | The session narrative (what happened, the arc, decisions-in-context) | `session` | one note + handoff, never a duplicate of today's |
-| Connections between the new notes (incl. non-obvious) | `connect` | suggest-only links, no orphans |
+| Connections between the new notes (incl. non-obvious) | `connect` | suggest-only links (auto-applied only under `review.full.autoConnect`), no orphans |
 | A future-useful thread not finished | `session` handoff `- [ ]` pending | thin live index |
 
 The business-logic / pains / mental-model layer is the crown material — it routes to `save`'s typed
