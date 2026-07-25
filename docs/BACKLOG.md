@@ -31,3 +31,31 @@ Nothing is rewritten; the output is a worklist. Natural home is **`mn:health`** 
 - **Noise budget:** what makes this check *not* the one users disable. A hard cap on candidates per run, and ranking by "how central is this path to the note" are the obvious levers.
 
 **Origin.** Requested by the maintainer, 2026-07-25, after the 5-day-wrong-note incident above; flagged explicitly as very important to build. The cross-repo agent framing predates it (2026-07-21) and is retained as the ambitious variant, not the first deliverable.
+
+---
+
+## 🟠 P2 — re-verify the premise under `hooks.sessionStartNudge` (it was measured on a model that behaves differently now)
+
+**What.** `sessionStartNudge` ships **default-on**, and `design-decisions.md` § "Proactive nudges via hooks (v1.1.1)" justifies it verbatim with: *"Descriptions get an agent to consider mnemo, but Opus 4.8 / Fable 5 under-trigger skills."* That premise was measured in July 2026 against the then-current flagship. It has not been re-measured since, and the flagship has changed — so a default-on behaviour now rests on an unverified condition.
+
+**Why now.** The condition is **partially** inverted on the current flagship, and the inversion is narrower than it first looks — which is exactly why this needs a measurement rather than a guess:
+
+- **Inverted, documented:** the vendor guide for the current Opus states it *"delegates to subagents more readily"* and *"verifies its own work without being told to"*. Under-triggering is not the failure mode there.
+- **Unknown, NOT inverted:** the same guide is **silent about skills and file-based memory** — 0 occurrences of `skill` / file-based memory in its migration section, where the previous model's section named them explicitly. Silence is absent evidence, not evidence of the opposite.
+
+So the honest state is: the premise is **stale for delegation** and **unmeasured for skill invocation** — and skill invocation is the only part mnemo's nudge actually addresses. Flipping the default off on the strength of the delegation finding would be reasoning past the evidence; leaving it on forever without a check is how a premise quietly rots.
+
+**Minimal shape.** A small trigger-eval, not a redesign:
+
+1. Fix a set of ~15-20 realistic prompts where `ask` / `save` *should* fire (mid-task recall, post-decision capture) and ~5 where they should not.
+2. Run each twice on the current flagship — nudge on vs nudge off — counting invocations. No LLM judge; the invocation either happened or it did not.
+3. Decide from the delta: lift → keep default-on and record the new measurement date; no lift → flip the default and keep the hook available opt-in.
+
+**On-philosophy.** This is `harness.md`'s own rule applied to mnemo itself — *"прозаический always-on нудж = маржинальное правило ≈0 → ставить ТОЛЬКО после eval, доказавшего lift"*. The nudge was shipped on a documented model property rather than a local eval; this card is the eval that was owed. It also matches the read-side invariant this backlog's P1 card is about: a written fact is a claim with a date, and a default-on behaviour built on one deserves re-verification, not faith.
+
+**Open questions.**
+- **Cross-runtime split:** the nudge also serves Codex, and Codex's model is chosen per task — a result measured on one flagship does not transfer. Likely outcome is a per-runtime default rather than one global flag.
+- **Scope of the flip, if any:** `sessionStartNudge` covers recall *and* capture. Over-triggering costs differ between them (a redundant `ask` is cheap; a redundant `save` writes a note), so the two may deserve separate verdicts.
+- **Who owns the eval harness:** mnemo has no eval runner today. Smallest version is a scripted transcript-count, not new infrastructure.
+
+**Origin.** Surfaced 2026-07-25 while auditing the maintainer's global rules against the new flagship's prompting guide: `~/.claude/rules/skill-design.md` carried the same premise and was dated in place rather than deleted, precisely because this decision stands on it. Explicitly **not** actioned in that pass — flipping a public cross-runtime default is a decision of its own, not a side effect of editing a rule file.
