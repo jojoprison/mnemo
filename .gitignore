@@ -12,3 +12,7 @@ __pycache__/
 # working goal-state files — local, not part of the public plugin
 docs/plans/
 .claude/loop-gate
+
+# personal permission grants — never ship these in a public plugin: they would
+# hand every cloner a pre-approved path to scripts that rewrite a vault
+.claude/settings.local.json
