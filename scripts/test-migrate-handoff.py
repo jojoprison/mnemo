@@ -105,6 +105,23 @@ class MigrationTests(unittest.TestCase):
         result = self.migrate('--apply')
         self.assertIn('дословно присутствуют в архиве', result.stdout)
 
+    def test_second_run_is_a_true_no_op(self):
+        """A re-run used to append a "moved 0 blocks" note and blank lines."""
+        self.migrate('--apply')
+        handoff_after, archive_after = read(self.handoff), read(self.archive)
+        result = self.migrate('--apply')
+        self.assertIn('мигрировать нечего', result.stdout)
+        self.assertEqual(handoff_after, read(self.handoff))
+        self.assertEqual(archive_after, read(self.archive))
+        self.assertNotIn('0 блоков', read(self.archive))
+
+    def test_second_run_writes_no_extra_backup(self):
+        self.migrate('--apply')
+        before = len([f for f in os.listdir(self.tmp.name) if '.bak-migrate-' in f])
+        self.migrate('--apply')
+        after = len([f for f in os.listdir(self.tmp.name) if '.bak-migrate-' in f])
+        self.assertEqual(before, after)
+
     # --- the index ---------------------------------------------------------
 
     def test_handoff_becomes_an_index(self):

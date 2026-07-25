@@ -155,6 +155,15 @@ def main() -> int:
     archive_body = (open(archive_path, encoding="utf-8").read()
                     if os.path.isfile(archive_path) else "")
 
+    _, existing_blocks = split_blocks(handoff_body)
+    if not existing_blocks:
+        # Already migrated (or never block-format). Re-running must be a true
+        # no-op: a second pass used to append a "moved 0 blocks" note to the
+        # archive and stray blank lines to the handoff — harmless to the data,
+        # but noise a re-run should never produce.
+        print("handoff уже в индекс-формате — мигрировать нечего, файлы не тронуты")
+        return 0
+
     new_handoff, new_archive, blocks, moved = plan(
         handoff_body, archive_body, today=today, keep_blocks=args.keep_blocks)
 
