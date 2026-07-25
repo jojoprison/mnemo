@@ -101,6 +101,7 @@ These surfaced during the Karpathy "LLM Wiki" audit (v0.14.0 — see [CHANGELOG]
 
 ## See also
 
-- **Vault note** (the full audit + adopt/reject rationale, in the maintainer's Obsidian): `Molecule — что взяли и отвергли из Karpathy LLM-wiki в mnemo`
+- The full audit with per-feature adopt/reject rationale lives in the maintainer's agent knowledge base (topic: what was taken from — and rejected out of — the Karpathy LLM-wiki pattern)
+- [BACKLOG](BACKLOG.md) — ideas that are *wanted but not built yet*, as opposed to the non-goals above (declined on purpose)
 - [CHANGELOG](../CHANGELOG.md) `[0.14.0]` — the three features we *did* adopt from the same audit (compounding loop, self-snoozing lint, research-gap candidates)
 - [Andrej Karpathy's "LLM Wiki" gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) — the pattern that prompted the audit

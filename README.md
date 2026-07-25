@@ -92,7 +92,7 @@ Both runtimes invoke the same seven canonical skill directories directly. Claude
 - **Federated, not synchronized** — each runtime keeps its native memory; optional counterpart recall is exact-project, read-only, and fail-closed
 - **Any taxonomy** — works with Zettelkasten, PARA, Atom/Molecule, or your own system
 
-→ Full rationale and **non-goals** (features deliberately not shipped — auto-ingest, web-search imputation, `hot.md` — each with how to add it): [docs/design-decisions.md](docs/design-decisions.md).
+→ Full rationale and **non-goals** (features deliberately not shipped — auto-ingest, web-search imputation, `hot.md` — each with how to add it): [docs/design-decisions.md](docs/design-decisions.md). What's **wanted but not built yet** lives in [docs/BACKLOG.md](docs/BACKLOG.md).
 
 ## Quick Start
 
