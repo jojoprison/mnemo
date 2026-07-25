@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.12] - 2026-07-25
+
+### Changed
+
+- **An unfinished tail now belongs to its own session note; the handoff gets a pointer.** `session` Step 5 and `depth-contract.md` previously routed open threads *into* the shared handoff. Measured on a live vault, that left only **9%** of fresh open items present in their own session note (34% for older ones) — the handoff had become the sole home of forward state, which is precisely how it reached 805 KiB and then could be neither read nor shrunk. A pointer line is bounded by the *number of sessions*; a copied tail is bounded by nothing. `hot-scan` (v1.2.11) collects the tails from where they now live, so the digest keeps working unchanged.
+
+### Added
+
+- **`handoff-index-upsert` action in `vault-write.py`** — writes one idempotent pointer line per session (`- 2026-07-25 · mnemo · open 3 · [[Session — …]]`), keyed on the session link so a mid-task checkpoint refreshes its own line instead of appending a twin. This also repairs a contract that was already broken: Step 5 demanded "the exact old section copied from read", but a large handoff read comes back truncated to a preview in which no complete section appears. Bounds — `handoff.maxLines` (180), `handoff.maxLineBytes` (200), `handoff.hardCapBytes` (38912) — are enforced in **bytes**, and trimming sacrifices the project label, never the `[[Session — …]]` link (a cut wikilink is a dead link). The block path (`archive-handoff`, `mode=blocks`) is untouched, along with its post-v1.1.11 regression suite.
+- **`scripts/migrate-handoff-to-index.py`** — one-shot migration, `--dry-run` by default. Moves blocks **verbatim and whole** into the archive (never checkbox-extracted: 90 flat bullets and ~200 prose lines on the live file carry live state with no `- [ ]`), never edits a session note, never deletes, writes `.bak` first, and verifies afterwards that every migrated block is byte-present in the archive. Measured on the live handoff: **826 916 B → 35 910 B (−95.7%)**, 186 pointer lines.
+- **`scripts/restore-handoff-from-bak.py`** — the rehearsed undo. The vault has no version control, so the migration's rollback is written and exercised *before* the migration may run; a restore itself saves a `.pre-restore` copy. Verified end-to-end on a copy of the live file: migrate → restore returns it byte-for-byte (md5 match).
+- **`scripts/split-handoff-archive.py`** — splits the cold archive into per-month notes plus a small hub. A cold file is not harmless: at 717 KiB it is past the 256 KB read limit, so "it's still in the archive" was a promise nothing could keep, and it matched nearly every content search while being unopenable. A month is not automatically a readable unit either — June alone was 425 KB — so oversized months split into numbered parts under `--max-part-bytes` (default 200 KB).
+- **43 new tests** across `test-handoff-index.py`, `test-migrate-handoff.py`, and `test-split-archive.py`, pinning the safety contract itself: dry-run writes nothing, blocks move verbatim, nothing is lost, backups precede writes, restore is byte-exact. Mutation-tested: counting characters instead of bytes, or dropping the hard cap, each fails the suite.
+
 ## [1.2.11] - 2026-07-25
 
 ### Added
@@ -951,7 +965,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.11...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.12...HEAD
+[1.2.12]: https://github.com/jojoprison/mnemo/compare/v1.2.11...v1.2.12
 [1.2.11]: https://github.com/jojoprison/mnemo/compare/v1.2.10...v1.2.11
 [1.2.10]: https://github.com/jojoprison/mnemo/compare/v1.2.9...v1.2.10
 [1.2.9]: https://github.com/jojoprison/mnemo/compare/v1.2.8...v1.2.9

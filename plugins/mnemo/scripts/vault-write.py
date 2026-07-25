@@ -37,7 +37,14 @@ MAX_PATH_BYTES = 4096
 MAX_COMPONENT_BYTES = 255
 CLI_TIMEOUT_SECONDS = 15
 RESERVED_DIRS = {".obsidian", ".trash"}
-VALID_ACTIONS = {"create", "replace", "insert", "append", "archive-handoff"}
+VALID_ACTIONS = {
+    "create",
+    "replace",
+    "insert",
+    "append",
+    "archive-handoff",
+    "handoff-index-upsert",
+}
 DATE_HEADER_RE = re.compile(r"^## (\d{4}-\d{2}-\d{2})")
 OPEN_TODO_RE = re.compile(r"\[ \]")
 HEADER_PENDING_RE = re.compile(
@@ -689,6 +696,131 @@ def transform_append(current: CurrentFile, payload: dict[str, Any]) -> str:
     return current.body + string(payload, "content", allow_empty=True)
 
 
+INDEX_LINE_RE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) · ")
+INDEX_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+DEFAULT_INDEX_MAX_LINES = 180
+DEFAULT_INDEX_MAX_LINE_BYTES = 200
+DEFAULT_INDEX_HARD_CAP_BYTES = 38912
+
+
+def clip_to_bytes(value: str, budget: int) -> str:
+    """Longest prefix of `value` fitting `budget` UTF-8 bytes.
+
+    Byte-wise, never character-wise: a Cyrillic label is ~2 B/char, so a
+    character budget admits roughly twice what it promises.
+    """
+    if budget <= 0:
+        return ""
+    encoded = value.encode()
+    if len(encoded) <= budget:
+        return value
+    trimmed = value
+    while trimmed and len(trimmed.encode()) > budget:
+        trimmed = trimmed[:-1]
+    return trimmed
+
+
+def build_index_line(
+    *,
+    date: str,
+    project: str,
+    open_count: int,
+    session_note: str,
+    max_line_bytes: int,
+) -> str:
+    """One pointer line: `- DATE · project · open N · [[Session — …]]`.
+
+    The link is load-bearing and never truncated — a cut wikilink is a dead
+    link, strictly worse than a long line. Only the project label gives way.
+    """
+    link = f"[[{session_note}]]"
+    suffix = f" · open {open_count} · {link}"
+    fixed = f"- {date}"
+    separator = " · "
+    # Budget = ceiling minus every part that is NOT the project label. Measured
+    # in bytes: "·" alone is 2 bytes, and a Cyrillic label ~2 B/char.
+    overhead = (
+        len(fixed.encode()) + len(separator.encode()) + len(suffix.encode())
+    )
+    label = clip_to_bytes(project.strip(), max_line_bytes - overhead)
+    if label:
+        return f"{fixed} · {label}{suffix}"
+    return f"{fixed}{suffix}"
+
+
+def transform_handoff_index(current: CurrentFile, payload: dict[str, Any]) -> str:
+    """Upsert one session's pointer line into the handoff index.
+
+    Idempotency keys on `[[session_note]]`, so a mid-session checkpoint refreshes
+    its own line instead of appending a twin. This is what the previous
+    read-then-replace-exact-section contract could not do on a grown handoff:
+    a large read comes back truncated to a preview, so the section to copy was
+    frequently not even visible to the caller.
+
+    Bounds are enforced in this order — per-line bytes, then line count, then a
+    whole-file byte cap — and every one of them counts bytes.
+    """
+    session_note = string(payload, "session_note")
+    if any(ch in session_note for ch in ("[", "]", "|", "\n", "\r", "\0")):
+        fail("input_error", "session_note must not contain wikilink syntax or newlines")
+    date = string(payload, "date")
+    if INDEX_DATE_RE.match(date) is None:
+        fail("input_error", "date must be YYYY-MM-DD")
+    project = optional_string(payload, "project") or ""
+    if any(ch in project for ch in ("\n", "\r", "\0")):
+        fail("input_error", "project must not contain newlines")
+    open_count = nonnegative_integer(payload, "open_count", 0)
+    max_lines = nonnegative_integer(payload, "max_lines", DEFAULT_INDEX_MAX_LINES)
+    max_line_bytes = nonnegative_integer(
+        payload, "max_line_bytes", DEFAULT_INDEX_MAX_LINE_BYTES
+    )
+    hard_cap = nonnegative_integer(
+        payload, "hard_cap_bytes", DEFAULT_INDEX_HARD_CAP_BYTES
+    )
+
+    lines = current.body.split("\n")
+    positions = [i for i, line in enumerate(lines) if INDEX_LINE_RE.match(line)]
+    entries = [lines[i] for i in positions]
+    link = f"[[{session_note}]]"
+    entries = [entry for entry in entries if link not in entry]
+    entries.append(
+        build_index_line(
+            date=date,
+            project=project,
+            open_count=open_count,
+            session_note=session_note,
+            max_line_bytes=max_line_bytes,
+        )
+    )
+    # Newest first; a stable sort keeps same-day sessions in insertion order.
+    entries.sort(key=lambda e: INDEX_LINE_RE.match(e).group(1), reverse=True)
+    if max_lines:
+        entries = entries[:max_lines]
+
+    if positions:
+        anchor = positions[0]
+        rest = [line for i, line in enumerate(lines) if i not in set(positions)]
+        # `anchor` counts positions in the ORIGINAL list; recompute where that
+        # lands once the old index lines are gone.
+        before = len([i for i in range(anchor) if i not in set(positions)])
+        head, tail = rest[:before], rest[before:]
+    else:
+        head, tail = lines, []
+        while head and not head[-1].strip():
+            head.pop()
+        head.append("")
+
+    def assemble(rows: list[str]) -> str:
+        return "\n".join(head + rows + tail)
+
+    body = assemble(entries)
+    # Whole-file cap last: drop oldest pointers until the file fits.
+    while entries and len(body.encode()) > hard_cap:
+        entries.pop()
+        body = assemble(entries)
+    return body
+
+
 def split_handoff(body: str) -> tuple[str, list[str]]:
     match = re.search(r"^## \d{4}-\d{2}-\d{2}", body, re.MULTILINE)
     if match is None:
@@ -951,7 +1083,8 @@ def write(payload: dict[str, Any]) -> dict[str, Any]:
     if action not in VALID_ACTIONS:
         fail(
             "input_error",
-            "action must be create, replace, insert, append, or archive-handoff",
+            "action must be create, replace, insert, append, archive-handoff, "
+            "or handoff-index-upsert",
         )
     ensure_supported_platform()
     vault = discover_vault(string(payload, "vault"))
@@ -988,6 +1121,8 @@ def write(payload: dict[str, Any]) -> dict[str, Any]:
                     body = transform_replace(current, payload)
                 elif action == "insert":
                     body = transform_insert(current, payload)
+                elif action == "handoff-index-upsert":
+                    body = transform_handoff_index(current, payload)
                 else:
                     body = transform_append(current, payload)
                 raw = ensure_text_size(body, "resulting note")
