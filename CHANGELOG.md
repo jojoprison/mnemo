@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.11] - 2026-07-25
+
+### Added
+
+- **Open-tails digest at SessionStart (`hot-scan.py` + `hooks.hotDigest`, default true).** Continuity finally has an automatic *reader*. `hot-scan.py` collects still-open tails from the pending sections of recent session notes and `mnemo-context.sh` injects a byte-capped, project-scoped summary next to the memory nudge — so a new session opens knowing where the last one stopped, instead of relying on someone remembering to open a note. Config: `hot.scope` (`project`/`all`, default project), `hot.windowDays` (7), `hot.maxKB` (8). Two measured properties are designed in: inside a pending section a bare `- bullet` counts as a tail (the v1.1.10 class — "live" is not always a `- [ ]`; 90 such bullets exist on the live vault), and every cap is measured in **bytes**, because `len(str)` under-counts a Cyrillic vault by ~34%. Any failure (no Obsidian, slow CLI, missing plugin root) degrades to nudge-only. The injected digest always carries the stale-premise warning — a handoff is a snapshot, not current state.
+- **`handoff-resolver.py` + `health` Step 7.6 — report-only handoff triage.** A handoff does not shrink by archiving harder: the archiver may never move a block holding an open `- [ ]`, so it shrinks only when someone *decides* what those items still mean. The resolver reports the ceiling (what a complete resolution would free), blocks by payoff class (`fully-resolvable` / `partial` / `no-anchor` / `prose-pinned` / `fresh`), and the items an external arbiter could actually settle. Offline, read-only, no credentials — and permanently report-only, because closing someone's unfinished work is a human decision. It imports the keep-hot invariant from `vault-write.py` rather than copying it, so the report can never drift from the archiver it predicts. 🛑 It separates an item's **own** anchors from ones **inherited** from the block header: counting inherited anchors inflates the resolvable share from 27.6% to 60.6%.
+
+### Fixed
+
+- **`docs/session.md` promised a startup read that never existed.** It stated "when the next session starts, it reads `Meta — Session Handoff`" — no hook or skill ever did, and past ~256 KB no file read can. Corrected to describe the digest above, which is the reader that claim always assumed.
+- **"Token bomb read every session" was the wrong reason to bound the handoff** (`config-schema.md`, `session/SKILL.md`). A host runtime truncates a large read to a preview, so the real cost of an un-rotated handoff is **unreadability**, not tokens. `session/SKILL.md` now also states the guard's own limit plainly: because a single open `- [ ]` pins a block, the archiver can legitimately be a no-op while the file sits 20× over `handoff.maxKB` (measured: 805 KiB, 863 open items, 0 eligible blocks). Size is bounded by the format of what gets written, not by the rotation guard.
+
 ## [1.2.10] - 2026-07-23
 
 ### Added
@@ -939,7 +951,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.10...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.11...HEAD
+[1.2.11]: https://github.com/jojoprison/mnemo/compare/v1.2.10...v1.2.11
 [1.2.10]: https://github.com/jojoprison/mnemo/compare/v1.2.9...v1.2.10
 [1.2.9]: https://github.com/jojoprison/mnemo/compare/v1.2.8...v1.2.9
 [1.2.8]: https://github.com/jojoprison/mnemo/compare/v1.2.7...v1.2.8

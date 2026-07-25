@@ -30,8 +30,19 @@ else
   RUNTIME="claude"
 fi
 
-OUT=$(python3 - "$CONFIG" "$RUNTIME" <<'PY' 2>/dev/null
-import json, sys
+# Project label for the open-tails digest. Use the git COMMON dir, not the
+# worktree root: in a worktree `basename $(git rev-parse --show-toplevel)` is the
+# worktree's name (floating-frolicking-goose), not the project's (mnemo).
+PROJECT=""
+if command -v git >/dev/null 2>&1; then
+  COMMON_DIR=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  [ -n "$COMMON_DIR" ] && PROJECT=$(basename "$(dirname "$COMMON_DIR")")
+fi
+
+PLUGIN_DIR="${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-}}"
+
+OUT=$(python3 - "$CONFIG" "$RUNTIME" "$PLUGIN_DIR" "$PROJECT" <<'PY' 2>/dev/null
+import json, os, subprocess, sys
 try:
     cfg = json.load(open(sys.argv[1]))
 except Exception:
@@ -52,6 +63,52 @@ msg = (
     f"capture findings, decisions, and gotchas as they happen with {save} so a future "
     "session doesn't relearn them."
 )
+
+
+def hot_digest() -> str:
+    """Open tails from recent session notes — the forward-state half of memory.
+
+    Best-effort and byte-capped: any failure (no Obsidian, no plugin root, slow
+    CLI) yields an empty string, so the nudge above is never lost to it.
+    Gate: hooks.hotDigest, defaults to true.
+    """
+    if cfg.get("hooks", {}).get("hotDigest", True) is False:
+        return ""
+    plugin_root = sys.argv[3] if len(sys.argv) > 3 else ""
+    script = os.path.join(plugin_root, "scripts", "hot-scan.py")
+    if not plugin_root or not os.path.isfile(script):
+        return ""
+    try:
+        probe = subprocess.run(
+            ["obsidian", "vault", f"vault={vault}"],
+            capture_output=True, text=True, timeout=3, check=False)
+    except Exception:
+        return ""
+    vault_path = ""
+    for line in probe.stdout.splitlines():
+        field, separator, value = line.partition("\t")
+        if field == "path" and separator and value:
+            vault_path = value
+            break
+    if not vault_path or not os.path.isdir(vault_path):
+        return ""
+    command = [sys.executable, script, vault_path]
+    project = sys.argv[4] if len(sys.argv) > 4 else ""
+    # Project scope keeps the digest about the repo in front of you; "all" is
+    # for people who want the cross-project view every session.
+    if cfg.get("hot", {}).get("scope", "project") == "project" and project:
+        command += ["--project", project]
+    try:
+        result = subprocess.run(
+            command, capture_output=True, text=True, timeout=5, check=False)
+    except Exception:
+        return ""
+    return result.stdout.strip() if result.returncode == 0 else ""
+
+
+digest = hot_digest()
+if digest:
+    msg = f"{msg}\n\n{digest}"
 payload = {
     "hookSpecificOutput": {
         "hookEventName": "SessionStart",

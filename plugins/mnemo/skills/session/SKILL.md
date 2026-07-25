@@ -151,7 +151,7 @@ If the handoff note does not exist, create it via `vault-write.py create` with t
 
 **Size-guard — keep the handoff thin (run every session):**
 
-The handoff is a LIVE index, not an archive. After updating it, run the archival helper so closed history doesn't accumulate into a multi-MB token bomb (it no-ops when the note is at/under `handoff.maxKB`):
+The handoff is a LIVE index, not an archive. After updating it, run the archival helper so closed history doesn't accumulate into a note nothing can read (it no-ops when the note is at/under `handoff.maxKB`):
 
 ```bash
 python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
@@ -195,7 +195,7 @@ Output summary:
 - **Include session_id in frontmatter** — disambiguates same-day sessions
 - **No session notes for trivial work** — but "trivial" = mechanical one-liners only (typo, single rename). A research / exploration / curiosity session counts as significant even with zero code; default to creating.
 - **Branch field optional** — research sessions don't have branches
-- **Handoff = thin live index, not an archive** — targeted optimistic replacement, not blind append. Named ceiling: when it exceeds `handoff.maxKB` (default 40KB), `vault-write.py archive-handoff` (Step 5) rotates CLOSED blocks older than `handoff.keepDays` into `{handoff_note} Archive` (cold); open `- [ ]` + recent stay hot. Prevents multi-MB token-bomb accumulation without a second writer.
+- **Handoff = thin live index, not an archive** — targeted optimistic replacement, not blind append. Named ceiling: when it exceeds `handoff.maxKB` (default 40KB), `vault-write.py archive-handoff` (Step 5) rotates CLOSED blocks older than `handoff.keepDays` into `{handoff_note} Archive` (cold); open `- [ ]` + recent stay hot. 🛑 **The guard is necessary but not sufficient, by its own invariant:** a block with even one open `- [ ]` is never archived, so on a real vault the archiver can be a no-op while the file is 20× over the ceiling (measured: 805 KiB, 863 open items, 0 blocks eligible). Size is bounded by the *format* of what gets written here; the guard only rotates what is already closed. `health` Step 7.6 reports what the guard cannot move and why.
 - **Links section is mandatory** — at least one MOC link, else the note orphans (invisible to graph navigation)
 - **Ghost notes generously** — wrap projects, technologies, people in `[[wikilinks]]`
 - **Thorough by routing, not volume** — the note stays a narrative; atom-worthy material (decisions, business-logic, pains, how-the-user-thinks) goes to `save`, links to `connect`, unfinished work to handoff. Full contract in `<mnemo-root>/references/depth-contract.md`

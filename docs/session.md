@@ -43,10 +43,13 @@ Handoff contents:
 
 ## Cross-Session Continuity
 
-When the next session starts, it reads `Meta — Session Handoff`:
+The next session starts with the **open-tails digest**: `hooks/mnemo-context.sh` runs `hot-scan.py` over the pending sections of recent session notes and injects a byte-capped summary (`hot.windowDays`, `hot.maxKB`) next to the memory nudge, scoped to the repo you are in (`hot.scope`).
+
 - Picks up pending items
 - Has context about what happened
 - No more "what was I doing yesterday?"
+
+**The handoff note itself is not read at startup, and never was.** That expectation was documented here for a long time, but no such path existed in any hook or skill — and a grown handoff cannot be read even on request (a file read caps at 256 KB / 25,000 tokens). Measured on a live vault in July 2026, an 805 KiB handoff was opened for continuity in 6% of sessions. The digest above is the automatic reader that claim always assumed; `Meta — Session Handoff` remains the durable index that `session` writes and `health` Step 7.6 triages.
 
 ## When to Use
 
