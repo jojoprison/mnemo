@@ -36,6 +36,52 @@ Nothing is rewritten; the output is a worklist. Natural home is **`mn:health`** 
 
 ---
 
+## 🟠 P2 — oversize-note sensor: catch the atom that grew past atomic
+
+**What.** mnemo enforces atomicity only at *create* time (`save` Step 0b: split, don't dump, claim-shaped title) and size-checks only one file afterwards — Claude's generated `MEMORY.md` index (`health` Step 10, `memory.indexWarnKB`). A vault note that grows past atomic *after* creation is invisible: nothing walks the vault for size. So the founding "one note = one claim" thesis is enforced at the door and never re-checked inside.
+
+**Why now.** `save`'s append path *actively produces* this drift — every "update the existing note instead of creating a duplicate" adds bytes to a note whose title still promises one claim, and no check ever fires. The failure is silent and compounding: an oversized note is exactly the blob shape `design-decisions.md` rejects (unretrievable point-precisely — you cannot grab the right slice from it), and by the time a human notices, the split is expensive. Size here is a **structure** signal, never a brevity one: the fix is *split verbatim*, never trim — which is why this reinforces rather than contradicts `save`'s never-truncate rule.
+
+**Minimal shape (report-only, no write, no flag).**
+
+1. New deterministic `oversize` action in `scripts/safe-read.py`, mirroring the existing `missing-links` / `bad-filenames` passes: walk the vault's markdown files, compare `stat().st_size` against `health.oversizeKB * 1024`, return `[{path, sizeKb}]` most-oversize-first. Measure **bytes, not lines** — a single-line giant must not hide.
+2. New report-only step in `health` (beside bad-filenames / review-candidates), plus one report block: `📏 Oversize (structure signal): N`, with the hint fixed to *split into domain note / event log / cluster, leave a one-line index — never trim*.
+3. New `health.oversizeKB` in the config schema, default **25**, mirroring the existing `memory.indexWarnKB` (22) precedent.
+
+**On-philosophy.** Report-only: it points at the gap and never authors, splits, moves, or trims anything — the same half-of-the-idea pattern already shipped for web-search imputation (declined as a writer, shipped as `health` research-gap candidates). No daemon, no index, no new skill, no folder semantics, so BYO-vault and the 7-skill canon both hold. It is the backstop to mnemo's own atomicity thesis rather than a new opinion about the user's vault.
+
+**Open questions.**
+- **Role-aware exemption is mandatory, or it nags.** Notes in the `session` role are governed by their own budget (`handoff.maxKB`) and `moc` hubs are legitimately large by design — both must be skipped. Route the exemption through `taxonomy_roles`, never through a title prefix or tag guess (a prefix is human-facing presentation, not routing).
+- **Threshold realism:** 25 KB is inherited from a sibling constant, not measured against a mature vault. Worth sampling the size distribution of real fact-role notes before fixing the default.
+- **Noise cap and ranking:** how many candidates per run before the check becomes the one users ignore.
+
+**Origin.** Competitor audit of `breferrari/obsidian-mind`, 2026-07-24 — its `active-hygiene.ts` flags oversize at write time and `tidy-fix.ts` *acts* on it (`git mv`, split, relink). Only the scan half is vendored; the acting half is a non-goal here (it would author into the user's vault). Ranked the single highest value/effort item of that audit and confirmed twice by independent adversarial passes.
+
+---
+
+## 🟡 P3 — three small report-only detectors from the same audit (phantom edges, title clusters, claim grounding)
+
+**What.** Three unrelated small gaps, grouped because each is a sub-day change in an existing skill and none justifies its own card:
+
+1. **Ticket-ID phantom edges.** `health`'s research-gap step treats every unresolved wikilink as a missing note and can suggest *"create a hub for `[[BTS-250]]`?"* — the opposite of correct. A tracker ID is a plain-text reference, never a graph node; the right advice is *unlink*, not *create*. Fix is a classifier (`/^[A-Z]{2,10}-\d+$/`) over the already-computed top-unresolved list, filtering those targets out of the gap types and optionally reporting them as `🔗 phantom edges → unlink`. Pure prose, no new script, no flag.
+2. **Title-token clusters with a document-frequency guard.** Today clustering keys on shared **tags** at a ≥5-note threshold; `connect` is semantic and heavier. Neither surfaces a *tag-free* cluster whose notes share a distinctive **title** token. The genuinely novel piece is the DF-guard — drop tokens appearing in more than half the notes — which is what keeps the suggestion from degenerating into noise. Suggest a hub note, never a folder.
+3. **Claim grounding in `review`.** The verify pass grounds structural state (parked, connected, orphaned) but never the note's own *semantic* claims, so an overstating save ("tripled" when the source says doubled; "decided Monday" when it was Tuesday) passes green. Fix is a small claim taxonomy (number / timeline / attribution / comparison / characterization / day-of-week), grepping source-role notes per claim, emitting three buckets (verified / unverified-but-plausible / flagged with a suggested fix) into the existing residual-gap list. Every fix stays a suggestion — the step already contracts "report gaps, do not rewrite the user's notes".
+
+**Why now.** Cheap, and #1 is a correctness fix rather than a feature: it removes an existing wrong suggestion instead of adding a right one. #3 protects the property the whole tool sells — recall you can trust — at the one moment the material is still verifiable.
+
+**Minimal shape.** #1 is prose-only inside `health`. #2 is a ~40-line pure-string action (stopwords + title tokens + DF-guard + dedupe) over the note index `health` already builds. #3 is a `review` sub-check plus one bundled reference file holding the taxonomy.
+
+**On-philosophy.** All three are report-only and additive to skills that already exist — no new skill (canon holds), no writes (non-destructive holds), no folder inference (routing stays role-based).
+
+**Open questions.**
+- **#2 scope:** a `floor(N/2)` DF-guard tuned on a tiny folder turns every two-note token into noise on a multi-thousand-note vault; scope to a recent window or to fact-role notes first.
+- **#3 cost:** grounding is bounded by how much evidence lives in the vault versus the live conversation, and it adds latency to `--full`; may deserve an opt-in flag rather than always running.
+- **#1 frequency:** tracker IDs appear more often as plain text than as wikilinks, so the trigger is occasional — the value is the corrected advice, not the hit rate.
+
+**Origin.** Same competitor audit as the P2 card above (`breferrari/obsidian-mind`, 2026-07-24): #1 and #2 are the scan halves of its write-time validator and hygiene scanner, #3 is the vault-agnostic core of its review fact-checker with the career-vault folder assumptions stripped out.
+
+---
+
 ## 🟠 P2 — re-verify the premise under `hooks.sessionStartNudge` (it was measured on a model that behaves differently now)
 
 **What.** `sessionStartNudge` ships **default-on**, and `design-decisions.md` § "Proactive nudges via hooks (v1.1.1)" justifies it verbatim with: *"Descriptions get an agent to consider mnemo, but Opus 4.8 / Fable 5 under-trigger skills."* That premise was measured in July 2026 against the then-current flagship. It has not been re-measured since, and the flagship has changed — so a default-on behaviour now rests on an unverified condition.

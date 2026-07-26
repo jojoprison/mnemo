@@ -98,7 +98,7 @@ Descriptions get an agent to *consider* mnemo, but Opus 4.8 / Fable 5 under-trig
 
 ## Non-goals (deliberately rejected)
 
-These surfaced during the Karpathy "LLM Wiki" audit (v0.14.0 — see [CHANGELOG](../CHANGELOG.md)). Each is a reasonable idea for a *different* tool; each conflicts with the principle above. None are "forgotten" — they were evaluated and declined. If you want one, the "If you want it" note shows the on-philosophy way: always opt-in, default off, never masquerading as hand-curated content.
+The first three surfaced during the Karpathy "LLM Wiki" audit (v0.14.0 — see [CHANGELOG](../CHANGELOG.md)); the fourth came out of a later competitor audit. Each is a reasonable idea for a *different* tool; each conflicts with the principle above. None are "forgotten" — they were evaluated and declined. If you want one, the "If you want it" note shows the on-philosophy way: always opt-in, default off, never masquerading as hand-curated content.
 
 ### 1. Auto-ingest pipeline (`raw/` → `wiki/`, one source → many auto-notes)
 
@@ -127,6 +127,16 @@ These surfaced during the Karpathy "LLM Wiki" audit (v0.14.0 — see [CHANGELOG]
 **What shipped instead (v1.2.11):** the same need — "what was I in the middle of" — is served by an **ephemeral, computed** digest: `hot-scan.py` reads the pending sections of recent session notes at SessionStart and injects a byte-capped summary (`hot.scope` / `hot.windowDays` / `hot.maxKB`). Nothing is written to the vault, so it cannot rot; it is recomputed every session from the notes themselves. Note the naming: the `hot.*` config namespace belongs to that digest, not to a `hot.md` file.
 
 **If you want it:** only worthwhile if you build an external service that queries the vault headlessly; then a bounded `hot.md` maintained by `/mn:save` could accelerate it.
+
+### 4. A vendored semantic-search index over the vault (embeddings / vector store / MCP index server)
+
+**What it is:** ship semantic recall by bundling a search engine — an embeddings + BM25 index over the vault, kept current by a background refresh worker, provisioned by a bootstrap script and exposed to the agent as an MCP server that mnemo declares and starts. This is the shape `breferrari/obsidian-mind` ships (via QMD), and it is the single most tempting thing to copy from any competitor: it is genuinely the strongest retrieval upgrade available.
+
+**Why not:** it is the exact trio the one principle forbids — *no daemon, no mnemo-owned cache or registry, no vector store, no background index*. The distinction that matters is ownership: mnemo would **start and maintain** the index, not passively query something the user already runs. Two further disqualifiers are independent of philosophy: a Node launcher injects a runtime dependency into a pure-Python plugin, and an `.mcp.json` server declaration is Claude-only, so dual-runtime parity breaks.
+
+**On "but it would fill the hole claude-mem left" — that reads the history backwards.** The optional claude-mem backend was not lost for want of a replacement; it was removed deliberately, together with the launch agent that revived its embeddings service on every boot. The empty slot *is* the decision. Re-vendoring an always-warm index reinstalls precisely the failure mode that emptied it.
+
+**If you want it:** the on-philosophy seam is already shipped and is the opposite arrangement — `recall.codeGraph` (default `null`) names a semantic or graph backend **the user installs and runs**, which `ask` queries retrieval-only inside the same ≤7-item evidence budget, with Obsidian winning ties and a silent no-op when the backend is absent. Bring your own engine; mnemo never provisions, spawns, or refreshes one.
 
 ## See also
 
