@@ -187,6 +187,17 @@ python3 "<mnemo-root>/scripts/handoff-resolver.py" "{vault_path}/{handoff_note}.
 
 🛑 **Legacy-only by construction.** The resolver parses `## YYYY-MM-DD` blocks, so on a handoff already migrated to the pointer index it reports `0 blocks · 0 open` and there is nothing to triage — skip the step and omit its report block. The blocks themselves live on in `{handoff_note} Archive …` parts; point the resolver at those when you want the triage view of archived history.
 
+**When the handoff is still in block format, offer the migration — never run it.** It rewrites a note in a vault that has no version control, so it is the user's call, and every step is dry-run by default. Offer, in this order:
+
+```bash
+python3 "<mnemo-root>/scripts/migrate-handoff-to-index.py" "{vault_path}/{handoff_note}.md"   # blocks → pointers
+python3 "<mnemo-root>/scripts/split-handoff-archive.py"    "{vault_path}/{handoff_note} Archive.md"  # cold archive → per-month parts
+python3 "<mnemo-root>/scripts/relink-orphan-pointers.py"   "{vault_path}/{handoff_note}.md"   # pointers with no target → their part
+python3 "<mnemo-root>/scripts/backfill-tails-from-archive.py" "{vault_path}"                  # archived tails → their session notes
+```
+
+Add `--apply` to each only after the user agrees to that step; `restore-handoff-from-bak.py` undoes the first one. Order matters: relinking needs the parts to exist, and the backfill is what keeps recently-archived tails visible to the digest — without it they sit in cold storage the digest does not read.
+
 Offline and read-only — it never writes and never calls a network. Report its three blocks as-is:
 
 - **Ceiling.** How many bytes a *complete* resolution of every open item would free. Quote it honestly even when it is small: on the maintainer's live vault it was **2.47%** (20 KB of 805 KB). Triage buys correctness, not size — say so instead of implying a cleanup will fix a bloated file.

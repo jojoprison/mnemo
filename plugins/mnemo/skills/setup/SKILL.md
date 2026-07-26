@@ -139,6 +139,16 @@ Write `~/.mnemo/config.json`:
   },
   "links_section": "## Связи",
   "handoff_note": "Meta — Session Handoff",
+  "handoff": {
+    "keepDays": 31,
+    "maxKB": 56,
+    "maxLineBytes": 200
+  },
+  "hot": {
+    "scope": "project",
+    "windowDays": 7,
+    "maxKB": 8
+  },
   "cascade": {
     "obsidian": { "enabled": true },
     "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
@@ -158,12 +168,15 @@ Write `~/.mnemo/config.json`:
   "hooks": {
     "sessionStartNudge": true,
     "stopNudge": false,
-    "invocationEcho": true
+    "invocationEcho": true,
+    "hotDigest": true
   }
 }
 ```
 
-`hooks.stopNudge` ships **false** — flip it to `true` if you want the end-of-session save/session reminder (see `<mnemo-root>/references/config-schema.md`). `hooks.invocationEcho` (Claude Code only, default true) prints a `🧠 mnemo: /mn:<skill> → skill body loaded` confirmation when a `/mn:*` command expands. Everything works on these defaults even if the whole `hooks` block is omitted.
+`hooks.stopNudge` ships **false** — flip it to `true` if you want the end-of-session save/session reminder (see `<mnemo-root>/references/config-schema.md`). `hooks.invocationEcho` (Claude Code only, default true) prints a `🧠 mnemo: /mn:<skill> → skill body loaded` confirmation when a `/mn:*` command expands. `hooks.hotDigest` (default true) injects the open-tails digest at session start. Everything works on these defaults even if the whole `hooks` block is omitted.
+
+The `handoff` block bounds the handoff index: `keepDays` is the rotation rule (the note holds the last month of pointers), `maxKB` a backstop beneath it, `maxLineBytes` the per-line ceiling in **bytes**. The shipped numbers come from a measured vault (7.5 sessions/day); on a much busier one, raise `maxKB` before shortening `keepDays`.
 
 Use the Step 4.5 answer for `recall.runtimeMemory.enabled`; the JSON above shows the safe default. If an existing config is being edited, preserve every unrelated field and change only the requested setting.
 
@@ -181,7 +194,7 @@ If empty output, create through the bundled shell-free writer in either runtime:
 
 ```bash
 python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"create","vault":"{vault}","note":"Meta — Session Handoff","content":"{one JSON-escaped Markdown string containing the meta frontmatter, Pending and Context sections, and setup date}"}
+{"action":"create","vault":"{vault}","note":"Meta — Session Handoff","content":"{one JSON-escaped Markdown string: meta frontmatter, an H1, and one line stating that this note is an index of pointers to session notes — the last handoff.keepDays days — not a store of open work}"}
 JSON
 ```
 

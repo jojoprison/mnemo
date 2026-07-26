@@ -23,8 +23,8 @@ import tempfile
 import unittest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MIGRATE = os.path.join(REPO, 'scripts', 'migrate-handoff-to-index.py')
-RESTORE = os.path.join(REPO, 'scripts', 'restore-handoff-from-bak.py')
+MIGRATE = os.path.join(REPO, 'plugins', 'mnemo', 'scripts', 'migrate-handoff-to-index.py')
+RESTORE = os.path.join(REPO, 'plugins', 'mnemo', 'scripts', 'restore-handoff-from-bak.py')
 
 HEADER = '---\ntype: meta\n---\n\n🛡️ SIZE-GUARD line.\n\n'
 BLOCK_A = (
@@ -150,11 +150,17 @@ class MigrationTests(unittest.TestCase):
             if line.startswith('- 20'):
                 self.assertLessEqual(len(line.encode('utf-8')), 200)
 
-    def test_block_without_session_link_is_still_indexed(self):
+    def test_block_without_session_link_points_at_the_archive(self):
+        """A pointer with no link is a dead end, and the calendar window will
+        evict it — leaving the block with no inbound link at all. 10 of 186
+        blocks on the live vault were in exactly that state, carrying 170 open
+        items."""
         write(self.handoff, HEADER + BLOCK_B)
         self.migrate('--apply')
         line = [l for l in read(self.handoff).splitlines() if l.startswith('- 20')][0]
-        self.assertIn('без session-заметки', line)
+        expected = os.path.basename(self.archive)[:-3]
+        self.assertIn(f'[[{expected}]]', line)
+        self.assertNotIn('без session-заметки', line)
 
     def test_keep_blocks_leaves_the_newest_in_full(self):
         """"Newest" is by date, not by position — a real handoff is unsorted."""

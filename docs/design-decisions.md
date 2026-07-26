@@ -80,11 +80,21 @@ Descriptions get an agent to *consider* mnemo, but Opus 4.8 / Fable 5 under-trig
 - **Archiving harder.** The archiver may never move a block holding an open `- [ ]` — an unkept promise must not slip into cold storage silently. On the live file that invariant meant it could free **zero** bytes while the file sat 20× over its ceiling. The guard is correct and insufficient: size is decided by the *format* of what gets written, not by rotation.
 - **Triage as a size strategy.** Resolving *every* open item would have freed **2.47%**. Triage buys correctness, not size — which is why `handoff-resolver.py` is permanently report-only.
 - **Compressing blocks into lines.** Live state is not always a `- [ ]`: 90 flat bullets and ~200 prose lines carried it. Extraction would have dropped them, so migration moves blocks **verbatim and whole**.
-- **Rewriting the user's session notes** to redistribute 863 existing threads. Those files are human-authored and the vault has no version control; the threads went to the archive with a searchable inventory instead.
+- **Rewriting the user's session notes** to redistribute 863 existing threads. Those files are human-authored and the vault has no version control; the threads went to the archive with a searchable inventory instead. (v1.2.13 revisits this **narrowly**, not generally — see the rotation rule below.)
 
 **Why migration is a separate manual step.** `migrate-handoff-to-index.py` is not run by any skill: it rewrites the vault irreversibly, so it defaults to `--dry-run`, writes `.bak` first, verifies every block is byte-present in the archive afterwards, and ships with a rehearsed `restore-handoff-from-bak.py`. A skill that silently reshapes your vault mid-session would violate the one principle above.
 
-**The known gap.** Threads that never had a session note (or that live only in archived blocks) are outside the digest's reach — the digest reads session notes. Their text is preserved and searchable, but nothing surfaces it automatically. See `BACKLOG.md`.
+## The index rotates by calendar, and says so when it can't (v1.2.13)
+
+**What changed.** The index keeps the last `handoff.keepDays` (default **31**) days of pointers. A line count (`handoff.maxLines`) no longer decides anything and the key is gone; `handoff.maxKB` (56) is a backstop underneath the window, and `handoff.maxLineBytes` (200) bounds a line. Five knobs became three.
+
+**Why.** "The last month of sessions" is what a reader asks for; a line count answers it only by accident. At this vault's measured pace — **7.5 sessions/day, 234 in 31 days** — the old 180-line ceiling silently delivered ~24 days under a config that said `keepDays: 31`. The sizing follows from measurement rather than taste: 234 lines × ~195 B ≈ 46 KiB, so 56 KiB carries a normal month with ~20% headroom and still opens in one read.
+
+**Evicting a pointer loses nothing — but only because two gaps were closed first.** A pointer is derived from a session note that keeps its own dated file, so dropping it drops a duplicate. That argument fails for a pointer whose target does not exist, which is why v1.2.13 ships `relink-orphan-pointers.py` (a pointer with no session note now points at the archive part holding its block — 10 such on the live vault, 170 open items) and `backfill-tails-from-archive.py` (tails that exist *only* in recently-archived blocks are appended to their own session note). The backfill is the narrow revisit of "don't rewrite the user's notes": it appends **only genuinely missing** items — measured, 105 of 136 recent tails were already in their note under different wording, so 31 were appended, each marked with the block's date — instead of redistributing 863.
+
+**When the window doesn't fit, the file says so.** If a month is busier than `maxKB` allows, the oldest pointers give way and one `> _overflow:` line states it. A window that silently holds less than it promises is the exact failure this reform exists to remove, so it must never fail silently again.
+
+**The remaining gap.** Tails older than the digest's `hot.windowDays` that live only in archived blocks are still outside its reach — deliberately: the digest is for current work, and teaching it to scan cold archive parts on every session start would pay a permanent cost for a legacy pile. They stay searchable, and `health` Step 7.6 triages them on demand.
 
 ## Non-goals (deliberately rejected)
 

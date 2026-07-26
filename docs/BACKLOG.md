@@ -22,6 +22,8 @@ Priorities: 🔴 P1 must-do · 🟠 P2 valuable · 🟡 P3 nice · ⚪ P4 someda
 
 Nothing is rewritten; the output is a worklist. Natural home is **`mn:health`** as one more check (it already owns report-only detects and the research-gap candidates), which also keeps detects in one house instead of scattering them across skills.
 
+**What already exists — do not rebuild it (added 2026-07-27).** `handoff-resolver.py` (v1.2.11) already ships the *anchor* half of this idea: it extracts Linear keys and PR numbers from open items, separates an item's **own** anchors from ones inherited from its header (inherited counting inflated resolvability 27.6% → 60.6%), and reports a worklist without ever writing. `health` Step 7.6 is its report-only host. So this card's remaining, genuinely new part is narrower than it reads: **the git side** — mapping "paths touched since the note's `date`" to the notes that mention them. Reuse the resolver's anchor parsing and its report shape; do not write a second anchor extractor, and do not widen this card back into "a general staleness detector" — type-aware staleness already ships in `health` Steps 7/7.5.
+
 **On-philosophy.** It is the *report-only half* — the exact pattern already shipped for web-search imputation (declined as a writer, shipped as `health` Step 8.5 research-gap candidates): point at the gap, never fill it. Non-destructive holds (no note is authored or overwritten), human-authored holds (the user judges and edits), in-agent holds (reads the repo mnemo is already running in — no external service, no crawl). Contrast with the ambitious version below, which is where the cost sits.
 
 **Open questions.**

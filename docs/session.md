@@ -18,7 +18,7 @@ No arguments. Summarizes the current conversation automatically.
 2. Checks for duplicate session notes (same day)
 3. Creates a note with the prefix/tag reached through `taxonomy_roles.session`
 4. Verifies the note is linked in the hub reached through `taxonomy_roles.moc`
-5. Updates `Meta — Session Handoff` with pending items
+5. Writes the session's open tails into that note's own `## Next steps / pending`, and upserts **one pointer line** into `Meta — Session Handoff`
 6. Checks for orphans after creation
 7. Self-checks its own note (duplicate / MOC link / orphan / atom-delegation) before confirming
 
@@ -29,17 +29,19 @@ No arguments. Summarizes the current conversation automatically.
 
 Note: "Session — 2026-03-24 Tech Research + mnemo plugin"
 MOC: [[MOC — Claude Code Tools]] — link added ✅
-Handoff: Updated with 2 pending items
+Handoff: pointer line upserted (2 open tails stay in the note)
 Orphans: 0 new
 
-Handoff contents:
-## Pending
+In the session note:
+## Next steps / pending
 - [ ] Test /mn:review in real session
 - [ ] Update docs for new skill names
 
-## Context
-- Refactored mnemo plugin, 8 skills, CE-pattern naming
+In Meta — Session Handoff (one line):
+- 2026-03-24 · mnemo · open 2 · [[Session — 2026-03-24 Tech Research + mnemo plugin]]
 ```
+
+**Why the tail stays in its own note.** When unfinished work was written into the shared handoff instead, only 9% of a live vault's fresh open items existed in their own session note — the handoff became the single home of forward state, reached 805 KiB, and could then be neither read nor shrunk. A pointer line is bounded by the number of sessions; a copied tail is bounded by nothing. The handoff keeps the last `handoff.keepDays` (default 31) days of pointers; older ones drop, because the note behind each pointer keeps the detail.
 
 ## Cross-Session Continuity
 

@@ -17,7 +17,7 @@ import tempfile
 import unittest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SCRIPT = os.path.join(REPO, 'scripts', 'split-handoff-archive.py')
+SCRIPT = os.path.join(REPO, 'plugins', 'mnemo', 'scripts', 'split-handoff-archive.py')
 
 PREFIX = '---\ntype: meta\n---\n\n# Meta — Session Handoff Archive\n\n'
 

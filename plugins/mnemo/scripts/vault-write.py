@@ -698,9 +698,16 @@ def transform_append(current: CurrentFile, payload: dict[str, Any]) -> str:
 
 INDEX_LINE_RE = re.compile(r"^- (\d{4}-\d{2}-\d{2}) · ")
 INDEX_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
-DEFAULT_INDEX_MAX_LINES = 180
+# The window is calendar-based, not count-based: "the last month of sessions" is
+# what a reader asks for, while a line count answers it only by accident. At the
+# measured pace of this vault (7.5 sessions/day, 234 in 31 days) the previous
+# 180-line ceiling silently shortened a 31-day promise to ~24 days.
+DEFAULT_INDEX_KEEP_DAYS = 31
 DEFAULT_INDEX_MAX_LINE_BYTES = 200
-DEFAULT_INDEX_HARD_CAP_BYTES = 38912
+# 31 days x 7.5 sessions x ~195 B ≈ 46 KiB; the ceiling leaves ~20% headroom and
+# still opens in one read. It is a backstop, not the rotation rule.
+DEFAULT_INDEX_HARD_CAP_BYTES = 57344
+INDEX_OVERFLOW_PREFIX = "> _overflow:"
 
 
 MIN_LABEL_CHARS = 12
@@ -763,7 +770,8 @@ def build_index_line(
 
 
 INDEX_PARSE_RE = re.compile(
-    r"^- (\d{4}-\d{2}-\d{2})(?: · (?P<label>.*?))? · open (?P<open>\d+) · (?P<tail>.*)$"
+    r"^- (\d{4}-\d{2}-\d{2})(?: · (?P<label>.*?))? · open (?P<open>\d+)"
+    r"(?: \([^)]*\))? · (?P<tail>.*)$"
 )
 
 
@@ -772,6 +780,11 @@ def reclip_index_line(line: str, max_line_bytes: int) -> str:
 
     Unparseable or already-short lines are returned untouched: this normalizes,
     it never discards something it does not understand.
+
+    An inline open-item list (`· open 4 (a · b · c) ·`, written by hand or by a
+    caller that did not use this action) is recognised and dropped when the line
+    is over budget — that detail belongs to the session note, which is where the
+    digest reads it from. Measured on the live vault: such lines reached 754 B.
     """
     if len(line.encode()) <= max_line_bytes:
         return line
@@ -800,8 +813,13 @@ def transform_handoff_index(current: CurrentFile, payload: dict[str, Any]) -> st
     a large read comes back truncated to a preview, so the section to copy was
     frequently not even visible to the caller.
 
-    Bounds are enforced in this order — per-line bytes, then line count, then a
-    whole-file byte cap — and every one of them counts bytes.
+    Bounds are enforced in this order — per-line bytes, then the calendar
+    window, then a whole-file byte cap as a backstop.
+
+    Evicting a pointer loses nothing: the pointer is derived from the session
+    note, which keeps its own dated file. The one class that would break this is
+    a pointer with no note behind it (migrated blocks); those are relinked to
+    their archive part before the window is allowed to drop them.
     """
     session_note = string(payload, "session_note")
     if any(ch in session_note for ch in ("[", "]", "|", "\n", "\r", "\0")):
@@ -813,15 +831,29 @@ def transform_handoff_index(current: CurrentFile, payload: dict[str, Any]) -> st
     if any(ch in project for ch in ("\n", "\r", "\0")):
         fail("input_error", "project must not contain newlines")
     open_count = nonnegative_integer(payload, "open_count", 0)
-    max_lines = nonnegative_integer(payload, "max_lines", DEFAULT_INDEX_MAX_LINES)
+    keep_days = nonnegative_integer(payload, "keep_days", DEFAULT_INDEX_KEEP_DAYS)
     max_line_bytes = nonnegative_integer(
         payload, "max_line_bytes", DEFAULT_INDEX_MAX_LINE_BYTES
     )
+    # One ceiling for the note, expressed the way the config expresses it. The
+    # byte form stays as an override so tests and callers can be exact.
+    max_kb = nonnegative_integer(payload, "max_kb", 0)
     hard_cap = nonnegative_integer(
-        payload, "hard_cap_bytes", DEFAULT_INDEX_HARD_CAP_BYTES
+        payload,
+        "hard_cap_bytes",
+        max_kb * 1024 if max_kb else DEFAULT_INDEX_HARD_CAP_BYTES,
     )
+    raw_today = optional_string(payload, "today")
+    try:
+        today = dt.date.fromisoformat(raw_today) if raw_today else dt.date.fromisoformat(date)
+    except ValueError:
+        fail("input_error", "today must be YYYY-MM-DD")
 
-    lines = current.body.split("\n")
+    lines = [
+        line
+        for line in current.body.split("\n")
+        if not line.startswith(INDEX_OVERFLOW_PREFIX)
+    ]
     positions = [i for i, line in enumerate(lines) if INDEX_LINE_RE.match(line)]
     # Re-clip what is already there, not just the new line. A line written by an
     # older version, by a migration, or by hand keeps its length forever
@@ -839,10 +871,18 @@ def transform_handoff_index(current: CurrentFile, payload: dict[str, Any]) -> st
             max_line_bytes=max_line_bytes,
         )
     )
+    new_line = entries[-1]
     # Newest first; a stable sort keeps same-day sessions in insertion order.
     entries.sort(key=lambda e: INDEX_LINE_RE.match(e).group(1), reverse=True)
-    if max_lines:
-        entries = entries[:max_lines]
+    # The calendar window is the rotation rule. The line this call was made to
+    # write is exempt — a deliberately backdated session must still land.
+    if keep_days:
+        cutoff = (today - dt.timedelta(days=keep_days)).isoformat()
+        entries = [
+            entry
+            for entry in entries
+            if INDEX_LINE_RE.match(entry).group(1) >= cutoff or entry == new_line
+        ]
 
     if positions:
         anchor = positions[0]
@@ -857,16 +897,41 @@ def transform_handoff_index(current: CurrentFile, payload: dict[str, Any]) -> st
             head.pop()
         head.append("")
 
-    def assemble(rows: list[str]) -> str:
-        return "\n".join(head + rows + tail)
+    def assemble(rows: list[str], dropped: int = 0) -> str:
+        # An overflow note only when the ceiling actually bit: a promise of
+        # `keep_days` that silently holds fewer is worse than a shorter window
+        # stated out loud.
+        overflow = (
+            [
+                "",
+                f"{INDEX_OVERFLOW_PREFIX} {dropped} older pointer(s) dropped by "
+                f"the {hard_cap // 1024} KiB ceiling — this month is busier than "
+                f"a {keep_days}-day window fits. Find them by date in the vault._",
+            ]
+            if dropped
+            else []
+        )
+        return "\n".join(head + rows + overflow + tail)
 
     body = assemble(entries)
     # Whole-file cap last: drop oldest pointers until the file fits — but never
     # the pointer this call was made to write. Without that floor a handoff
     # still in block format (whose blocks all land in `head`) silently ate the
     # new line and reported success: the session looked recorded and was not.
+    dropped = 0
     while len(entries) > 1 and len(body.encode()) > hard_cap:
-        entries.pop()
+        victim = next(
+            (entry for entry in reversed(entries) if entry != new_line), None
+        )
+        if victim is None:
+            break
+        entries.remove(victim)
+        dropped += 1
+        body = assemble(entries, dropped)
+    if dropped and len(body.encode()) > hard_cap:
+        # The overflow note costs ~180 B and counts against the same ceiling, so
+        # a small enough cap makes it unsatisfiable. The pointer outranks the
+        # note: drop the note, keep the line.
         body = assemble(entries)
     if len(body.encode()) > hard_cap:
         fail(

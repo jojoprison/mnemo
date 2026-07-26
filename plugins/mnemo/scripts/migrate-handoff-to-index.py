@@ -60,12 +60,15 @@ def clip_to_bytes(value: str, budget: int) -> str:
     return trimmed
 
 
-def index_line(block: str) -> str:
+def index_line(block: str, archive_note: str = "") -> str:
     """A pointer for one block: date · label · open N · [[Session — …]].
 
     The session link is preferred as the pointer because it leads to the
-    narrative; when a block has none, the header text is kept as the label so
-    the line still says what it was about.
+    narrative; when a block has none, the pointer falls back to the archive
+    note that now holds the block. That fallback is load-bearing: a pointer
+    reading `(без session-заметки)` is a dead end, and once the calendar window
+    evicts it the block has no inbound link at all — on the live vault 10 of
+    186 blocks had no session note, carrying 170 open items between them.
     """
     date_match = BLOCK_DATE_RE.match(block)
     date = date_match.group(1) if date_match else "0000-00-00"
@@ -75,6 +78,8 @@ def index_line(block: str) -> str:
     link_match = SESSION_LINK_RE.search(block)
     if link_match:
         suffix = f" · open {open_count} · [[{link_match.group(1)}]]"
+    elif archive_note:
+        suffix = f" · open {open_count} · [[{archive_note}]]"
     else:
         suffix = f" · open {open_count} · (без session-заметки)"
     overhead = len(f"- {date}".encode()) + len(" · ".encode()) + len(suffix.encode())
@@ -97,7 +102,8 @@ def block_date(block: str) -> str:
     return match.group(1) if match else "0000-00-00"
 
 
-def plan(handoff_body: str, archive_body: str, *, today: str, keep_blocks: int):
+def plan(handoff_body: str, archive_body: str, *, today: str, keep_blocks: int,
+         archive_note: str = ""):
     header, blocks = split_blocks(handoff_body)
     # Order by date, never by file position: a real handoff is not sorted (the
     # live file had a 2026-07-19 block sitting among March ones), so "the newest
@@ -107,7 +113,7 @@ def plan(handoff_body: str, archive_body: str, *, today: str, keep_blocks: int):
     kept = set(map(id, keep))
     move = [b for b in by_date if id(b) not in kept]
 
-    lines = [index_line(b) for b in by_date]
+    lines = [index_line(b, archive_note) for b in by_date]
     new_handoff = header.rstrip("\n") + "\n\n" + "\n".join(lines) + "\n"
     if keep:
         new_handoff += "\n" + "".join(
@@ -172,7 +178,8 @@ def main() -> int:
         return 0
 
     new_handoff, new_archive, blocks, moved = plan(
-        handoff_body, archive_body, today=today, keep_blocks=args.keep_blocks)
+        handoff_body, archive_body, today=today, keep_blocks=args.keep_blocks,
+        archive_note=os.path.basename(archive_path)[:-3])
 
     before, after = len(handoff_body.encode()), len(new_handoff.encode())
     print(f"handoff:  {before} B → {after} B  "

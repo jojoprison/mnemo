@@ -266,18 +266,21 @@ mnemo doesn't force a note structure. Change `taxonomy` to match yours:
 
 ## Cross-Session Continuity
 
-The killer feature. When a session ends, `/mn:session` writes a handoff note:
+The killer feature. When a session ends, `/mn:session` writes the open tails into that session's own note:
 
 ```markdown
-## Pending
+## Next steps / pending
 - [ ] Check orphans after mass note creation
 - [ ] Update MOC — AI Research with 3 new notes
-
-## Context
-- Researched WeChat agent ecosystem, all saved in Session — 2026-03-23
 ```
 
-The next session reads this and picks up where you left off.
+…and adds **one pointer line** to `Meta — Session Handoff`, which is an index of the last 31 days, not a store:
+
+```markdown
+- 2026-03-23 · research · open 2 · [[Session — 2026-03-23 WeChat agent ecosystem]]
+```
+
+The next session opens with the **digest**: a SessionStart hook collects still-open tails from recent session notes and injects a byte-capped, project-scoped summary — so you pick up where you left off without anyone having to open a file. (The handoff note itself is never read at startup: past ~256 KB nothing can read it, which is exactly how the old "write the tails into the handoff" contract failed.)
 
 ## Requirements
 
@@ -319,6 +322,13 @@ mnemo/
 │   │   ├── session-scan.py          # JSONL parser (Claude + Codex) with incremental cache
 │   │   ├── skills-discover.py       # Auto-discovery across Claude/Codex skill paths
 │   │   ├── review-candidates.py     # type-aware staleness scan for /mn:health
+│   │   ├── hot-scan.py              # open-tails digest injected at SessionStart
+│   │   ├── handoff-resolver.py      # report-only handoff triage (legacy block format)
+│   │   ├── migrate-handoff-to-index.py    # one-shot: blocks → pointer index (dry-run default)
+│   │   ├── split-handoff-archive.py       # cold archive → readable per-month parts
+│   │   ├── relink-orphan-pointers.py      # pointers with no target → their archive part
+│   │   ├── backfill-tails-from-archive.py # archived tails → their own session note
+│   │   ├── restore-handoff-from-bak.py    # undo for the migration, content-picked backup
 │   │   └── check-cm-version.sh      # claude-mem cache inspector
 │   └── hooks/                       # Harness hooks
 │       ├── hooks.json               # Codex-safe shared SessionStart + Stop baseline
@@ -515,7 +525,7 @@ cp config.example.json ~/.mnemo/config.json
 
 ## Непрерывность между сессиями
 
-Киллер-фича. `/mn:session` записывает handoff-заметку — следующая сессия подхватывает с того места. Больше никакого «а что я вчера делал?»
+Киллер-фича. `/mn:session` пишет открытые хвосты в **саму session-заметку**, а в `Meta — Session Handoff` кладёт одну строку-указатель (индекс за последний 31 день, не хранилище). Следующая сессия открывается с **дайджеста**: SessionStart-хук собирает незакрытые хвосты из свежих заметок и инжектит краткую сводку по твоему проекту. Больше никакого «а что я вчера делал?»
 
 ## Требования
 
