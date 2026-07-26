@@ -142,6 +142,22 @@ class SplitTests(unittest.TestCase):
                        read(os.path.join(self.tmp.name, part)).split('## ')[1:])
             self.assertLessEqual(size, 20000, part)
 
+    def test_part_frontmatter_date_is_a_real_date(self):
+        big = [block(f'2026-06-{day:02d}', filler=400) for day in range(1, 13)]
+        write(self.archive, PREFIX + ''.join(big))
+        self.run_split('--apply', '--max-part-bytes', '20000')
+        for part in self.parts():
+            body = read(os.path.join(self.tmp.name, part))
+            date_line = [l for l in body.splitlines() if l.startswith('date:')][0]
+            self.assertRegex(date_line, r'^date: \d{4}-\d{2}-\d{2}$', part)
+
+    def test_every_part_carries_a_links_section(self):
+        self.run_split('--apply')
+        for part in self.parts():
+            body = read(os.path.join(self.tmp.name, part))
+            self.assertIn('## Связи', body, part)
+            self.assertIn('[[Meta — Session Handoff Archive]]', body)
+
     def test_archive_without_blocks_is_a_no_op(self):
         write(self.archive, PREFIX)
         before = read(self.archive)

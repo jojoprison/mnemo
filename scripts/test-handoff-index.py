@@ -209,6 +209,22 @@ class IndexUpsertTests(unittest.TestCase):
         self.upsert(session_note='Session — новая', date='2026-07-25')
         self.assertIn(odd, self.read_handoff())
 
+    def test_truncated_label_is_marked(self):
+        """«BTS: BRIDGE-» без маркера читается как целая сводка."""
+        self.upsert(session_note='Session — A', date='2026-07-25',
+                    project='очень длинная сводка ' * 20, max_line_bytes=200)
+        line = self.index_lines()[0]
+        self.assertIn('…', line)
+        self.assertLessEqual(len(line.encode('utf-8')), 200)
+
+    def test_label_clipped_to_a_stub_is_dropped(self):
+        long_note = 'Session — ' + 'ю' * 80
+        self.upsert(session_note=long_note, date='2026-07-25',
+                    project='BTS: ревизия воркти и всего прочего', max_line_bytes=200)
+        line = self.index_lines()[0]
+        self.assertNotIn('BTS: рев', line)
+        self.assertIn(f'[[{long_note}]]', line)
+
     # --- validation --------------------------------------------------------
 
     def test_rejects_session_note_with_wikilink_breaking_characters(self):

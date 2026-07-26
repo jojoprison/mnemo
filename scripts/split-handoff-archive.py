@@ -49,12 +49,17 @@ def month_of(block: str) -> str:
 
 def part_body(hub_name: str, month: str, blocks: list[str]) -> str:
     opens = sum(len(OPEN_TODO_RE.findall(b)) for b in blocks)
+    # `month` may carry a part suffix ("2026-06 ч2"); the frontmatter date must
+    # stay a real date, or property-based views silently skip the file.
+    iso_month = month[:7]
+    hot_name = hub_name.replace(" Archive", "")
     return (
-        f"---\ntype: meta\ntags: [meta, handoff, archive, cold]\ndate: {month}-01\n---\n\n"
+        f"---\ntype: meta\ntags: [meta, handoff, archive, cold]\ndate: {iso_month}-01\n---\n\n"
         f"# {hub_name} {month}\n\n"
         f"> ❄️ Холодный архив за {month}: {len(blocks)} блоков, {opens} незакрытых пунктов. "
         f"Текст перенесён дословно. Навигация — [[{hub_name}]].\n\n"
         + "".join(b if b.endswith("\n") else b + "\n" for b in blocks)
+        + f"\n## Связи\n\n- [[{hub_name}]] — хаб архива\n- [[{hot_name}]] — горячий индекс\n"
     )
 
 

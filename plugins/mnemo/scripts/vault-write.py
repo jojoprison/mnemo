@@ -703,21 +703,35 @@ DEFAULT_INDEX_MAX_LINE_BYTES = 200
 DEFAULT_INDEX_HARD_CAP_BYTES = 38912
 
 
+MIN_LABEL_CHARS = 12
+
+
 def clip_to_bytes(value: str, budget: int) -> str:
-    """Longest prefix of `value` fitting `budget` UTF-8 bytes.
+    """Longest prefix of `value` fitting `budget` UTF-8 bytes, marked when cut.
 
     Byte-wise, never character-wise: a Cyrillic label is ~2 B/char, so a
     character budget admits roughly twice what it promises.
+
+    A cut is marked with `…` so the reader can tell "BTS: BRIDGE-" is a
+    truncation and not the whole summary; and a stub shorter than
+    MIN_LABEL_CHARS is dropped entirely — a fragment like "BTS: ревизия" reads
+    as information while carrying none.
     """
     if budget <= 0:
         return ""
-    encoded = value.encode()
-    if len(encoded) <= budget:
+    if len(value.encode()) <= budget:
         return value
+    marker = "…"
+    room = budget - len(marker.encode())
+    if room <= 0:
+        return ""
     trimmed = value
-    while trimmed and len(trimmed.encode()) > budget:
+    while trimmed and len(trimmed.encode()) > room:
         trimmed = trimmed[:-1]
-    return trimmed
+    trimmed = trimmed.rstrip()
+    if len(trimmed) < MIN_LABEL_CHARS:
+        return ""
+    return trimmed + marker
 
 
 def build_index_line(
