@@ -23,8 +23,8 @@ import tempfile
 import unittest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MIGRATE = os.path.join(REPO, 'scripts', 'migrate-handoff-to-index.py')
-RESTORE = os.path.join(REPO, 'scripts', 'restore-handoff-from-bak.py')
+MIGRATE = os.path.join(REPO, 'plugins', 'mnemo', 'scripts', 'migrate-handoff-to-index.py')
+RESTORE = os.path.join(REPO, 'plugins', 'mnemo', 'scripts', 'restore-handoff-from-bak.py')
 
 HEADER = '---\ntype: meta\n---\n\n🛡️ SIZE-GUARD line.\n\n'
 BLOCK_A = (
@@ -115,6 +115,16 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(archive_after, read(self.archive))
         self.assertNotIn('0 блоков', read(self.archive))
 
+    def test_second_run_with_keep_blocks_does_not_duplicate_pointers(self):
+        """--keep-blocks leaves blocks behind, so "no blocks left" never fired
+        and each re-run appended another copy of every pointer."""
+        self.migrate('--apply', '--keep-blocks', '1')
+        first = len([l for l in read(self.handoff).splitlines() if l.startswith('- 20')])
+        self.migrate('--apply', '--keep-blocks', '1')
+        self.migrate('--apply', '--keep-blocks', '1')
+        after = len([l for l in read(self.handoff).splitlines() if l.startswith('- 20')])
+        self.assertEqual(first, after)
+
     def test_second_run_writes_no_extra_backup(self):
         self.migrate('--apply')
         before = len([f for f in os.listdir(self.tmp.name) if '.bak-migrate-' in f])
@@ -140,11 +150,17 @@ class MigrationTests(unittest.TestCase):
             if line.startswith('- 20'):
                 self.assertLessEqual(len(line.encode('utf-8')), 200)
 
-    def test_block_without_session_link_is_still_indexed(self):
+    def test_block_without_session_link_points_at_the_archive(self):
+        """A pointer with no link is a dead end, and the calendar window will
+        evict it — leaving the block with no inbound link at all. 10 of 186
+        blocks on the live vault were in exactly that state, carrying 170 open
+        items."""
         write(self.handoff, HEADER + BLOCK_B)
         self.migrate('--apply')
         line = [l for l in read(self.handoff).splitlines() if l.startswith('- 20')][0]
-        self.assertIn('без session-заметки', line)
+        expected = os.path.basename(self.archive)[:-3]
+        self.assertIn(f'[[{expected}]]', line)
+        self.assertNotIn('без session-заметки', line)
 
     def test_keep_blocks_leaves_the_newest_in_full(self):
         """"Newest" is by date, not by position — a real handoff is unsorted."""
@@ -185,6 +201,30 @@ class MigrationTests(unittest.TestCase):
         saved = [f for f in os.listdir(self.tmp.name) if '.pre-restore-' in f]
         self.assertTrue(saved)
         self.assertEqual(migrated, read(os.path.join(self.tmp.name, saved[0])))
+
+    def test_restore_skips_a_post_migration_backup(self):
+        """The undo that undid nothing: a second migration run backs up the
+        ALREADY migrated file, and picking the newest backup by mtime then
+        restores the index over the index."""
+        original = read(self.handoff)
+        self.migrate('--apply')
+        migrated = read(self.handoff)
+        # Simulate the second run's backup: newest on disk, but useless.
+        decoy = self.handoff + '.bak-migrate-2026-07-26'
+        write(decoy, migrated)
+        os.utime(decoy, (2 ** 31, 2 ** 31))  # far future → newest by mtime
+        result = run(RESTORE, self.handoff, '--archive', self.archive, '--apply')
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(original, read(self.handoff))
+
+    def test_restore_warns_when_every_backup_is_post_migration(self):
+        self.migrate('--apply')
+        migrated = read(self.handoff)
+        for name in os.listdir(self.tmp.name):
+            if '.bak-migrate-' in name:
+                write(os.path.join(self.tmp.name, name), migrated)
+        result = run(RESTORE, self.handoff, '--archive', self.archive)
+        self.assertIn('пост-миграционными', result.stderr)
 
     def test_restore_without_backups_fails_closed(self):
         lonely = os.path.join(self.tmp.name, 'Nothing.md')

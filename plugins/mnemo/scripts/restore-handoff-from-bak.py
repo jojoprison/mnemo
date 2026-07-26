@@ -21,12 +21,36 @@ import argparse
 import datetime as dt
 import glob
 import os
+import re
 import shutil
 import sys
 
 
+BLOCK_RE = re.compile(r"(?m)^## \d{4}-\d{2}-\d{2}")
+
+
 def backups_for(path: str) -> list[str]:
     return sorted(glob.glob(f"{path}.bak*"), key=os.path.getmtime, reverse=True)
+
+
+def looks_pre_migration(candidate: str, current: str) -> bool:
+    """Is this backup actually worth restoring, or a post-migration snapshot?
+
+    "Newest" is the wrong criterion: running the migration twice writes a fresh
+    backup of the ALREADY migrated file, and picking by mtime then silently
+    restores the index over the index — an undo that undoes nothing. A useful
+    backup either still holds dated `## YYYY-MM-DD` blocks (the pre-migration
+    shape) or is simply bigger than what is on disk now.
+    """
+    try:
+        with open(candidate, encoding="utf-8", errors="ignore") as handle:
+            head = handle.read(200_000)
+    except OSError:
+        return False
+    if BLOCK_RE.search(head):
+        return True
+    current_size = os.path.getsize(current) if os.path.isfile(current) else 0
+    return os.path.getsize(candidate) > current_size
 
 
 def pick(path: str, stamp: str | None) -> str | None:
@@ -34,9 +58,16 @@ def pick(path: str, stamp: str | None) -> str | None:
     if not candidates:
         return None
     if stamp:
+        # An explicit stamp is the operator overriding the heuristic on purpose.
         matching = [c for c in candidates if stamp in c]
         return matching[0] if matching else None
-    return candidates[0]
+    useful = [c for c in candidates if looks_pre_migration(c, path)]
+    if useful:
+        return useful[0]
+    print(f"⚠️  {os.path.basename(path)}: все бэкапы выглядят пост-миграционными "
+          f"(нет блоков и не крупнее текущего файла). Укажи --stamp явно, "
+          f"если уверен.", file=sys.stderr)
+    return None
 
 
 def describe(path: str, backup: str | None) -> None:

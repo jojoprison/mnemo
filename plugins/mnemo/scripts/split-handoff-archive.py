@@ -49,12 +49,17 @@ def month_of(block: str) -> str:
 
 def part_body(hub_name: str, month: str, blocks: list[str]) -> str:
     opens = sum(len(OPEN_TODO_RE.findall(b)) for b in blocks)
+    # `month` may carry a part suffix ("2026-06 ч2"); the frontmatter date must
+    # stay a real date, or property-based views silently skip the file.
+    iso_month = month[:7]
+    hot_name = hub_name.replace(" Archive", "")
     return (
-        f"---\ntype: meta\ntags: [meta, handoff, archive, cold]\ndate: {month}-01\n---\n\n"
+        f"---\ntype: meta\ntags: [meta, handoff, archive, cold]\ndate: {iso_month}-01\n---\n\n"
         f"# {hub_name} {month}\n\n"
         f"> ❄️ Холодный архив за {month}: {len(blocks)} блоков, {opens} незакрытых пунктов. "
         f"Текст перенесён дословно. Навигация — [[{hub_name}]].\n\n"
         + "".join(b if b.endswith("\n") else b + "\n" for b in blocks)
+        + f"\n## Связи\n\n- [[{hub_name}]] — хаб архива\n- [[{hot_name}]] — горячий индекс\n"
     )
 
 
@@ -82,6 +87,8 @@ def main() -> int:
     parser.add_argument("archive")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--today")
+    parser.add_argument("--force", action="store_true",
+                        help="overwrite existing parts (each is backed up first)")
     parser.add_argument("--max-part-bytes", type=int, default=200 * 1024,
                         help="split a month once it exceeds this (default 200 KB, "
                              "under the 256 KB read limit)")
@@ -117,6 +124,8 @@ def main() -> int:
         part, used, index = [], 0, 1
         for block in month_blocks:
             size = len(block.encode())
+            # Check BEFORE adding: closing the part after the overflow let one
+            # part reach 204819 B against a 204800 B ceiling.
             if part and used + size > args.max_part_bytes:
                 months[f"{month} ч{index}"] = part
                 part, used, index = [], 0, index + 1
@@ -140,6 +149,21 @@ def main() -> int:
         print("\n🔍 DRY RUN — ничего не записано. Для применения: --apply")
         return 0
 
+    # A part that already exists holds blocks from an earlier split. Overwriting
+    # it destroys them silently — and a later migration appends new blocks to the
+    # hub, so a second split is a realistic accident, not a hypothetical one.
+    collisions = [
+        f"{hub_name} {month}.md" for month in months
+        if os.path.isfile(os.path.join(directory, f"{hub_name} {month}.md"))
+    ]
+    if collisions and not args.force:
+        print(f"\n🛑 {len(collisions)} частей уже существуют — перезапись стёрла бы "
+              f"их блоки. Проверь и запусти с --force (каждая часть будет "
+              f"забэкаплена):", file=sys.stderr)
+        for name in collisions[:5]:
+            print(f"  {name}", file=sys.stderr)
+        return 3
+
     backup = f"{path}.bak-split-{today}"
     index = 1
     while os.path.exists(backup):
@@ -152,6 +176,8 @@ def main() -> int:
     written = []
     for month, month_blocks in months.items():
         part_path = os.path.join(directory, f"{hub_name} {month}.md")
+        if os.path.isfile(part_path):
+            shutil.copy2(part_path, f"{part_path}.bak-split-{today}")
         with open(part_path, "w", encoding="utf-8") as handle:
             handle.write(part_body(hub_name, month, month_blocks))
         written.append((part_path, month_blocks))

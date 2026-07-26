@@ -6,6 +6,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.13] - 2026-07-27
+
+### Changed
+
+- **The handoff index rotates by calendar, not by line count.** `handoff.keepDays` (default **31**) is now the rule; `handoff.maxLines` is gone. At the measured pace of a live vault — 7.5 sessions/day, 234 in 31 days — the old 180-line ceiling silently delivered ~24 days under a config that read `keepDays: 31`. `handoff.maxKB` (**56**, up from 40) is a backstop *underneath* the window, sized from measurement: 234 lines × ~195 B ≈ 46 KiB, so a normal month fits with ~20% headroom and the note still opens in a single read. `handoff.hardCapBytes` folded into `maxKB`, so the config carries **three** knobs where it carried five.
+- **When the window does not fit, the file says so.** A month busier than `maxKB` allows drops its oldest pointers and states it in one `> _overflow:` line. A window that silently holds less than it promises is the failure this whole reform exists to remove; it must not reappear as a silent truncation.
+- **Every index line is re-clipped, including ones written by hand.** An inline open-item list (`· open 4 (a · b · c) ·`) is now recognised and trimmed — measured at 754 B and 881 B on the live vault against a 200 B ceiling. The `[[Session — …]]` link is still never truncated (median 106 B, max 177 B on that vault): only the project label gives way.
+
+### Added
+
+- **`relink-orphan-pointers.py` — a pointer must have a live target.** A migrated block with no `[[Session — …]]` produced a pointer reading `(без session-заметки)`. That was cosmetic while the index kept everything; under a calendar window it is data loss, because eviction removes the block's last inbound link. Now such pointers are repointed at the exact archive part holding the block (10 of 186 blocks on the live vault, carrying 170 open items). The migration no longer creates them in the first place.
+- **`backfill-tails-from-archive.py` — recently-archived tails move into their own session note.** Pre-reform sessions wrote unfinished work into the shared handoff, so after migration those tails sat in cold parts the digest deliberately does not read. This is a deliberately narrow revisit of "don't rewrite the user's notes": it appends **only genuinely missing** items — measured, 105 of 136 recent tails already existed in their note under different wording, so 31 were appended, each marked with its block's date. Coverage is fuzzy on purpose (a literal comparison reports 0% where the truth is 77%), which also makes a second run a no-op.
+- **The handoff maintenance scripts now ship with the plugin.** `migrate-handoff-to-index.py`, `split-handoff-archive.py`, `restore-handoff-from-bak.py` and the two above moved from the repo into `plugins/mnemo/scripts/`, and `health` Step 7.6 offers them in dependency order when it finds a handoff still in block format. An installed user previously had no migration path at all: their handoff was in block format while the new `session` wrote pointers.
+- **`setup`'s config template carries the `handoff`, `hot` and `hooks.hotDigest` keys**, so a fresh install learns about the window, the digest and their bounds instead of silently inheriting defaults.
+
+- **`docs/design-decisions.md` — раздел про handoff**, которого не было: почему индекс, что отвергнуто (архивировать сильнее, триаж ради размера, сжатие блоков, переписывание чужих заметок) и почему миграция остаётся отдельной ручной операцией. Non-goal `hot.md` переписан: отвергнут файл-кэш в волте, отгружен эфемерный вычисляемый дайджест.
+
+### Fixed
+
+- **Откат миграции был no-op.** `restore-handoff-from-bak.py` выбирал бэкап по mtime, а повторный прогон миграции пишет бэкап УЖЕ мигрированного файла — «отмена» восстанавливала индекс поверх индекса. Теперь кандидат обязан выглядеть до-миграционным (содержит `## YYYY-MM-DD` блоки либо крупнее текущего файла), иначе скрипт требует явный `--stamp`.
+- **Повторный `split-handoff-archive.py --apply` затирал уже разложенные части** — `.bak` делался только хабу, блоки прошлого прогона исчезали. Теперь при существующих частях скрипт отказывается работать без `--force`, а с ним бэкапит каждую часть. Плюс размер части проверяется ДО добавления блока (одна часть выходила на 204 819 B при потолке 204 800).
+- **`handoff-index-upsert` молча терял указатель**, если handoff ещё в блочном формате и больше потолка: цикл усечения выбрасывал и только что вставленную строку, возвращая `ok`. Теперь строка, ради которой сделан вызов, неприкосновенна, а неподъёмный легаси-файл получает явную ошибку «migrate first».
+- **`migrate --keep-blocks N` при повторном прогоне дублировал указатели** — гейт «блоков не осталось» не срабатывал, пока часть блоков намеренно оставлена.
+- **Существующие строки индекса не переклипывались** — правило длины применялось только к новой строке, поэтому запись от старой версии или руками жила вечно (на живом vault — 754 B при потолке 200).
+- **Шаблон отчёта `health` украл хвост content-lint**: блок `📮 Handoff` был вставлен между заголовком и деталями, и правило о вердиктах читалось как часть handoff. Плюс Step 7.6 честно помечен legacy-only — на мигрированном handoff он видит 0 блоков.
+- **Сиблинги контракта досвипаны**: `session-template.md`, `session/SKILL.md` («unfinished threads become handoff items») и хардкод `max_kb: 40 / keep_days: 14` вместо конфиг-плейсхолдеров.
+
 ## [1.2.12] - 2026-07-25
 
 ### Changed
@@ -965,7 +992,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.12...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.13...HEAD
+[1.2.13]: https://github.com/jojoprison/mnemo/compare/v1.2.12...v1.2.13
 [1.2.12]: https://github.com/jojoprison/mnemo/compare/v1.2.10...v1.2.12
 [1.2.10]: https://github.com/jojoprison/mnemo/compare/v1.2.9...v1.2.10
 [1.2.9]: https://github.com/jojoprison/mnemo/compare/v1.2.8...v1.2.9

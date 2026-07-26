@@ -261,6 +261,11 @@ def render(groups: list[dict], *, window_days: int, max_bytes: int) -> tuple[str
         for group in surviving:
             lines.append(f"{group['project']} · {group['count']}:")
             lines.extend(f"  · {item['text']}" for item in group["items"])
+        # Say plainly when the cap hid most of the list: a digest showing 43 of
+        # 234 without saying so reads like the whole picture.
+        if len(items) < total:
+            lines.append(f"(показано {len(items)} из {total} — остальное "
+                         "в pending-секциях session-заметок)")
         lines.append(tail)
         return "\n".join(lines), surviving
 

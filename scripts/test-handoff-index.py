@@ -144,14 +144,102 @@ class IndexUpsertTests(unittest.TestCase):
 
     # --- bounds -----------------------------------------------------------
 
-    def test_rotation_drops_the_oldest_line(self):
-        for day in range(1, 6):
-            self.upsert(session_note=f'Session — {day}', date=f'2026-07-0{day}')
-        self.upsert(session_note='Session — 6', date='2026-07-06', max_lines=3)
-        lines = self.index_lines()
-        self.assertEqual(3, len(lines))
-        self.assertIn('Session — 6', lines[0])
-        self.assertNotIn('Session — 1', '\n'.join(lines))
+    def test_window_drops_pointers_older_than_keep_days(self):
+        for date in ('2026-05-20', '2026-06-30', '2026-07-20'):
+            self.upsert(session_note=f'Session — {date}', date=date,
+                        today='2026-07-25', keep_days=31)
+        lines = '\n'.join(self.index_lines())
+        self.assertIn('Session — 2026-07-20', lines)
+        self.assertIn('Session — 2026-06-30', lines)
+        self.assertNotIn('Session — 2026-05-20', lines)
+
+    def test_window_is_calendar_not_count(self):
+        """Nine sessions in one day all stay: the rule is days, not lines."""
+        for n in range(9):
+            self.upsert(session_note=f'Session — {n}', date='2026-07-25',
+                        today='2026-07-25', keep_days=31)
+        self.assertEqual(9, len(self.index_lines()))
+
+    def test_thirty_one_days_at_the_measured_pace_fits_under_the_ceiling(self):
+        """The guarantee j asked for: 31 days must fit, at 7.5 sessions/day with
+        real-world Cyrillic note titles (median link 106 B, p90 143 B)."""
+        title = 'Session — %s #%d ' + 'разбор реформы хвостов и архива' * 2
+        for day in range(1, 32):
+            date = f'2026-07-{day:02d}' if day < 32 else None
+            for n in range(8):
+                self.upsert(session_note=title % (date, n), date=date,
+                            project='researches-j: длинная метка проекта',
+                            open_count=3, today='2026-07-31')
+        body = self.read_handoff()
+        self.assertLessEqual(len(body.encode()), 57344, len(body.encode()))
+        self.assertEqual(248, len(self.index_lines()))
+        self.assertIn('2026-07-01', body)  # the oldest day survived
+        self.assertNotIn('overflow:', body)
+
+    def crowded_handoff(self, count: int = 12) -> None:
+        lines = [f'- 2026-07-{day:02d} · mnemo · open 0 · '
+                 f'[[Session — {"ж" * 40} {day}]]' for day in range(1, count + 1)]
+        self.write_handoff(HEADER + '\n'.join(sorted(lines, reverse=True)) + '\n')
+
+    def test_overflow_note_appears_when_the_ceiling_bites(self):
+        """A window shorter than promised must say so — a silent 31 days that
+        holds 9 is the failure mode this whole reform exists to remove."""
+        self.crowded_handoff()
+        self.upsert(session_note='Session — новая', date='2026-07-20',
+                    today='2026-07-20',
+                    hard_cap_bytes=len(HEADER.encode()) + 1200)
+        body = self.read_handoff()
+        self.assertIn('older pointer(s) dropped', body)
+        self.assertEqual(1, body.count('> _overflow:'), body)
+        self.assertLessEqual(len(body.encode()), len(HEADER.encode()) + 1200)
+
+    def test_overflow_note_is_recomputed_not_accumulated(self):
+        """It states the last write, not a running total: once the file fits
+        again the note goes, and the oldest pointer's date shows the window."""
+        self.crowded_handoff()
+        self.upsert(session_note='Session — новая', date='2026-07-20',
+                    today='2026-07-20',
+                    hard_cap_bytes=len(HEADER.encode()) + 1200)
+        self.upsert(session_note='Session — ещё', date='2026-07-21',
+                    today='2026-07-21')
+        self.assertEqual(0, self.read_handoff().count('> _overflow:'))
+
+    def test_overflow_note_never_costs_the_pointer(self):
+        """When the cap is too small for both, the line wins and the file still
+        respects the ceiling."""
+        self.crowded_handoff()
+        self.upsert(session_note='Session — новая', date='2026-07-20',
+                    today='2026-07-20',
+                    hard_cap_bytes=len(HEADER.encode()) + 120)
+        body = self.read_handoff()
+        self.assertIn('Session — новая', body)
+        self.assertLessEqual(len(body.encode()), len(HEADER.encode()) + 120)
+
+    def test_inline_open_list_is_reclipped(self):
+        """A pointer written by hand with its tail inlined blew the budget:
+        measured 754 B on the live vault against a 200 B ceiling."""
+        fat = ('- 2026-07-20 · researches-j · open 4 (' + 'хвост · ' * 40
+               + ') · [[Session — 2026-07-20 разбор]]')
+        self.write_handoff(HEADER + fat + '\n')
+        self.upsert(session_note='Session — новая', date='2026-07-25',
+                    today='2026-07-25')
+        for line in self.index_lines():
+            self.assertLessEqual(len(line.encode()), 200, line)
+        body = self.read_handoff()
+        self.assertIn('[[Session — 2026-07-20 разбор]]', body)
+        self.assertIn('open 4', body)
+
+    def test_max_kb_is_the_same_ceiling_expressed_in_kib(self):
+        """The config carries one size knob; two would drift apart."""
+        self.crowded_handoff(count=20)
+        self.upsert(session_note='Session — новая', date='2026-07-21',
+                    today='2026-07-21', max_kb=1)
+        self.assertLessEqual(len(self.read_handoff().encode()), 1024)
+
+    def test_backdated_line_being_written_survives_the_window(self):
+        self.upsert(session_note='Session — старая', date='2026-01-01',
+                    today='2026-07-25', keep_days=31)
+        self.assertIn('Session — старая', self.read_handoff())
 
     def test_line_budget_is_bytes_not_characters(self):
         """150 Cyrillic chars ≈ 270 B: a char-counted budget lets it through."""
@@ -174,6 +262,56 @@ class IndexUpsertTests(unittest.TestCase):
                         hard_cap_bytes=len(HEADER.encode()) + 900)
         self.assertLessEqual(len(self.read_handoff().encode('utf-8')),
                              len(HEADER.encode()) + 900)
+
+    def test_legacy_body_over_cap_fails_loudly_instead_of_eating_the_line(self):
+        """The silent-loss case: block-format body all lands in the header, so
+        the cap loop used to drop the new pointer and still report success."""
+        legacy = HEADER + ''.join(
+            f'## 2026-0{m}-01 — блок\n' + 'текст ' * 400 + '\n\n' for m in range(1, 6))
+        self.write_handoff(legacy)
+        result = self.upsert(session_note='Session — A', date='2026-07-25',
+                             hard_cap_bytes=1000, expect_ok=False)
+        self.assertFalse(result.get('ok'))
+        self.assertIn('block format', result['error']['message'])
+        self.assertEqual(legacy, self.read_handoff())
+
+    def test_cap_never_drops_the_line_being_written(self):
+        for day in range(1, 6):
+            self.upsert(session_note=f'Session — {day}', date=f'2026-07-0{day}')
+        self.upsert(session_note='Session — новая', date='2026-07-25',
+                    hard_cap_bytes=len(HEADER.encode()) + 200)
+        self.assertIn('Session — новая', self.read_handoff())
+
+    def test_existing_oversized_lines_are_reclipped(self):
+        """A line written by an older version or by hand kept its length forever."""
+        long_line = '- 2026-07-01 · ' + 'ю' * 300 + ' · open 9 · [[Session — старая]]'
+        self.write_handoff(HEADER + long_line + '\n')
+        self.upsert(session_note='Session — новая', date='2026-07-25')
+        for line in self.index_lines():
+            self.assertLessEqual(len(line.encode('utf-8')), 200, line)
+        self.assertIn('[[Session — старая]]', self.read_handoff())
+
+    def test_reclip_leaves_unparseable_lines_alone(self):
+        odd = '- 2026-07-01 · что-то совсем другое без обычной структуры ' + 'я' * 200
+        self.write_handoff(HEADER + odd + '\n')
+        self.upsert(session_note='Session — новая', date='2026-07-25')
+        self.assertIn(odd, self.read_handoff())
+
+    def test_truncated_label_is_marked(self):
+        """«BTS: BRIDGE-» без маркера читается как целая сводка."""
+        self.upsert(session_note='Session — A', date='2026-07-25',
+                    project='очень длинная сводка ' * 20, max_line_bytes=200)
+        line = self.index_lines()[0]
+        self.assertIn('…', line)
+        self.assertLessEqual(len(line.encode('utf-8')), 200)
+
+    def test_label_clipped_to_a_stub_is_dropped(self):
+        long_note = 'Session — ' + 'ю' * 80
+        self.upsert(session_note=long_note, date='2026-07-25',
+                    project='BTS: ревизия воркти и всего прочего', max_line_bytes=200)
+        line = self.index_lines()[0]
+        self.assertNotIn('BTS: рев', line)
+        self.assertIn(f'[[{long_note}]]', line)
 
     # --- validation --------------------------------------------------------
 

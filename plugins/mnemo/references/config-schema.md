@@ -64,8 +64,9 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
   },
 
   "handoff": {
-    "maxKB": 40,
-    "keepDays": 14
+    "maxKB": 56,
+    "keepDays": 31,
+    "maxLineBytes": 200
   },
 
   "review": {
@@ -132,11 +133,9 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `hooks.stopNudge` | At session end, if the session looks worth-saving but the save and/or session skill never ran, block once with the current runtime's native commands. This is **opt-in, default false**; an anti-loop governor prevents repeated blocking | hooks/mnemo-stop-nudge.sh |
 | `hooks.invocationEcho` | Claude Code only: on a `/mn:*` slash command, emit a `systemMessage` line (`🧠 mnemo: /mn:save → skill body loaded`) via the Claude-only `UserPromptExpansion` hook — a **deterministic** invocation confirmation that, unlike the in-body marker, does not depend on model compliance. Codex does not load this unsupported event. Default **true**; set false to silence | hooks/mnemo-skill-echo.sh |
 | `memory.indexWarnKB` | Early loaded-content byte warning for Claude `MEMORY.md`. Current loader limits are 200 lines or 25,000 bytes after stripping leading YAML frontmatter and block-level HTML comments; health always reports either hard-limit breach independently of this threshold. Default **22** | health |
-| `handoff.maxKB` | Size ceiling (KB) before `vault-write.py archive-handoff` rotates CLOSED old blocks into `<handoff_note> Archive` (cold). The handoff is a live index, not a store. What an un-rotated one costs is **unreadability, not tokens** — a host runtime truncates a large read to a preview, and a file read refuses outright past 256 KB / 25,000 tokens, so past a point nothing can consult it and live items drown under months of closed history. Default **40** | session |
-| `handoff.keepDays` | Blocks newer than this stay hot regardless of status; older **and** closed (no open `- [ ]`) move to the archive. Default **14** | session |
-| `handoff.maxLines` | Pointer lines kept in the handoff index before the oldest rotate out. Default **180** — at the maintainer's measured pace (5.9 sessions/day lifetime, 12.4 over the last week) that is a 14-31 day window that never needs retuning as the pace changes | session |
-| `handoff.maxLineBytes` | Per-line ceiling for an index line, in **bytes**. Default **200** (measured: the longest real session-note link is 177 B, so the pointer always fits). Trimming sacrifices the project label — never the `[[Session — …]]` link, because a cut wikilink is a dead link | session |
-| `handoff.hardCapBytes` | Whole-file ceiling for the index, in **bytes**; oldest pointers drop until it fits. Default **38912** (38 KiB, under the 40 KB `maxKB` guard) | session |
+| `handoff.keepDays` | **The rotation rule.** The index keeps pointers from the last N days; older ones are dropped, because a pointer is derived from a session note that keeps its own dated file. Default **31** — one calendar month, the unit a reader actually asks for. (In a handoff still in legacy block format the same knob keeps blocks newer than N days hot regardless of status.) | session |
+| `handoff.maxKB` | Whole-note ceiling, the backstop **under** `keepDays`: if a month is busier than the window fits, the oldest pointers give way and the note says so in one `> _overflow:` line — a window that silently holds less than it promises is the failure this reform removed. Default **56** — measured pace 7.5 sessions/day × 31 days × ~195 B ≈ 46 KiB, so a normal month fits with ~20% headroom and the note still opens in a single read (a file read refuses past 256 KB / 25,000 tokens). The same value bounds the legacy `archive-handoff` rotation. | session |
+| `handoff.maxLineBytes` | Per-line ceiling for an index line, in **bytes**, enforced on **every** line and not only the newly written one (measured: hand-written lines reached 754 B under a 200 B ceiling). Default **200** — the `[[Session — …]]` link alone is a median 106 B and up to 177 B on this vault, and it is never truncated: a cut wikilink is a dead link. Only the project label gives way. | session |
 | `hooks.hotDigest` | Inject the open-tails digest alongside the SessionStart nudge — the forward-state half of memory ("where did I stop"), collected from recent session notes' pending sections. This is the automatic reader continuity never had: a full handoff cannot be read at all (a file read caps at 256 KB / 25,000 tokens), so before this the digest existed only if someone opened the note by hand. Degrades to nudge-only on any failure. Default **true**; set false to silence | hooks/mnemo-context.sh |
 | `hot.scope` | `"project"` limits the digest to the repo you are in (project label = the basename of the git **common** dir, so a worktree reports its project, not the worktree name); `"all"` gives the cross-project view. Default **project** | hooks/mnemo-context.sh |
 | `hot.windowDays` | How far back the digest looks for open tails. Default **7** | hot-scan |

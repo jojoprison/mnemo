@@ -37,7 +37,7 @@ Tool-routing (bundled atomic writer for writes, bundled CLI adapter for reads/se
 
 Analyze the conversation: what was done, key decisions, commits/PRs created, findings.
 
-**Thoroughness by routing (standing default).** A good session note is thorough by *routing* material to its right home, not by swelling this one note: the narrative + arc + decisions-in-context live here; business-logic / pains / how-the-user-thinks route to `save`'s typed `principle` / `pain` / `stance` atoms; connections go to `connect`; unfinished threads become handoff `- [ ]` items. Full contract: `<mnemo-root>/references/depth-contract.md`. Depth = structure, not volume — never fold "capture everything" into the narrative (that is the blob anti-pattern).
+**Thoroughness by routing (standing default).** A good session note is thorough by *routing* material to its right home, not by swelling this one note: the narrative + arc + decisions-in-context live here; business-logic / pains / how-the-user-thinks route to `save`'s typed `principle` / `pain` / `stance` atoms; connections go to `connect`; unfinished threads stay here as `- [ ]` items in this note's own pending section (the handoff gets only a pointer to it). Full contract: `<mnemo-root>/references/depth-contract.md`. Depth = structure, not volume — never fold "capture everything" into the narrative (that is the blob anti-pattern).
 
 **Ground the summary in facts — don't rely on conversation memory alone** (a note that claims "shipped X" when git shows no such commit is worse than no note). Before writing "what was done", cross-check against reality: `git log --oneline -15` + `git status --short` for real commits/changes, and — when the script is reachable — the session's actual tool/skill activity:
 
@@ -135,11 +135,13 @@ Why this is the contract and not a preference: when tails were written into the 
 
 ```bash
 python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"handoff-index-upsert","vault":"{vault}","note":"{handoff_note}","session_note":"{this session's note name}","date":"{YYYY-MM-DD}","project":"{project}","open_count":{count of open items in the session note}}
+{"action":"handoff-index-upsert","vault":"{vault}","note":"{handoff_note}","session_note":"{this session's note name}","date":"{YYYY-MM-DD}","project":"{project}","open_count":{count of open items in the session note},"max_kb":{handoff.maxKB},"keep_days":{handoff.keepDays}}
 JSON
 ```
 
-It writes one line — `- 2026-07-25 · mnemo · open 3 · [[Session — …]]` — and is **idempotent on the session link**: a mid-task checkpoint refreshes its own line instead of appending a twin. Count `open_count` from the session note you just wrote; do not estimate it. Bounds (`max_lines` 180, `max_line_bytes` 200, `hard_cap_bytes` 38912, all overridable, all in **bytes**) are enforced by the writer, so the file cannot grow past its ceiling no matter how busy the week is. The session link is never truncated — only the project label gives way.
+It writes one line — `- 2026-07-25 · mnemo · open 3 · [[Session — …]]` — and is **idempotent on the session link**: a mid-task checkpoint refreshes its own line instead of appending a twin. Count `open_count` from the session note you just wrote; do not estimate it. Omit `max_kb`/`keep_days` when the config has no `handoff` section; the defaults (56 KiB, 31 days) apply.
+
+**The index holds a calendar window, not a line count.** Pointers older than `handoff.keepDays` are dropped — the session note they point to keeps the detail, so nothing is lost by eviction. `handoff.maxKB` is a backstop underneath that: if a month is busier than the window fits, the oldest pointers give way and the file says so in one `> _overflow:` line rather than quietly holding a shorter window. Per-line length (`handoff.maxLineBytes`, 200) is enforced on **every** line, not only the new one, and always in **bytes** — a Cyrillic line is ~2 B/char. The session link is never truncated; only the project label gives way.
 
 If the handoff note does not exist, create it via `vault-write.py create` with the same structure as `setup` Step 6, then upsert.
 
@@ -151,11 +153,11 @@ The handoff is a LIVE index, not an archive. After updating it, run the archival
 
 ```bash
 python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"archive-handoff","vault":"{vault}","note":"{handoff_note}","max_kb":40,"keep_days":14}
+{"action":"archive-handoff","vault":"{vault}","note":"{handoff_note}","max_kb":{handoff.maxKB},"keep_days":{handoff.keepDays}}
 JSON
 ```
 
-Replace `40` and `14` with the configured integer values when present.
+Replace the placeholders with the configured integer values, or omit both keys when the config has no `handoff` section.
 
 Keeps HOT: entries with an open `- [ ]` + the last `keepDays`. Moves CLOSED older entries verbatim to `{handoff_note} Archive` (cold, not read at session start; a unique `.bak-<date>` is written for undo). Archive-first publication and retry deduplication prevent loss across partial failures; the handoff/archive replacements use the same optimistic atomic writer as every other vault edit. Their durable detail already lives in the linked session notes. If the vault path can't be resolved (Obsidian absent), skip and report it.
 
