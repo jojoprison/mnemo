@@ -69,6 +69,23 @@ Descriptions get an agent to *consider* mnemo, but Opus 4.8 / Fable 5 under-trig
 - **Runtime-safe hook composition** (v1.2.3; Claude loader fix v1.2.4) — `hooks/hooks.json` is the auto-discovered Codex-safe baseline (`SessionStart` + `Stop`). Claude's manifest lists only the additive `hooks/claude-hooks.json`, which contains `UserPromptExpansion`; explicitly listing the standard file as well makes current Claude Code reject the plugin as a duplicate. Each event still has one definition: Claude keeps all three behaviors, while Codex never has to ignore an undocumented event. The Codex manifest deliberately relies on default discovery because the bundled validator rejects an explicit `hooks` field even though the current manual documents it.
 - **Rejected:** `PreToolUse(Read)` auto-recall (needs an index/daemon — mnemo has neither), `UserPromptSubmit` nudges (a cost on every prompt), and a **default-on** blocking Stop (loop risk for others). The nudge measures its own worth: ship it only if a trigger-eval shows lift over the bare description — otherwise it's paying an always-on price for nothing.
 
+## The handoff is an index of pointers, not a store (v1.2.12)
+
+**What changed.** An unfinished thread now lives in its own session note's pending section; the handoff holds one line per session — `- 2026-07-25 · project · open 3 · [[Session — …]]`.
+
+**Why.** The previous contract sent open threads *into* the shared handoff. Measured on a real vault: only **9%** of fresh open items also existed in their own session note (34% for older ones), so the handoff had become the sole home of forward state. It reached **805 KiB** — and at that size nothing can read it (a file read refuses past 256 KB / 25,000 tokens), so the "read the handoff at session start" instruction was unexecutable and continuity happened in **6%** of sessions. A pointer line is bounded by the *number of sessions*; a copied thread is bounded by nothing.
+
+**What was rejected, and why it matters:**
+
+- **Archiving harder.** The archiver may never move a block holding an open `- [ ]` — an unkept promise must not slip into cold storage silently. On the live file that invariant meant it could free **zero** bytes while the file sat 20× over its ceiling. The guard is correct and insufficient: size is decided by the *format* of what gets written, not by rotation.
+- **Triage as a size strategy.** Resolving *every* open item would have freed **2.47%**. Triage buys correctness, not size — which is why `handoff-resolver.py` is permanently report-only.
+- **Compressing blocks into lines.** Live state is not always a `- [ ]`: 90 flat bullets and ~200 prose lines carried it. Extraction would have dropped them, so migration moves blocks **verbatim and whole**.
+- **Rewriting the user's session notes** to redistribute 863 existing threads. Those files are human-authored and the vault has no version control; the threads went to the archive with a searchable inventory instead.
+
+**Why migration is a separate manual step.** `migrate-handoff-to-index.py` is not run by any skill: it rewrites the vault irreversibly, so it defaults to `--dry-run`, writes `.bak` first, verifies every block is byte-present in the archive afterwards, and ships with a rehearsed `restore-handoff-from-bak.py`. A skill that silently reshapes your vault mid-session would violate the one principle above.
+
+**The known gap.** Threads that never had a session note (or that live only in archived blocks) are outside the digest's reach — the digest reads session notes. Their text is preserved and searchable, but nothing surfaces it automatically. See `BACKLOG.md`.
+
 ## Non-goals (deliberately rejected)
 
 These surfaced during the Karpathy "LLM Wiki" audit (v0.14.0 — see [CHANGELOG](../CHANGELOG.md)). Each is a reasonable idea for a *different* tool; each conflicts with the principle above. None are "forgotten" — they were evaluated and declined. If you want one, the "If you want it" note shows the on-philosophy way: always opt-in, default off, never masquerading as hand-curated content.
@@ -95,7 +112,9 @@ These surfaced during the Karpathy "LLM Wiki" audit (v0.14.0 — see [CHANGELOG]
 
 **What it is:** a tiny (~500-char) cache of the most-recent context that downstream agents read first, to avoid crawling the whole vault on every query.
 
-**Why not (near-N/A):** mnemo runs in-agent; the harness already injects `memory/MEMORY.md` + the live conversation as hot context, so the cold-crawl cost `hot.md` solves doesn't exist here. It would only help a *separate, external* agent querying the vault out-of-band — not mnemo's loop.
+**Why not (as a *file*):** a cache note in the vault is another artifact to keep true, and a stale one is worse than none.
+
+**What shipped instead (v1.2.11):** the same need — "what was I in the middle of" — is served by an **ephemeral, computed** digest: `hot-scan.py` reads the pending sections of recent session notes at SessionStart and injects a byte-capped summary (`hot.scope` / `hot.windowDays` / `hot.maxKB`). Nothing is written to the vault, so it cannot rot; it is recomputed every session from the notes themselves. Note the naming: the `hot.*` config namespace belongs to that digest, not to a `hot.md` file.
 
 **If you want it:** only worthwhile if you build an external service that queries the vault headlessly; then a bounded `hot.md` maintained by `/mn:save` could accelerate it.
 

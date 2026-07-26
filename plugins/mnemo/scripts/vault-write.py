@@ -748,6 +748,35 @@ def build_index_line(
     return f"{fixed}{suffix}"
 
 
+INDEX_PARSE_RE = re.compile(
+    r"^- (\d{4}-\d{2}-\d{2})(?: · (?P<label>.*?))? · open (?P<open>\d+) · (?P<tail>.*)$"
+)
+
+
+def reclip_index_line(line: str, max_line_bytes: int) -> str:
+    """Bring an existing pointer back inside the per-line budget.
+
+    Unparseable or already-short lines are returned untouched: this normalizes,
+    it never discards something it does not understand.
+    """
+    if len(line.encode()) <= max_line_bytes:
+        return line
+    match = INDEX_PARSE_RE.match(line)
+    if match is None:
+        return line
+    tail = match.group("tail")
+    link_match = re.search(r"\[\[([^\]]+)\]\]", tail)
+    if link_match is None:
+        return line
+    return build_index_line(
+        date=match.group(1),
+        project=match.group("label") or "",
+        open_count=int(match.group("open")),
+        session_note=link_match.group(1),
+        max_line_bytes=max_line_bytes,
+    )
+
+
 def transform_handoff_index(current: CurrentFile, payload: dict[str, Any]) -> str:
     """Upsert one session's pointer line into the handoff index.
 
@@ -780,7 +809,11 @@ def transform_handoff_index(current: CurrentFile, payload: dict[str, Any]) -> st
 
     lines = current.body.split("\n")
     positions = [i for i, line in enumerate(lines) if INDEX_LINE_RE.match(line)]
-    entries = [lines[i] for i in positions]
+    # Re-clip what is already there, not just the new line. A line written by an
+    # older version, by a migration, or by hand keeps its length forever
+    # otherwise — on the live vault that left entries of 754 B under a 200 B
+    # ceiling, so the "cannot grow past its bounds" claim was false in a day.
+    entries = [reclip_index_line(lines[i], max_line_bytes) for i in positions]
     link = f"[[{session_note}]]"
     entries = [entry for entry in entries if link not in entry]
     entries.append(
@@ -814,10 +847,19 @@ def transform_handoff_index(current: CurrentFile, payload: dict[str, Any]) -> st
         return "\n".join(head + rows + tail)
 
     body = assemble(entries)
-    # Whole-file cap last: drop oldest pointers until the file fits.
-    while entries and len(body.encode()) > hard_cap:
+    # Whole-file cap last: drop oldest pointers until the file fits — but never
+    # the pointer this call was made to write. Without that floor a handoff
+    # still in block format (whose blocks all land in `head`) silently ate the
+    # new line and reported success: the session looked recorded and was not.
+    while len(entries) > 1 and len(body.encode()) > hard_cap:
         entries.pop()
         body = assemble(entries)
+    if len(body.encode()) > hard_cap:
+        fail(
+            "precondition_failed",
+            "handoff exceeds hardCapBytes even with a single pointer — it is "
+            "still in block format; migrate it before writing an index line",
+        )
     return body
 
 

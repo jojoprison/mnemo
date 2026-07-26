@@ -108,6 +108,40 @@ class SplitTests(unittest.TestCase):
                 if line.strip():
                     self.assertIn(line, combined, line)
 
+    def test_second_split_refuses_to_clobber_existing_parts(self):
+        """Overwriting a part destroys the blocks an earlier split put there."""
+        self.run_split('--apply')
+        april = os.path.join(self.tmp.name, 'Meta — Session Handoff Archive 2026-04.md')
+        before = read(april)
+        # A later migration appends new blocks to the hub — a realistic re-split.
+        write(self.archive, PREFIX + block('2026-04-25'))
+        result = subprocess.run(
+            [sys.executable, SCRIPT, self.archive, '--today', '2026-07-25', '--apply'],
+            capture_output=True, text=True)
+        self.assertNotEqual(0, result.returncode)
+        self.assertIn('уже существуют', result.stderr)
+        self.assertEqual(before, read(april))
+
+    def test_force_backs_up_each_part_before_overwriting(self):
+        self.run_split('--apply')
+        april = os.path.join(self.tmp.name, 'Meta — Session Handoff Archive 2026-04.md')
+        before = read(april)
+        write(self.archive, PREFIX + block('2026-04-25'))
+        self.run_split('--apply', '--force')
+        backups = [f for f in os.listdir(self.tmp.name)
+                   if f.startswith('Meta — Session Handoff Archive 2026-04.md.bak')]
+        self.assertTrue(backups, os.listdir(self.tmp.name))
+        self.assertEqual(before, read(os.path.join(self.tmp.name, backups[0])))
+
+    def test_parts_never_exceed_the_declared_ceiling(self):
+        big = [block(f'2026-06-{day:02d}', filler=400) for day in range(1, 13)]
+        write(self.archive, PREFIX + ''.join(big))
+        self.run_split('--apply', '--max-part-bytes', '20000')
+        for part in self.parts():
+            size = sum(len(b.encode()) for b in
+                       read(os.path.join(self.tmp.name, part)).split('## ')[1:])
+            self.assertLessEqual(size, 20000, part)
+
     def test_archive_without_blocks_is_a_no_op(self):
         write(self.archive, PREFIX)
         before = read(self.archive)

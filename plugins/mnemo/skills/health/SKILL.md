@@ -185,6 +185,8 @@ python3 "<mnemo-root>/scripts/handoff-resolver.py" "{vault_path}/{handoff_note}.
   --keep-days {handoff.keepDays} --limit 25
 ```
 
+🛑 **Legacy-only by construction.** The resolver parses `## YYYY-MM-DD` blocks, so on a handoff already migrated to the pointer index it reports `0 blocks · 0 open` and there is nothing to triage — skip the step and omit its report block. The blocks themselves live on in `{handoff_note} Archive …` parts; point the resolver at those when you want the triage view of archived history.
+
 Offline and read-only — it never writes and never calls a network. Report its three blocks as-is:
 
 - **Ceiling.** How many bytes a *complete* resolution of every open item would free. Quote it honestly even when it is small: on the maintainer's live vault it was **2.47%** (20 KB of 805 KB). Triage buys correctness, not size — say so instead of implying a cleanup will fix a bloated file.
@@ -266,13 +268,13 @@ Other (no configured taxonomy tag): {N}
   (snooze a still-valid note: add `reviewed: {today}` to its frontmatter)
 
 🔬 Content lint: {N judged} — {S} still-valid, {U} update-needed, {C} contradicts   ← only when review.lint.enabled
-
-📮 Handoff: {N} KB / {N} blocks / {N} open items   ← only when a handoff_note is configured and over handoff.maxKB
-  full resolution would free {N} KB ({N}%) — triage buys correctness, not size
-  {N} fully-resolvable · {N} partial (one anchorless item pins the block) · {N} no-anchor · {N} prose-pinned
   (counts MUST equal the lint's actual verdicts — never default to all-still-valid; see Step 7.5)
   - {fact_prefix}API X gotcha → UPDATE-NEEDED: superseded by [[{fact_prefix}API X v2]]
   - {source_prefix}vendor API pricing → still-valid (stamped reviewed: {today})
+
+📮 Handoff: {N} KB / {N} blocks / {N} open items   ← only when a handoff_note is configured, over handoff.maxKB, AND still in block format
+  full resolution would free {N} KB ({N}%) — triage buys correctness, not size
+  {N} fully-resolvable · {N} partial (one anchorless item pins the block) · {N} no-anchor · {N} prose-pinned
 
 🌱 Research-gap candidates (where the vault wants to grow): {N}
   - #auth ×12 notes, no hub → create {moc_prefix}Auth?
@@ -281,7 +283,7 @@ Other (no configured taxonomy tag): {N}
 🧠 Claude memory/ index: {KB}KB / {lines} lines {✅ lean | ⚠️ bloated → autodream}
 ```
 
-Omit the `🔬 Content lint` block entirely when `review.lint.enabled` is false. Omit the `🌱 Research-gap candidates` block when Step 8.5 found nothing. The still-valid line above shows the default (`autoStampReviewed: true` — the note was stamped); with `autoStampReviewed: false` render it as `→ still-valid (recommend reviewed: {today})` instead, since nothing was written.
+Omit the `🔬 Content lint` block entirely when `review.lint.enabled` is false. Omit the `🌱 Research-gap candidates` block when Step 8.5 found nothing. Omit the `📮 Handoff` block when Step 7.6 was skipped or reported an index-format handoff (0 blocks) — a triage line reading "0 blocks · 0 open · frees 0%" says nothing and reads like a failure. The still-valid line above shows the default (`autoStampReviewed: true` — the note was stamped); with `autoStampReviewed: false` render it as `→ still-valid (recommend reviewed: {today})` instead, since nothing was written.
 
 Both Claude-specific lines are conditional: skip the `⚠️ claude-mem` line if Step 0 found nothing to warn about, and omit **both** it and the `🧠 Claude memory/ index` line entirely in Codex. The `🔄 Cross-runtime recall` line is runtime-neutral and appears only when Step 0.5 says the opt-in feature is enabled.
 

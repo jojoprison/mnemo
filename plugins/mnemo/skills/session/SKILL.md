@@ -37,7 +37,7 @@ Tool-routing (bundled atomic writer for writes, bundled CLI adapter for reads/se
 
 Analyze the conversation: what was done, key decisions, commits/PRs created, findings.
 
-**Thoroughness by routing (standing default).** A good session note is thorough by *routing* material to its right home, not by swelling this one note: the narrative + arc + decisions-in-context live here; business-logic / pains / how-the-user-thinks route to `save`'s typed `principle` / `pain` / `stance` atoms; connections go to `connect`; unfinished threads become handoff `- [ ]` items. Full contract: `<mnemo-root>/references/depth-contract.md`. Depth = structure, not volume — never fold "capture everything" into the narrative (that is the blob anti-pattern).
+**Thoroughness by routing (standing default).** A good session note is thorough by *routing* material to its right home, not by swelling this one note: the narrative + arc + decisions-in-context live here; business-logic / pains / how-the-user-thinks route to `save`'s typed `principle` / `pain` / `stance` atoms; connections go to `connect`; unfinished threads stay here as `- [ ]` items in this note's own pending section (the handoff gets only a pointer to it). Full contract: `<mnemo-root>/references/depth-contract.md`. Depth = structure, not volume — never fold "capture everything" into the narrative (that is the blob anti-pattern).
 
 **Ground the summary in facts — don't rely on conversation memory alone** (a note that claims "shipped X" when git shows no such commit is worse than no note). Before writing "what was done", cross-check against reality: `git log --oneline -15` + `git status --short` for real commits/changes, and — when the script is reachable — the session's actual tool/skill activity:
 
@@ -151,7 +151,7 @@ The handoff is a LIVE index, not an archive. After updating it, run the archival
 
 ```bash
 python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"archive-handoff","vault":"{vault}","note":"{handoff_note}","max_kb":40,"keep_days":14}
+{"action":"archive-handoff","vault":"{vault}","note":"{handoff_note}","max_kb":{handoff.maxKB},"keep_days":{handoff.keepDays}}
 JSON
 ```
 

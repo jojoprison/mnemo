@@ -156,7 +156,14 @@ def main() -> int:
                     if os.path.isfile(archive_path) else "")
 
     _, existing_blocks = split_blocks(handoff_body)
-    if not existing_blocks:
+    already_indexed = any(
+        line.startswith("- 20") and " · " in line
+        for line in handoff_body.splitlines()
+    )
+    # With --keep-blocks the kept blocks stay behind, so "no blocks left" never
+    # becomes true and a re-run kept appending duplicate pointers. The real
+    # no-op condition is: an index already exists and nothing is left to move.
+    if already_indexed and len(existing_blocks) <= args.keep_blocks:
         # Already migrated (or never block-format). Re-running must be a true
         # no-op: a second pass used to append a "moved 0 blocks" note to the
         # archive and stray blank lines to the handoff — harmless to the data,

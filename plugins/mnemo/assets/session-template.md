@@ -29,7 +29,7 @@ session_id: {session_id}
 
 ## Next steps / pending
 
-- [ ] {Follow-up item carried to handoff}
+- [ ] {Unfinished thread — it LIVES here; the handoff only gets a pointer line to this note}
 
 {links_section}
 

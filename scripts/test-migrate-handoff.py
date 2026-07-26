@@ -115,6 +115,16 @@ class MigrationTests(unittest.TestCase):
         self.assertEqual(archive_after, read(self.archive))
         self.assertNotIn('0 блоков', read(self.archive))
 
+    def test_second_run_with_keep_blocks_does_not_duplicate_pointers(self):
+        """--keep-blocks leaves blocks behind, so "no blocks left" never fired
+        and each re-run appended another copy of every pointer."""
+        self.migrate('--apply', '--keep-blocks', '1')
+        first = len([l for l in read(self.handoff).splitlines() if l.startswith('- 20')])
+        self.migrate('--apply', '--keep-blocks', '1')
+        self.migrate('--apply', '--keep-blocks', '1')
+        after = len([l for l in read(self.handoff).splitlines() if l.startswith('- 20')])
+        self.assertEqual(first, after)
+
     def test_second_run_writes_no_extra_backup(self):
         self.migrate('--apply')
         before = len([f for f in os.listdir(self.tmp.name) if '.bak-migrate-' in f])
@@ -185,6 +195,30 @@ class MigrationTests(unittest.TestCase):
         saved = [f for f in os.listdir(self.tmp.name) if '.pre-restore-' in f]
         self.assertTrue(saved)
         self.assertEqual(migrated, read(os.path.join(self.tmp.name, saved[0])))
+
+    def test_restore_skips_a_post_migration_backup(self):
+        """The undo that undid nothing: a second migration run backs up the
+        ALREADY migrated file, and picking the newest backup by mtime then
+        restores the index over the index."""
+        original = read(self.handoff)
+        self.migrate('--apply')
+        migrated = read(self.handoff)
+        # Simulate the second run's backup: newest on disk, but useless.
+        decoy = self.handoff + '.bak-migrate-2026-07-26'
+        write(decoy, migrated)
+        os.utime(decoy, (2 ** 31, 2 ** 31))  # far future → newest by mtime
+        result = run(RESTORE, self.handoff, '--archive', self.archive, '--apply')
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(original, read(self.handoff))
+
+    def test_restore_warns_when_every_backup_is_post_migration(self):
+        self.migrate('--apply')
+        migrated = read(self.handoff)
+        for name in os.listdir(self.tmp.name):
+            if '.bak-migrate-' in name:
+                write(os.path.join(self.tmp.name, name), migrated)
+        result = run(RESTORE, self.handoff, '--archive', self.archive)
+        self.assertIn('пост-миграционными', result.stderr)
 
     def test_restore_without_backups_fails_closed(self):
         lonely = os.path.join(self.tmp.name, 'Nothing.md')

@@ -175,6 +175,40 @@ class IndexUpsertTests(unittest.TestCase):
         self.assertLessEqual(len(self.read_handoff().encode('utf-8')),
                              len(HEADER.encode()) + 900)
 
+    def test_legacy_body_over_cap_fails_loudly_instead_of_eating_the_line(self):
+        """The silent-loss case: block-format body all lands in the header, so
+        the cap loop used to drop the new pointer and still report success."""
+        legacy = HEADER + ''.join(
+            f'## 2026-0{m}-01 — блок\n' + 'текст ' * 400 + '\n\n' for m in range(1, 6))
+        self.write_handoff(legacy)
+        result = self.upsert(session_note='Session — A', date='2026-07-25',
+                             hard_cap_bytes=1000, expect_ok=False)
+        self.assertFalse(result.get('ok'))
+        self.assertIn('block format', result['error']['message'])
+        self.assertEqual(legacy, self.read_handoff())
+
+    def test_cap_never_drops_the_line_being_written(self):
+        for day in range(1, 6):
+            self.upsert(session_note=f'Session — {day}', date=f'2026-07-0{day}')
+        self.upsert(session_note='Session — новая', date='2026-07-25',
+                    hard_cap_bytes=len(HEADER.encode()) + 200)
+        self.assertIn('Session — новая', self.read_handoff())
+
+    def test_existing_oversized_lines_are_reclipped(self):
+        """A line written by an older version or by hand kept its length forever."""
+        long_line = '- 2026-07-01 · ' + 'ю' * 300 + ' · open 9 · [[Session — старая]]'
+        self.write_handoff(HEADER + long_line + '\n')
+        self.upsert(session_note='Session — новая', date='2026-07-25')
+        for line in self.index_lines():
+            self.assertLessEqual(len(line.encode('utf-8')), 200, line)
+        self.assertIn('[[Session — старая]]', self.read_handoff())
+
+    def test_reclip_leaves_unparseable_lines_alone(self):
+        odd = '- 2026-07-01 · что-то совсем другое без обычной структуры ' + 'я' * 200
+        self.write_handoff(HEADER + odd + '\n')
+        self.upsert(session_note='Session — новая', date='2026-07-25')
+        self.assertIn(odd, self.read_handoff())
+
     # --- validation --------------------------------------------------------
 
     def test_rejects_session_note_with_wikilink_breaking_characters(self):
