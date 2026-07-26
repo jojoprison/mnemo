@@ -127,31 +127,27 @@ If the anchor is missing/non-unique or the file changes during publication, re-r
 
 ### Step 5: Update Session Handoff
 
-**Read handoff through the shell-free CLI adapter:**
+🛑 **Unfinished work belongs to its own session note, not to the handoff.** Write every open tail into this session's `## Next steps / pending` section (Step 4) — that is its home. The handoff gets a **pointer**, not a copy.
 
-```bash
-python3 "<mnemo-root>/scripts/safe-read.py" read <<'JSON'
-{"file":"{handoff_note}","vault":"{vault}"}
-JSON
-```
+Why this is the contract and not a preference: when tails were written into the shared handoff instead, only **9%** of the live vault's fresh open items existed in their own session note (34% for older ones). The handoff became the sole home of forward state, which is exactly how it reached 805 KiB — and why it could then be neither read nor shrunk. A pointer line is bounded by the *number of sessions*; a copied tail is bounded by nothing.
 
-**Update with `vault-write.py replace/insert` — targeted, not blind append:**
-
-- Remove completed pending items from previous sessions
-- Add new pending items from current session (if any)
-- Update context carry-over section
+**Upsert this session's pointer line — the handoff index:**
 
 ```bash
 python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"replace","vault":"{vault}","note":"{handoff_note}","old_str":"{exact old section copied from read}","new_str":"{updated section as one JSON-escaped string}"}
+{"action":"handoff-index-upsert","vault":"{vault}","note":"{handoff_note}","session_note":"{this session's note name}","date":"{YYYY-MM-DD}","project":"{project}","open_count":{count of open items in the session note}}
 JSON
 ```
 
-If the handoff note does not exist, create it via `vault-write.py create` with the same structure as `setup` Step 6.
+It writes one line — `- 2026-07-25 · mnemo · open 3 · [[Session — …]]` — and is **idempotent on the session link**: a mid-task checkpoint refreshes its own line instead of appending a twin. Count `open_count` from the session note you just wrote; do not estimate it. Bounds (`max_lines` 180, `max_line_bytes` 200, `hard_cap_bytes` 38912, all overridable, all in **bytes**) are enforced by the writer, so the file cannot grow past its ceiling no matter how busy the week is. The session link is never truncated — only the project label gives way.
+
+If the handoff note does not exist, create it via `vault-write.py create` with the same structure as `setup` Step 6, then upsert.
+
+**Legacy block format.** A handoff still holding `## YYYY-MM-DD` blocks keeps them: the upsert adds its index line without touching them, and the size-guard below still rotates closed blocks. Migrating the blocks is a deliberate, separately-run operation — never a side effect of writing a session note.
 
 **Size-guard — keep the handoff thin (run every session):**
 
-The handoff is a LIVE index, not an archive. After updating it, run the archival helper so closed history doesn't accumulate into a multi-MB token bomb (it no-ops when the note is at/under `handoff.maxKB`):
+The handoff is a LIVE index, not an archive. After updating it, run the archival helper so closed history doesn't accumulate into a note nothing can read (it no-ops when the note is at/under `handoff.maxKB`):
 
 ```bash
 python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
@@ -195,7 +191,7 @@ Output summary:
 - **Include session_id in frontmatter** — disambiguates same-day sessions
 - **No session notes for trivial work** — but "trivial" = mechanical one-liners only (typo, single rename). A research / exploration / curiosity session counts as significant even with zero code; default to creating.
 - **Branch field optional** — research sessions don't have branches
-- **Handoff = thin live index, not an archive** — targeted optimistic replacement, not blind append. Named ceiling: when it exceeds `handoff.maxKB` (default 40KB), `vault-write.py archive-handoff` (Step 5) rotates CLOSED blocks older than `handoff.keepDays` into `{handoff_note} Archive` (cold); open `- [ ]` + recent stay hot. Prevents multi-MB token-bomb accumulation without a second writer.
+- **Handoff = thin live index, not an archive** — targeted optimistic replacement, not blind append. Named ceiling: when it exceeds `handoff.maxKB` (default 40KB), `vault-write.py archive-handoff` (Step 5) rotates CLOSED blocks older than `handoff.keepDays` into `{handoff_note} Archive` (cold); open `- [ ]` + recent stay hot. 🛑 **The guard is necessary but not sufficient, by its own invariant:** a block with even one open `- [ ]` is never archived, so on a real vault the archiver can be a no-op while the file is 20× over the ceiling (measured: 805 KiB, 863 open items, 0 blocks eligible). Size is bounded by the *format* of what gets written here; the guard only rotates what is already closed. `health` Step 7.6 reports what the guard cannot move and why.
 - **Links section is mandatory** — at least one MOC link, else the note orphans (invisible to graph navigation)
 - **Ghost notes generously** — wrap projects, technologies, people in `[[wikilinks]]`
 - **Thorough by routing, not volume** — the note stays a narrative; atom-worthy material (decisions, business-logic, pains, how-the-user-thinks) goes to `save`, links to `connect`, unfinished work to handoff. Full contract in `<mnemo-root>/references/depth-contract.md`

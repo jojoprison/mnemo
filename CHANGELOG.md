@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.12] - 2026-07-25
+
+### Changed
+
+- **An unfinished tail now belongs to its own session note; the handoff gets a pointer.** `session` Step 5 and `depth-contract.md` previously routed open threads *into* the shared handoff. Measured on a live vault, that left only **9%** of fresh open items present in their own session note (34% for older ones) — the handoff had become the sole home of forward state, which is precisely how it reached 805 KiB and then could be neither read nor shrunk. A pointer line is bounded by the *number of sessions*; a copied tail is bounded by nothing. `hot-scan` (v1.2.11) collects the tails from where they now live, so the digest keeps working unchanged.
+
+### Added
+
+- **`handoff-index-upsert` action in `vault-write.py`** — writes one idempotent pointer line per session (`- 2026-07-25 · mnemo · open 3 · [[Session — …]]`), keyed on the session link so a mid-task checkpoint refreshes its own line instead of appending a twin. This also repairs a contract that was already broken: Step 5 demanded "the exact old section copied from read", but a large handoff read comes back truncated to a preview in which no complete section appears. Bounds — `handoff.maxLines` (180), `handoff.maxLineBytes` (200), `handoff.hardCapBytes` (38912) — are enforced in **bytes**, and trimming sacrifices the project label, never the `[[Session — …]]` link (a cut wikilink is a dead link). The block path (`archive-handoff`, `mode=blocks`) is untouched, along with its post-v1.1.11 regression suite.
+- **`scripts/migrate-handoff-to-index.py`** — one-shot migration, `--dry-run` by default. Moves blocks **verbatim and whole** into the archive (never checkbox-extracted: 90 flat bullets and ~200 prose lines on the live file carry live state with no `- [ ]`), never edits a session note, never deletes, writes `.bak` first, and verifies afterwards that every migrated block is byte-present in the archive. Measured on the live handoff: **826 916 B → 35 910 B (−95.7%)**, 186 pointer lines.
+- **`scripts/restore-handoff-from-bak.py`** — the rehearsed undo. The vault has no version control, so the migration's rollback is written and exercised *before* the migration may run; a restore itself saves a `.pre-restore` copy. Verified end-to-end on a copy of the live file: migrate → restore returns it byte-for-byte (md5 match).
+- **`scripts/split-handoff-archive.py`** — splits the cold archive into per-month notes plus a small hub. A cold file is not harmless: at 717 KiB it is past the 256 KB read limit, so "it's still in the archive" was a promise nothing could keep, and it matched nearly every content search while being unopenable. A month is not automatically a readable unit either — June alone was 425 KB — so oversized months split into numbered parts under `--max-part-bytes` (default 200 KB).
+- **43 new tests** across `test-handoff-index.py`, `test-migrate-handoff.py`, and `test-split-archive.py`, pinning the safety contract itself: dry-run writes nothing, blocks move verbatim, nothing is lost, backups precede writes, restore is byte-exact. Mutation-tested: counting characters instead of bytes, or dropping the hard cap, each fails the suite.
+
+## [1.2.11] - 2026-07-25
+
+### Added
+
+- **Open-tails digest at SessionStart (`hot-scan.py` + `hooks.hotDigest`, default true).** Continuity finally has an automatic *reader*. `hot-scan.py` collects still-open tails from the pending sections of recent session notes and `mnemo-context.sh` injects a byte-capped, project-scoped summary next to the memory nudge — so a new session opens knowing where the last one stopped, instead of relying on someone remembering to open a note. Config: `hot.scope` (`project`/`all`, default project), `hot.windowDays` (7), `hot.maxKB` (8). Two measured properties are designed in: inside a pending section a bare `- bullet` counts as a tail (the v1.1.10 class — "live" is not always a `- [ ]`; 90 such bullets exist on the live vault), and every cap is measured in **bytes**, because `len(str)` under-counts a Cyrillic vault by ~34%. Any failure (no Obsidian, slow CLI, missing plugin root) degrades to nudge-only. The injected digest always carries the stale-premise warning — a handoff is a snapshot, not current state.
+- **`handoff-resolver.py` + `health` Step 7.6 — report-only handoff triage.** A handoff does not shrink by archiving harder: the archiver may never move a block holding an open `- [ ]`, so it shrinks only when someone *decides* what those items still mean. The resolver reports the ceiling (what a complete resolution would free), blocks by payoff class (`fully-resolvable` / `partial` / `no-anchor` / `prose-pinned` / `fresh`), and the items an external arbiter could actually settle. Offline, read-only, no credentials — and permanently report-only, because closing someone's unfinished work is a human decision. It imports the keep-hot invariant from `vault-write.py` rather than copying it, so the report can never drift from the archiver it predicts. 🛑 It separates an item's **own** anchors from ones **inherited** from the block header: counting inherited anchors inflates the resolvable share from 27.6% to 60.6%.
+
+### Fixed
+
+- **`docs/session.md` promised a startup read that never existed.** It stated "when the next session starts, it reads `Meta — Session Handoff`" — no hook or skill ever did, and past ~256 KB no file read can. Corrected to describe the digest above, which is the reader that claim always assumed.
+- **"Token bomb read every session" was the wrong reason to bound the handoff** (`config-schema.md`, `session/SKILL.md`). A host runtime truncates a large read to a preview, so the real cost of an un-rotated handoff is **unreadability**, not tokens. `session/SKILL.md` now also states the guard's own limit plainly: because a single open `- [ ]` pins a block, the archiver can legitimately be a no-op while the file sits 20× over `handoff.maxKB` (measured: 805 KiB, 863 open items, 0 eligible blocks). Size is bounded by the format of what gets written, not by the rotation guard.
+
 ## [1.2.10] - 2026-07-23
 
 ### Added
@@ -939,7 +965,9 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.10...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.12...HEAD
+[1.2.12]: https://github.com/jojoprison/mnemo/compare/v1.2.11...v1.2.12
+[1.2.11]: https://github.com/jojoprison/mnemo/compare/v1.2.10...v1.2.11
 [1.2.10]: https://github.com/jojoprison/mnemo/compare/v1.2.9...v1.2.10
 [1.2.9]: https://github.com/jojoprison/mnemo/compare/v1.2.8...v1.2.9
 [1.2.8]: https://github.com/jojoprison/mnemo/compare/v1.2.7...v1.2.8

@@ -28,7 +28,7 @@ Step 0b, applied across the whole close-out.
 | An actionable never-X / always-Y rule tied to code | `save` Step 3.5 → `.claude/rules/` | path-scoped auto-inject, not recall |
 | The session narrative (what happened, the arc, decisions-in-context) | `session` | one note + handoff, never a duplicate of today's |
 | Connections between the new notes (incl. non-obvious) | `connect` | suggest-only links (auto-applied only under `review.full.autoConnect`), no orphans |
-| A future-useful thread not finished | `session` handoff `- [ ]` pending | thin live index |
+| A future-useful thread not finished | the session note's own `## Next steps / pending` | the handoff gets a pointer line, never a copy |
 
 The business-logic / pains / mental-model layer is the crown material — it routes to `save`'s typed
 `principle` / `pain` / `stance` atoms, **not** the session narrative. That is how "capture the way I

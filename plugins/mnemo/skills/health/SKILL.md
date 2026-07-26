@@ -176,6 +176,25 @@ Emit a verdict per candidate:
 
 Verdicts are **triage, not truth** — on `haiku` especially, expect false positives; even on `opus`, surface them as questions. The **only** write health ever performs is the `reviewed:` auto-stamp above, and only ever on a **still-valid** verdict — never content, never on update-needed/contradicts. It fires only inside this lint pass (which is itself off unless `review.lint.enabled` is true), and can be turned back to suggest-only with `autoStampReviewed: false`. The user stays in control.
 
+### Step 7.6: Handoff Triage (report-only, skipped when there is no handoff)
+
+Steps 7/7.5 judge whether *notes* have rotted. This judges whether the **handoff** has — a different failure with a different cause. The archiver may never move a block that still holds an open `- [ ]` (an unkept promise must not slip silently into cold storage), so a handoff does not shrink by archiving harder; it shrinks by someone *deciding* what those open items still mean. Run it whenever `handoff_note` is configured and the file exceeds `handoff.maxKB`:
+
+```bash
+python3 "<mnemo-root>/scripts/handoff-resolver.py" "{vault_path}/{handoff_note}.md" \
+  --keep-days {handoff.keepDays} --limit 25
+```
+
+Offline and read-only — it never writes and never calls a network. Report its three blocks as-is:
+
+- **Ceiling.** How many bytes a *complete* resolution of every open item would free. Quote it honestly even when it is small: on the maintainer's live vault it was **2.47%** (20 KB of 805 KB). Triage buys correctness, not size — say so instead of implying a cleanup will fix a bloated file.
+- **Blocks by payoff.** `fully-resolvable` (every open item carries an external anchor → resolving frees the whole block) · `partial` (one anchorless item pins the rest — the common case) · `no-anchor` · `prose-pinned` (kept hot by its header, so closing checkboxes frees nothing) · `fresh`.
+- **Anchored candidates.** Items whose own text carries a Linear key or PR number, i.e. the ones an arbiter could actually settle.
+
+🛑 **Never quote the inherited-anchor number as resolvability.** An anchor in the *block header* is not the item's anchor: counting it inflates the resolvable share from 27.6% to 60.6% (measured), e.g. a tail about `docs/plans/…` counted as resolvable only because its header ended with "(PR 8)". The script reports `anchors` (the item's own) and `inherited` separately — only the former is resolvable.
+
+Report-only, permanently. Closing someone's open item is a decision about their unfinished work, and the vault is human-authored: surface the worklist, never tick a box. Checking whether an anchor actually closed (a merged PR, a Done issue) needs credentials this script deliberately does not have — that is a job for an agent acting with the user's go-ahead.
+
 ### Step 8: Top Hubs
 
 Resolve the `moc` semantic role through `taxonomy_roles`, enumerate notes by that mapped type's configured prefix, then count backlinks for each:
@@ -247,6 +266,10 @@ Other (no configured taxonomy tag): {N}
   (snooze a still-valid note: add `reviewed: {today}` to its frontmatter)
 
 🔬 Content lint: {N judged} — {S} still-valid, {U} update-needed, {C} contradicts   ← only when review.lint.enabled
+
+📮 Handoff: {N} KB / {N} blocks / {N} open items   ← only when a handoff_note is configured and over handoff.maxKB
+  full resolution would free {N} KB ({N}%) — triage buys correctness, not size
+  {N} fully-resolvable · {N} partial (one anchorless item pins the block) · {N} no-anchor · {N} prose-pinned
   (counts MUST equal the lint's actual verdicts — never default to all-still-valid; see Step 7.5)
   - {fact_prefix}API X gotcha → UPDATE-NEEDED: superseded by [[{fact_prefix}API X v2]]
   - {source_prefix}vendor API pricing → still-valid (stamped reviewed: {today})
