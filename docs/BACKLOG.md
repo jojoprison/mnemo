@@ -107,3 +107,27 @@ So the honest state is: the premise is **stale for delegation** and **unmeasured
 - **Who owns the eval harness:** mnemo has no eval runner today. Smallest version is a scripted transcript-count, not new infrastructure.
 
 **Origin.** Surfaced 2026-07-25 while auditing the maintainer's global rules against the new flagship's prompting guide: `~/.claude/rules/skill-design.md` carried the same premise and was dated in place rather than deleted, precisely because this decision stands on it. Explicitly **not** actioned in that pass — flipping a public cross-runtime default is a decision of its own, not a side effect of editing a rule file.
+
+---
+
+## ⚪ P4 — story-first README with a demo recording (the repo half of distribution)
+
+**What.** The README explains *what mnemo is* and lists what it does; it never *shows* the moment the tool pays for itself. There is no recording, no 30-second "this happened to me" scene, and no path for someone who does not already keep an Obsidian vault. A reader has to assemble the value proposition themselves from a feature list.
+
+**Why now.** Measured against a competitor with the same tagline and ~3.8k stars: it wins on presentation, not on engineering — mnemo's non-destructive / BYO-vault / dual-runtime discipline is the stronger design. Its stars arrived as social-repost sustain (a large tech channel), **not** from Hacker News, which ignored it. That inverts the usual instinct: the lever is a scene a reader can retell, not another feature or a better ranking. The scene mnemo already owns is sharper than the competitor's file-tidying demo — *the agent stops you before you re-fix a bug you already fixed three sessions ago* — and today nothing anywhere demonstrates it.
+
+**Minimal shape.**
+
+1. One 15-30s asciinema/GIF of the recall-before-repeat moment, embedded at the top of the README.
+2. A short scene above the feature list: the problem, the one command, the save that pays off next session.
+3. A quickstart for the no-vault-yet reader — the current on-ramp assumes a mature vault plus a config.
+4. Optionally a Russian README alongside the English one: the maintainer is a native speaker and that channel is where comparable tools actually spread.
+
+**On-philosophy.** Presentation only — nothing here changes routing, defaults, or write behaviour. The explicit anti-goal is the tempting inverse: **do not add aggressive auto-capture to make the demo flashier.** Non-destructive is the differentiator being advertised; sacrificing it for a better GIF would sell something mnemo is not. The demo must be of the shipped default install, not of a flag nobody enables.
+
+**Open questions.**
+- **Which scene records best:** recall-before-repeat is the strongest claim but takes two sessions to stage honestly; a single-session cut risks implying an instant payoff the tool does not promise.
+- **Recording format:** asciinema (small, copy-pasteable, terminal-only) vs GIF (renders on every surface, heavy). The competitor's ~4 MB GIF sits in-repo — a cost worth deciding deliberately.
+- **Scope of a second language:** a translated README is easy to add and easy to let rot; a stale translation is worse than none, so it needs an owner or a generation step.
+
+**Origin.** Competitor-distribution analysis, 2026-07-27, alongside the audit that produced the P2/P3 cards above. Filed at P4 deliberately: it is the highest-leverage *growth* work and the lowest-priority *product* work, and it should not displace correctness items. The rest of that analysis (channels, launch timing, positioning) is not repo work and lives in the maintainer's agent knowledge base.
