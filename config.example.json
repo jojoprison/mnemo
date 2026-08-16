@@ -47,6 +47,7 @@
   "hooks": {
     "sessionStartNudge": true,
     "stopNudge": false,
+    "autocompactNudge": false,
     "invocationEcho": true
   }
 }

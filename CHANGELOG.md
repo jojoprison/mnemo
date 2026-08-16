@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **`hooks.autocompactNudge` — warn before autocompact silently drops raw context.** New opt-in (default **false**) Stop hook `hooks/mnemo-autocompact-nudge.sh` blocks once per severity level when the transcript's token usage closes in on Claude Code's resolved autocompact window (warn ~50k / critical ~10k tokens remaining, margins clamped down on a small window) and recommends `/mn:review --full`. Claude Code's effective threshold is `min(settings.autoCompactWindow, the model's context window)`, which ranges 200k-1M by model — mnemo ships no per-model table, so the window is resolved only from sources Claude Code itself already resolved (env, settings, its own `~/.claude.json` cache); unknown window means silence, never a guessed default. Claude Code only — no-op on Codex. See `docs/design-decisions.md`, "Proactive nudges via hooks".
+
 ## [1.2.13] - 2026-07-27
 
 ### Changed

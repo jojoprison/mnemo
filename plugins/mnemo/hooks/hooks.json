@@ -24,6 +24,11 @@
             "type": "command",
             "command": "\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/mnemo-stop-nudge.sh\"",
             "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT}}/hooks/mnemo-autocompact-nudge.sh\"",
+            "timeout": 10
           }
         ]
       }

@@ -95,6 +95,7 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
   "hooks": {
     "sessionStartNudge": true,
     "stopNudge": false,
+    "autocompactNudge": false,
     "invocationEcho": true
   }
 }
@@ -131,6 +132,7 @@ The `recall` section is optional and ships off. `recall.codeGraph` (default `nul
 | `recall.runtimeMemory.maxExcerptBytes` | Total UTF-8 excerpt budget for counterpart results, clamped to 256-12288 bytes. Default **12288** | ask |
 | `hooks.sessionStartNudge` | Inject a one-line memory reminder at SessionStart, rendered as `/mn:ask` + `/mn:save` in Claude Code or `$mnemo:ask` + `$mnemo:save` in Codex. Gated on a configured `vault`. Default **true**; set false to silence | hooks/mnemo-context.sh |
 | `hooks.stopNudge` | At session end, if the session looks worth-saving but the save and/or session skill never ran, block once with the current runtime's native commands. This is **opt-in, default false**; an anti-loop governor prevents repeated blocking | hooks/mnemo-stop-nudge.sh |
+| `hooks.autocompactNudge` | Claude Code only (no-op on Codex): at session end, if the transcript's token usage is within a fixed margin of the resolved autocompact window (warn ~50k, critical ~10k remaining, clamped down on a small window), block once per severity level and recommend `/mn:review --full` before autocompact drops raw context. W is resolved only from sources Claude Code itself already resolved (env / settings / its own cache) — unknown W means silence, never a guessed default. **Opt-in, default false**, same posture as `stopNudge` | hooks/mnemo-autocompact-nudge.sh |
 | `hooks.invocationEcho` | Claude Code only: on a `/mn:*` slash command, emit a `systemMessage` line (`🧠 mnemo: /mn:save → skill body loaded`) via the Claude-only `UserPromptExpansion` hook — a **deterministic** invocation confirmation that, unlike the in-body marker, does not depend on model compliance. Codex does not load this unsupported event. Default **true**; set false to silence | hooks/mnemo-skill-echo.sh |
 | `memory.indexWarnKB` | Early loaded-content byte warning for Claude `MEMORY.md`. Current loader limits are 200 lines or 25,000 bytes after stripping leading YAML frontmatter and block-level HTML comments; health always reports either hard-limit breach independently of this threshold. Default **22** | health |
 | `handoff.keepDays` | **The rotation rule.** The index keeps pointers from the last N days; older ones are dropped, because a pointer is derived from a session note that keeps its own dated file. Default **31** — one calendar month, the unit a reader actually asks for. (In a handoff still in legacy block format the same knob keeps blocks newer than N days hot regardless of status.) | session |
@@ -176,7 +178,7 @@ If `recall.runtimeMemory` is absent, cross-runtime recall is disabled. Active-ru
 
 If `taxonomy_roles` is absent, a legacy Zettelkasten config is migrated deterministically in memory as `fact → atom`, `insight → molecule`, `source → source`, `session → session`, `moc → moc`; the next `setup` run persists that map. For any other legacy/custom taxonomy, `setup` must show the existing taxonomy keys and ask once where `fact`, `insight`, and `source` belong instead of guessing from prefixes or tags. A configured map is valid only when its key set is exactly those five roles, every target names an existing `taxonomy` key, and the functional roles self-map as `session → session` and `moc → moc`. Only `fact`, `insight`, and `source` may intentionally coalesce onto one type.
 
-The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false, invocationEcho=true. If absent, the SessionStart nudge still fires (when a vault is configured), the Stop nudge stays off, and the invocation echo stays on (it does not require a vault).
+The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false, autocompactNudge=false, invocationEcho=true. If absent, the SessionStart nudge still fires (when a vault is configured), both Stop nudges stay off, and the invocation echo stays on (it does not require a vault).
 
 If `vault` or `taxonomy` is missing, the skill that needs them asks the user and offers to run `/mn:setup` in Claude Code or `$mnemo:setup` in Codex.
 
