@@ -162,6 +162,19 @@ class SessionScanTests(unittest.TestCase):
                     if path is not None:
                         path.unlink(missing_ok=True)
 
+    def test_claude_code_session_id_is_read_from_the_bash_tool_env(self) -> None:
+        # Claude Code exports CLAUDE_CODE_SESSION_ID to child processes. Bare
+        # CLAUDE_SESSION_ID is only a ${...} placeholder expanded inside skill
+        # text, so it is absent exactly where every SKILL.md runs this script.
+        env = {"CLAUDE_CODE_SESSION_ID": "claude-real"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertEqual(session_scan.runtime_session_id(), "claude-real")
+
+    def test_claude_session_beats_any_codex_id(self) -> None:
+        env = {"CLAUDE_CODE_SESSION_ID": "claude-real", "CODEX_THREAD_ID": "thread-new"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertEqual(session_scan.runtime_session_id(), "claude-real")
+
     def test_thread_id_precedes_legacy_codex_session_id(self) -> None:
         env = {"CODEX_THREAD_ID": "thread-new", "CODEX_SESSION_ID": "session-old"}
         with mock.patch.dict(os.environ, env, clear=True):

@@ -97,7 +97,7 @@ python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
 JSON
 ```
 
-Where `{session_prefix}` comes from the taxonomy entry mapped by `taxonomy_roles.session`, `{links_section}` from `config.links_section`, and the session id comes from `CLAUDE_SESSION_ID` in Claude Code or `CODEX_THREAD_ID` in Codex (`CODEX_SESSION_ID` remains a legacy fallback; use an empty string if none is available).
+Where `{session_prefix}` comes from the taxonomy entry mapped by `taxonomy_roles.session`, `{links_section}` from `config.links_section`, and the session id comes from `CLAUDE_CODE_SESSION_ID` in Claude Code or `CODEX_THREAD_ID` in Codex (`CLAUDE_SESSION_ID` and `CODEX_SESSION_ID` remain legacy fallbacks; use an empty string if none is available).
 
 The helper receives Markdown through JSON stdin, never shell syntax or Obsidian CLI argv. It verifies vault containment and performs an exclusive atomic create, so backticks, `$(...)`, quotes, and code blocks remain inert. On `conflict`, re-read and use the duplicate flow; never overwrite.
 

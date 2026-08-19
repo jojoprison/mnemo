@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Scan Claude Code or Codex session JSONL for tool usage and modified files.
 
-Reads CLAUDE_SESSION_ID, CODEX_THREAD_ID, or legacy CODEX_SESSION_ID from env.
-If none is present, falls back to the newest Codex rollout JSONL for the current cwd.
+Reads CLAUDE_CODE_SESSION_ID (Claude Code), CLAUDE_SESSION_ID, CODEX_THREAD_ID,
+or legacy CODEX_SESSION_ID from env. If none is present, falls back to the newest
+Codex rollout JSONL for the current cwd and labels that fallback in the output —
+an unlabelled fallback silently reports another session's stats as your own.
 
 Two-layer caching in a private per-user temp directory:
 - Fresh cache (<60s old) → reuse as-is, no re-read.
@@ -356,8 +358,13 @@ def stop_summary(jsonl_path: str) -> tuple[int, int, int]:
 
 
 def runtime_session_id() -> str:
+    # Claude Code exports CLAUDE_CODE_SESSION_ID to child processes; bare
+    # CLAUDE_SESSION_ID is only a ${...} placeholder it expands inside skill
+    # text, so it is absent whenever the model runs this script from the bash
+    # tool — which is exactly how every SKILL.md tells it to.
     return (
-        os.environ.get("CLAUDE_SESSION_ID")
+        os.environ.get("CLAUDE_CODE_SESSION_ID")
+        or os.environ.get("CLAUDE_SESSION_ID")
         or os.environ.get("CODEX_THREAD_ID")
         or os.environ.get("CODEX_SESSION_ID", "")
     )
@@ -372,18 +379,25 @@ def main() -> int:
         return 2
 
     session_id = runtime_session_id()
+    borrowed = False
     if not session_id:
         jsonl_path = find_codex_jsonl()
         if not jsonl_path:
             print("SESSION_ID: not available")
             return 0
         session_id = os.path.splitext(os.path.basename(jsonl_path))[0]
+        borrowed = True
     else:
         jsonl_path = find_claude_jsonl(session_id) or find_codex_jsonl(session_id)
 
     if not jsonl_path:
         print("JSONL: not found — use conversation context for analysis")
         return 0
+
+    if borrowed:
+        # No session id in env: these numbers belong to the newest Codex
+        # rollout for this cwd, not to the caller's session. Say so.
+        print(f"SOURCE: no session id in env — nearest Codex rollout {jsonl_path}")
 
     result_path, _ = session_cache_paths(session_id, jsonl_path)
     cached_acc = read_json(result_path) if is_fresh(result_path, FRESH_TTL) else None
