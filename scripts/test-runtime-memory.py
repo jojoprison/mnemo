@@ -1826,5 +1826,53 @@ class IntegrationContractTests(unittest.TestCase):
             self.assertEqual(result["warnings"], [])
 
 
+class RuntimeDetectionTests(unittest.TestCase):
+    """Runtime detection must survive the bash-tool environment.
+
+    Skills pass ``runtime`` explicitly, so a miss degrades quietly to zero hits
+    instead of failing loudly — which is exactly why these cases need tests.
+    """
+
+    def test_claude_code_session_id_detects_claude(self) -> None:
+        # Claude Code exports CLAUDE_CODE_SESSION_ID to child processes; bare
+        # CLAUDE_SESSION_ID is only a ${...} placeholder expanded in skill text.
+        self.assertEqual(
+            runtime_memory._detect_runtime({"CLAUDE_CODE_SESSION_ID": "abc"}), "claude"
+        )
+
+    def test_claudecode_marker_detects_claude(self) -> None:
+        self.assertEqual(runtime_memory._detect_runtime({"CLAUDECODE": "1"}), "claude")
+
+    def test_legacy_claude_session_id_still_detects_claude(self) -> None:
+        self.assertEqual(
+            runtime_memory._detect_runtime({"CLAUDE_SESSION_ID": "abc"}), "claude"
+        )
+
+    def test_plugin_root_still_detects_claude(self) -> None:
+        self.assertEqual(
+            runtime_memory._detect_runtime({"CLAUDE_PLUGIN_ROOT": "/p"}), "claude"
+        )
+
+    def test_codex_home_alone_detects_codex(self) -> None:
+        # A bare CODEX_HOME with no Claude signal is still a Codex session.
+        self.assertEqual(
+            runtime_memory._detect_runtime({"CODEX_HOME": "/home/u/.codex"}), "codex"
+        )
+
+    def test_exported_codex_home_does_not_outrank_a_live_claude_session(self) -> None:
+        # CODEX_HOME only names a config directory — a Claude Code user who
+        # exports it must not be misread as running under Codex.
+        env = {"CODEX_HOME": "/home/u/.codex", "CLAUDE_CODE_SESSION_ID": "abc"}
+        self.assertEqual(runtime_memory._detect_runtime(env), "claude")
+
+    def test_live_codex_thread_outranks_a_claude_marker(self) -> None:
+        # CODEX_THREAD_ID names an actual live thread, so it stays decisive.
+        env = {"CODEX_THREAD_ID": "thread", "CLAUDE_CODE_SESSION_ID": "abc"}
+        self.assertEqual(runtime_memory._detect_runtime(env), "codex")
+
+    def test_empty_environment_is_unknown(self) -> None:
+        self.assertEqual(runtime_memory._detect_runtime({}), "unknown")
+
+
 if __name__ == "__main__":
     unittest.main()

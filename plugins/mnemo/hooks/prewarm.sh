@@ -17,14 +17,16 @@ SESSION_ID=$(printf '%s' "$INPUT" | python3 -c 'import json,sys;print(json.load(
 if [ "$CODEX_HOOK" = 1 ]; then
   export CODEX_THREAD_ID="${CODEX_THREAD_ID:-$SESSION_ID}"
 elif [ -n "$SESSION_ID" ]; then
-  export CLAUDE_SESSION_ID="${CLAUDE_SESSION_ID:-$SESSION_ID}"
+  # Export the name Claude Code itself uses, so the warmed cache is keyed on the
+  # same (jsonl, session_id) pair the model-invoked scan later reads back.
+  export CLAUDE_CODE_SESSION_ID="${CLAUDE_CODE_SESSION_ID:-$SESSION_ID}"
 fi
 
 # Fail silently — prewarm is best-effort, never blocks the session.
 [ -d "$SCRIPTS_DIR" ] || exit 0
 
 python3 "$SCRIPTS_DIR/skills-discover.py" </dev/null >/dev/null 2>&1 || true
-if [ -n "${CLAUDE_SESSION_ID:-}${CODEX_THREAD_ID:-}${CODEX_SESSION_ID:-}${SESSION_ID:-}" ]; then
+if [ -n "${CLAUDE_CODE_SESSION_ID:-}${CLAUDE_SESSION_ID:-}${CODEX_THREAD_ID:-}${CODEX_SESSION_ID:-}${SESSION_ID:-}" ]; then
   python3 "$SCRIPTS_DIR/session-scan.py" </dev/null >/dev/null 2>&1 || true
 fi
 exit 0
