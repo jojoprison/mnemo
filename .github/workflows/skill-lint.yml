@@ -40,18 +40,36 @@ jobs:
         run: python3 scripts/lint-skills.py
       - name: Verify release metadata
         run: python3 scripts/verify-release.py
-      - name: Test runtime compatibility
-        run: python3 scripts/test-runtime-compat.py
-      - name: Test runtime memory
-        run: python3 scripts/test-runtime-memory.py
-      - name: Test runtime-owned homes
-        run: python3 scripts/test-runtime-homes.py
-      - name: Test canonical vault writer
-        run: python3 scripts/test-vault-write.py
-      - name: Test skill write and taxonomy contracts
-        run: python3 scripts/test-skill-write-contracts.py
-      - name: Test handoff archive
-        run: python3 scripts/test-handoff-archive.py
+      # One glob, not a hand-kept list: the previous per-file steps named 7 of
+      # the 18 suites, so a test added with a feature was never run by CI at all
+      # until someone remembered to add a step. A new scripts/test-*.py is now
+      # picked up automatically.
+      - name: Run the test gate
+        shell: bash
+        run: |
+          set -uo pipefail
+          status=0
+          count=0
+          for suite in scripts/test-*.py; do
+            # fresh-install has its own step below: it needs both runtimes in
+            # parallel and an extra env var.
+            [ "$suite" = "scripts/test-fresh-install.py" ] && continue
+            count=$((count + 1))
+            echo "::group::$suite"
+            if ! python3 "$suite"; then
+              echo "FAILED: $suite"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          # A glob that matches nothing would otherwise report a green gate on
+          # zero tests, which is indistinguishable from everything passing.
+          echo "suites run: $count"
+          if [ "$count" -lt 10 ]; then
+            echo "expected at least 10 test suites, found $count — the glob is wrong"
+            exit 1
+          fi
+          exit $status
       - name: Test fresh installs in both runtimes
         env:
           MNEMO_REQUIRE_RUNTIME_LOADERS: "1"

@@ -121,7 +121,7 @@ So the honest state is: the premise is **stale for delegation** and **unmeasured
 1. One 15-30s asciinema/GIF of the recall-before-repeat moment, embedded at the top of the README.
 2. A short scene above the feature list: the problem, the one command, the save that pays off next session.
 3. A quickstart for the no-vault-yet reader — the current on-ramp assumes a mature vault plus a config.
-4. Optionally a Russian README alongside the English one: the maintainer is a native speaker and that channel is where comparable tools actually spread.
+4. ~~A Russian README~~ — already shipped: `README.md` carries full Russian (`## Что делает`) and Chinese (`## 功能介绍`) sections. What is still missing is the demo recording and the no-vault quickstart above.
 
 **On-philosophy.** Presentation only — nothing here changes routing, defaults, or write behaviour. The explicit anti-goal is the tempting inverse: **do not add aggressive auto-capture to make the demo flashier.** Non-destructive is the differentiator being advertised; sacrificing it for a better GIF would sell something mnemo is not. The demo must be of the shipped default install, not of a flag nobody enables.
 
@@ -131,3 +131,23 @@ So the honest state is: the premise is **stale for delegation** and **unmeasured
 - **Scope of a second language:** a translated README is easy to add and easy to let rot; a stale translation is worse than none, so it needs an owner or a generation step.
 
 **Origin.** Competitor-distribution analysis, 2026-07-27, alongside the audit that produced the P2/P3 cards above. Filed at P4 deliberately: it is the highest-leverage *growth* work and the lowest-priority *product* work, and it should not displace correctness items. The rest of that analysis (channels, launch timing, positioning) is not repo work and lives in the maintainer's agent knowledge base.
+
+---
+
+## ⚪ P4 — `PreCompact` as a second leg for `autocompactNudge`
+
+**What.** `hooks.autocompactNudge` (v1.2.14) warns *before* Claude Code compacts by predicting the moment from token usage and a resolved window. Claude Code also emits a **native `PreCompact` event** (matchers `auto` / `manual`) that fires deterministically at the actual moment, and a hook there can even block the compaction. mnemo does not use it at all — `PreCompact` appears exactly once in the repo, as a list item inside `scripts/lint-skills.py`'s set of valid event names.
+
+**Why it was not simply used instead.** The two are not interchangeable, and the difference is the whole reason a predictor exists. At `PreCompact` time the agent is **not running**, so the hook cannot invoke `/mn:review --full` — it can only write a file or refuse the compaction. The Stop-hook predictor fires while the agent can still act, which is the entire point of the nudge: close the session out *before* the raw context is gone.
+
+**Minimal shape, if picked up.**
+
+1. `PreCompact` writes a small deterministic snapshot (open tails, last-turn usage, `session_id`) to the private cache.
+2. `SessionStart` with the `compact` source re-injects a one-line pointer to it, so the post-compaction agent knows what it just lost and can still write the session note.
+3. The existing Stop-hook nudge stays as the "warn while you can still act" leg. Two legs, different jobs — not a replacement.
+
+**Why this is a card and not a fix.** Adding it means a new always-on write path on an event that fires for *every* user with autocompact on, including those who never enabled the nudge. That is a bigger posture change than the opt-in blocking hook, and it deserves its own decision rather than arriving as a side effect. Filed so the option is visible instead of being re-proposed as a novelty by the next session that reads `design-decisions.md`.
+
+**Adjacent, cheap, unowned.** `scripts/lint-skills.py` does not flag `[[wikilink]]` anywhere in the plugin or docs. Two links to the maintainer's private Obsidian notes reached a public PR in the v1.2.14 review and were caught by hand — a one-line lint rule would have caught them mechanically, and the repo has no other guard against that class.
+
+**Origin.** Adversarial review of PR #39 (autocompact nudge), 2026-08-20 — the reviewer proposed `PreCompact` as a possible replacement; it was deliberately not implemented in that pass and the reasoning above is the record of why.

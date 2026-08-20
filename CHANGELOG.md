@@ -6,6 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.15] - 2026-08-20
+
+### Fixed
+
+- **CI ran 7 of the 18 test suites.** `.github/workflows/skill-lint.yml` named each suite as its own step, so a test that shipped with a feature was never executed until someone remembered to add a step — `test-context-window.py` and `test-autocompact-nudge.py`, both released in 1.2.14, had never run in CI at all. It now loops over `scripts/test-*.py`, and **fails when the glob matches fewer than 10 files**, because a glob that matches nothing would otherwise report a green gate on zero tests.
+- **`docs/review.md` claimed the session scan "never falls back to another task".** It does: with no runtime session id it borrows the newest Codex rollout sharing the working directory. 1.2.14 made that visible with a `SOURCE:` line rather than removing it, so the doc was the only place in the repo directly contradicting the code. The `review` skill now also checks that line and treats a borrowed scan as unavailable instead of auditing another task's work as your own.
+- **The gate command list lived in three hand-kept copies** (`TESTING.md`, `CONTRIBUTING.md`, `docs/codex.md`), each naming a different subset and two missing `verify-release.py`. `TESTING.md` § Automated gate is now the single canonical list and uses the same glob as CI; the other two point at it.
+- **`config.example.json` was missing keys `setup` writes** — `handoff`, `hot`, `review.full`, `hooks.hotDigest` — while README tells you to copy that file as your working config. The full schema in `config-schema.md` had the same gap, and its "defaults are: …" line read as exhaustive while omitting `hotDigest=true`.
+- **`README.md`'s project tree had drifted**: no `mnemo-autocompact-nudge.sh`, no `context-window.py`, no `depth-contract.md` / `vault-conventions.md`. The README config example also carried no `hooks` block at all, so a reader never learned the nudges exist or that both blocking ones are opt-in.
+- **`head -32` still truncated the session scan.** `render()` reaches 43 lines at worst — 44 with a `SOURCE:` line — and `WORTH_SAVING_SIGNALS` prints last, so it was lost on an active session. Raised to `head -44`.
+- **The CHANGELOG entries for 1.2.13 were in Russian**, which put them into the body of a public GitHub Release. Translated; the surrounding trigger-phrase quotes stay as they are.
+
+### Changed
+
+- `TESTING.md` gains manual checks **V19-V23** for the 1.2.14 session-id fix and the autocompact nudge, and its header now tracks the current version (it read v1.2.6).
+- `docs/BACKLOG.md` gains a P4 card for **`PreCompact` as a second leg** to `autocompactNudge`, recording why it was deliberately not used as a replacement: at `PreCompact` time the agent is not running, so it cannot invoke the close-out the nudge exists to trigger. Filed so the option stays visible instead of being re-proposed as new. The card also notes that `lint-skills.py` has no `[[wikilink]]` rule — two links to private notes reached a public PR during the 1.2.14 review and were caught by hand.
+
 ## [1.2.14] - 2026-08-20
 
 ### Added
@@ -33,17 +50,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **The handoff maintenance scripts now ship with the plugin.** `migrate-handoff-to-index.py`, `split-handoff-archive.py`, `restore-handoff-from-bak.py` and the two above moved from the repo into `plugins/mnemo/scripts/`, and `health` Step 7.6 offers them in dependency order when it finds a handoff still in block format. An installed user previously had no migration path at all: their handoff was in block format while the new `session` wrote pointers.
 - **`setup`'s config template carries the `handoff`, `hot` and `hooks.hotDigest` keys**, so a fresh install learns about the window, the digest and their bounds instead of silently inheriting defaults.
 
-- **`docs/design-decisions.md` — раздел про handoff**, которого не было: почему индекс, что отвергнуто (архивировать сильнее, триаж ради размера, сжатие блоков, переписывание чужих заметок) и почему миграция остаётся отдельной ручной операцией. Non-goal `hot.md` переписан: отвергнут файл-кэш в волте, отгружен эфемерный вычисляемый дайджест.
+- **`docs/design-decisions.md` gains the handoff section it never had**: why an index, what was rejected (archiving harder, triage for size's sake, compressing blocks, rewriting the user's notes) and why the migration stays a separate manual operation. The `hot.md` non-goal is rewritten: a file cache inside the vault is rejected, an ephemeral computed digest shipped instead.
 
 ### Fixed
 
-- **Откат миграции был no-op.** `restore-handoff-from-bak.py` выбирал бэкап по mtime, а повторный прогон миграции пишет бэкап УЖЕ мигрированного файла — «отмена» восстанавливала индекс поверх индекса. Теперь кандидат обязан выглядеть до-миграционным (содержит `## YYYY-MM-DD` блоки либо крупнее текущего файла), иначе скрипт требует явный `--stamp`.
-- **Повторный `split-handoff-archive.py --apply` затирал уже разложенные части** — `.bak` делался только хабу, блоки прошлого прогона исчезали. Теперь при существующих частях скрипт отказывается работать без `--force`, а с ним бэкапит каждую часть. Плюс размер части проверяется ДО добавления блока (одна часть выходила на 204 819 B при потолке 204 800).
-- **`handoff-index-upsert` молча терял указатель**, если handoff ещё в блочном формате и больше потолка: цикл усечения выбрасывал и только что вставленную строку, возвращая `ok`. Теперь строка, ради которой сделан вызов, неприкосновенна, а неподъёмный легаси-файл получает явную ошибку «migrate first».
-- **`migrate --keep-blocks N` при повторном прогоне дублировал указатели** — гейт «блоков не осталось» не срабатывал, пока часть блоков намеренно оставлена.
-- **Существующие строки индекса не переклипывались** — правило длины применялось только к новой строке, поэтому запись от старой версии или руками жила вечно (на живом vault — 754 B при потолке 200).
-- **Шаблон отчёта `health` украл хвост content-lint**: блок `📮 Handoff` был вставлен между заголовком и деталями, и правило о вердиктах читалось как часть handoff. Плюс Step 7.6 честно помечен legacy-only — на мигрированном handoff он видит 0 блоков.
-- **Сиблинги контракта досвипаны**: `session-template.md`, `session/SKILL.md` («unfinished threads become handoff items») и хардкод `max_kb: 40 / keep_days: 14` вместо конфиг-плейсхолдеров.
+- **Undoing the migration was a no-op.** `restore-handoff-from-bak.py` picked its backup by mtime, but a second migration run backs up the *already migrated* file — so "undo" restored an index on top of an index. The candidate must now look pre-migration (it contains `## YYYY-MM-DD` blocks, or is larger than the current file); otherwise the script demands an explicit `--stamp`.
+- **A second `split-handoff-archive.py --apply` overwrote the parts already split out** — only the hub was backed up, so the previous run's blocks vanished. With parts present the script now refuses to run without `--force`, and with it backs up every part. Part size is also checked *before* a block is appended (one part came out at 204,819 B against a 204,800 ceiling).
+- **`handoff-index-upsert` silently dropped the pointer** when the handoff was still in block format and over the ceiling: the truncation loop discarded the very line just inserted, and still returned `ok`. The line the call exists for is now untouchable, and an oversized legacy file gets an explicit "migrate first" error.
+- **`migrate --keep-blocks N` duplicated pointers on a second run** — the "no blocks left" gate never fired while some blocks were deliberately kept.
+- **Existing index lines were never re-clipped** — the length rule applied only to the new line, so an entry from an older version or written by hand lived forever (754 B against a 200 B ceiling on the live vault).
+- **The `health` report template stole the content-lint tail**: the `📮 Handoff` block sat between a heading and its details, so the rule about verdicts read as part of the handoff. Step 7.6 is also now marked legacy-only — on a migrated handoff it sees 0 blocks.
+- **The contract's siblings were swept too**: `session-template.md`, `session/SKILL.md` ("unfinished threads become handoff items") and a hardcoded `max_kb: 40 / keep_days: 14` where config placeholders belonged.
 
 ## [1.2.12] - 2026-07-25
 
@@ -1004,7 +1021,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.14...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.15...HEAD
+[1.2.15]: https://github.com/jojoprison/mnemo/compare/v1.2.14...v1.2.15
 [1.2.14]: https://github.com/jojoprison/mnemo/compare/v1.2.13...v1.2.14
 [1.2.13]: https://github.com/jojoprison/mnemo/compare/v1.2.12...v1.2.13
 [1.2.12]: https://github.com/jojoprison/mnemo/compare/v1.2.10...v1.2.12

@@ -66,15 +66,9 @@ This is federation, not synchronization. Both runtimes keep their native storage
 
 ## Verification
 
+The full command list is in **`TESTING.md` § Automated gate** — kept in one place so it cannot drift again. The Codex-specific tail:
+
 ```bash
-python3 scripts/lint-skills.py
-python3 scripts/test-runtime-compat.py
-python3 scripts/test-runtime-memory.py
-python3 scripts/test-runtime-homes.py
-python3 scripts/test-vault-write.py
-python3 scripts/test-skill-write-contracts.py
-MNEMO_REQUIRE_RUNTIME_LOADERS=1 python3 scripts/test-fresh-install.py
-python3 scripts/test-handoff-archive.py
 python3 plugins/mnemo/scripts/session-scan.py
 python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
 ```
