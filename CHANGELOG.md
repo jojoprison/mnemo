@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.14] - 2026-08-20
+
 ### Added
 
 - **`hooks.autocompactNudge` — warn before autocompact silently drops raw context.** New opt-in (default **false**) Stop hook `hooks/mnemo-autocompact-nudge.sh` blocks once per severity level as the session closes in on the point Claude Code compacts (warn ~50k / critical ~10k tokens remaining) and recommends `/mn:review --full`. The window follows Claude Code's own chain — env `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, `settings.autoCompactWindow`, then its per-model `~/.claude.json` cache read **by the active model's key** — validated to the `[100k, 1M]` range Claude Code accepts, then clamped to the model's context window, because a configured value is a ceiling request and not the threshold: a 460k setting on a 200k session never takes effect. With nothing configured the standard 200k window applies **only** where it is provable — when Claude Code's 1M-access cache shows the account has no large-context access — so a normal install gets a working nudge with no configuration, while a large-context account stays silent rather than be warned at 15% full (the transcript records the model id without its `[1m]` suffix, so the two are indistinguishable). Bands are measured from where compaction actually happens, `W − min(max_output, 20k) − 13k`; measured from `W`, `critical` would sit past a point the session can never reach. The anti-loop marker **lowers when the level drops**, so a second compaction in the same session still warns — a compaction changes neither `session_id` nor transcript path. Silent when `autoCompactEnabled` is false, when save and session have both already run (the same gate `stopNudge` uses, so the two hooks never nag together), and when usage exceeds the resolved window, which can only mean the window is wrong. Claude Code only — no-op on Codex. See `docs/design-decisions.md`, "Proactive nudges via hooks".
@@ -1002,7 +1004,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.13...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.14...HEAD
+[1.2.14]: https://github.com/jojoprison/mnemo/compare/v1.2.13...v1.2.14
 [1.2.13]: https://github.com/jojoprison/mnemo/compare/v1.2.12...v1.2.13
 [1.2.12]: https://github.com/jojoprison/mnemo/compare/v1.2.10...v1.2.12
 [1.2.10]: https://github.com/jojoprison/mnemo/compare/v1.2.9...v1.2.10
