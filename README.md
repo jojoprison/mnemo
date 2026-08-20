@@ -235,11 +235,17 @@ cp config.example.json ~/.mnemo/config.json
       "maxHits": 5,
       "maxExcerptBytes": 12288
     }
+  },
+  "hooks": {
+    "sessionStartNudge": true,
+    "stopNudge": false,
+    "autocompactNudge": false,
+    "invocationEcho": true
   }
 }
 ```
 
-The minimal core is `vault`, `taxonomy`, the exact five-key `taxonomy_roles` map, `links_section`, and `handoff_note`; optional sections keep their documented defaults. Every role target must exist, while `session → session` and `moc → moc` are required functional self-maps. Skills offer setup when the core is missing or invalid. `review.*` tunes `/mn:health`; `recall.runtimeMemory` is the off-by-default, read-only Claude↔Codex project-memory overlay — see [config-schema.md](plugins/mnemo/references/config-schema.md).
+The minimal core is `vault`, `taxonomy`, the exact five-key `taxonomy_roles` map, `links_section`, and `handoff_note`; optional sections keep their documented defaults. Every role target must exist, while `session → session` and `moc → moc` are required functional self-maps. Skills offer setup when the core is missing or invalid. `review.*` tunes `/mn:health`; `recall.runtimeMemory` is the off-by-default, read-only Claude↔Codex project-memory overlay; `hooks.*` gates the harness nudges — the two **blocking** Stop hooks (`stopNudge`, `autocompactNudge`) are opt-in and off by default, so a plain install never blocks a turn. See [config-schema.md](plugins/mnemo/references/config-schema.md).
 
 ### Custom Taxonomy
 
@@ -287,6 +293,7 @@ The next session opens with the **digest**: a SessionStart hook collects still-o
 - [Claude Code](https://claude.ai/code) (Pro/Max/Team or API key) **or** [Codex](https://developers.openai.com/codex/skills)
 - [Obsidian](https://obsidian.md) (free) — **must be running**
 - [Obsidian CLI](https://github.com/kepano/obsidian-cli) — `obsidian` command in PATH
+- Python 3.9+ (bundled helpers are stdlib-only; no packages to install)
 
 ## Project Structure
 
@@ -307,6 +314,8 @@ mnemo/
 │   │   ├── gotchas.md               # Common failures (IPC, stale cache, shell injection)
 │   │   ├── config-schema.md         # Full ~/.mnemo/config.json reference
 │   │   ├── tool-routing.md          # bundled writer / argv-safe reader rule + rationale
+│   │   ├── depth-contract.md        # thoroughness-by-routing contract for session notes
+│   │   ├── vault-conventions.md     # naming and linking rules for the vault
 │   │   ├── triggers-implementation.md
 │   │   ├── triggers-research.md
 │   │   ├── triggers-debugging.md
@@ -323,6 +332,7 @@ mnemo/
 │   │   ├── skills-discover.py       # Auto-discovery across Claude/Codex skill paths
 │   │   ├── review-candidates.py     # type-aware staleness scan for /mn:health
 │   │   ├── hot-scan.py              # open-tails digest injected at SessionStart
+│   │   ├── context-window.py        # resolves the autocompact window + how close the session is
 │   │   ├── handoff-resolver.py      # report-only handoff triage (legacy block format)
 │   │   ├── migrate-handoff-to-index.py    # one-shot: blocks → pointer index (dry-run default)
 │   │   ├── split-handoff-archive.py       # cold archive → readable per-month parts
@@ -336,7 +346,8 @@ mnemo/
 │       ├── prewarm.sh               # Codex-compatible SessionStart cache warmup
 │       ├── mnemo-context.sh         # SessionStart nudge — memory exists (config-gated)
 │       ├── mnemo-skill-echo.sh      # /mn:* expansion echo — visible skill-load confirmation
-│       └── mnemo-stop-nudge.sh      # Stop nudge — save before wrapping up (opt-in)
+│       ├── mnemo-stop-nudge.sh      # Stop nudge — save before wrapping up (opt-in)
+│       └── mnemo-autocompact-nudge.sh # Stop nudge — warn before autocompact drops context (opt-in)
 ├── .claude-plugin/marketplace.json  # Claude Code marketplace entry
 ├── .agents/plugins/marketplace.json # Codex marketplace entry
 ├── .github/workflows/skill-lint.yml # CI: validates SKILL.md frontmatter + refs

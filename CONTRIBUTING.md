@@ -24,22 +24,21 @@ The directory and `name` must match and use lowercase letters, digits, and singl
 
 5. Add `agents/openai.yaml`, update README.md in English, Russian, and Chinese, and extend the structural checks in `scripts/lint-skills.py`.
 
-6. Run the complete gate before opening a PR:
+6. Run the complete gate before opening a PR. **The canonical command list lives in one place — `TESTING.md` § Automated gate** — because a hand-kept copy here drifted out of date three times while new suites shipped unlisted:
 
    ```bash
    python3 scripts/lint-skills.py
-   python3 scripts/test-runtime-compat.py
-   python3 scripts/test-runtime-memory.py
-   python3 scripts/test-runtime-homes.py
-   python3 scripts/test-vault-write.py
-   python3 scripts/test-skill-write-contracts.py
-   python3 scripts/test-handoff-archive.py
+   python3 scripts/verify-release.py
+   for suite in scripts/test-*.py; do
+     [ "$suite" = "scripts/test-fresh-install.py" ] && continue
+     python3 "$suite" || echo "FAILED: $suite"
+   done
    MNEMO_REQUIRE_RUNTIME_LOADERS=1 python3 scripts/test-fresh-install.py
    claude plugin validate plugins/mnemo --strict
    python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
    ```
 
-   CI pins and installs both tested runtime loaders, makes the isolated compatibility/fresh-install checks mandatory, and runs the writer/security suites. Release workstations must use the same strict gate; schema validation alone does not detect loader composition or packaging failures.
+   CI pins and installs both tested runtime loaders, makes the isolated compatibility/fresh-install checks mandatory, and runs the same glob over every suite. Release workstations must use the same strict gate; schema validation alone does not detect loader composition or packaging failures.
 
 ## Skill Design Principles
 

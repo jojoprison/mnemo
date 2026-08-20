@@ -20,7 +20,7 @@ Also triggers on: "что забыли?", "что осталось?", "session r
 
 The skill collects fresh evidence with the current runtime's normal tools:
 - **Git state** — status, branch, recent commits, uncommitted changes
-- **JSONL introspection** — reads the exact active Claude session or Codex thread to extract tool calls, explicit skill invocations, modified files, commits, and error count; it never falls back to another task
+- **JSONL introspection** — reads the exact active Claude session or Codex thread to extract tool calls, explicit skill invocations, modified files, commits, and error count. With no runtime session id at all it may borrow the newest Codex rollout sharing the working directory, and labels that with a leading `SOURCE:` line — numbers under that line belong to another task, so treat the scan as unavailable rather than as your own
 - **Skill discovery** — scans active runtime locations, selects only the current plugin generation, and ignores shadowed cache copies
 - **Open PRs** — checks for your open GitHub PRs
 

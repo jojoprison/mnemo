@@ -69,6 +69,12 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
     "maxLineBytes": 200
   },
 
+  "hot": {
+    "scope": "project",
+    "windowDays": 7,
+    "maxKB": 8
+  },
+
   "review": {
     "full": { "autoConnect": false },
     "staleDays": {
@@ -96,7 +102,8 @@ Path: `~/.mnemo/config.json`. Created by `setup` skill on first install. All oth
     "sessionStartNudge": true,
     "stopNudge": false,
     "autocompactNudge": false,
-    "invocationEcho": true
+    "invocationEcho": true,
+    "hotDigest": true
   }
 }
 ```
@@ -178,7 +185,7 @@ If `recall.runtimeMemory` is absent, cross-runtime recall is disabled. Active-ru
 
 If `taxonomy_roles` is absent, a legacy Zettelkasten config is migrated deterministically in memory as `fact → atom`, `insight → molecule`, `source → source`, `session → session`, `moc → moc`; the next `setup` run persists that map. For any other legacy/custom taxonomy, `setup` must show the existing taxonomy keys and ask once where `fact`, `insight`, and `source` belong instead of guessing from prefixes or tags. A configured map is valid only when its key set is exactly those five roles, every target names an existing `taxonomy` key, and the functional roles self-map as `session → session` and `moc → moc`. Only `fact`, `insight`, and `source` may intentionally coalesce onto one type.
 
-The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false, autocompactNudge=false, invocationEcho=true. If absent, the SessionStart nudge still fires (when a vault is configured), both Stop nudges stay off, and the invocation echo stays on (it does not require a vault).
+The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false, autocompactNudge=false, invocationEcho=true, hotDigest=true. If absent, the SessionStart nudge still fires (when a vault is configured), both Stop nudges stay off, and the invocation echo stays on (it does not require a vault).
 
 If `vault` or `taxonomy` is missing, the skill that needs them asks the user and offers to run `/mn:setup` in Claude Code or `$mnemo:setup` in Codex.
 

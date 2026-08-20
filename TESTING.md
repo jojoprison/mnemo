@@ -1,25 +1,27 @@
-# Testing — mnemo smoke tests (current: v1.2.6)
+# Testing — mnemo smoke tests (current: v1.2.15)
 
 mnemo has an automated structural/runtime regression gate plus manual end-to-end smoke tests. Run the automated gate after every skill, manifest, hook, or helper change; run the relevant manual checks after `/plugin update mnemo@mnemo` or `codex plugin add mnemo@mnemo`.
 
 ## Automated gate
 
+**This section is the canonical gate.** `CONTRIBUTING.md` and `docs/codex.md` point here instead of repeating the list — a hand-kept copy drifted three times, and CI once ran 7 of the 18 suites for the same reason.
+
 ```bash
 python3 scripts/lint-skills.py
 python3 scripts/verify-release.py
-python3 scripts/test-runtime-compat.py
-python3 scripts/test-runtime-memory.py
-python3 scripts/test-runtime-homes.py
-python3 scripts/test-vault-write.py
-python3 scripts/test-skill-write-contracts.py
-python3 scripts/test-handoff-archive.py
+for suite in scripts/test-*.py; do
+  [ "$suite" = "scripts/test-fresh-install.py" ] && continue
+  python3 "$suite" || echo "FAILED: $suite"
+done
 MNEMO_REQUIRE_RUNTIME_LOADERS=1 python3 scripts/test-fresh-install.py
 python3 plugins/mnemo/scripts/session-scan.py
 claude plugin validate plugins/mnemo --strict
 python3 /path/to/plugin-creator/scripts/validate_plugin.py plugins/mnemo
 ```
 
-The first ten commands are repository-owned gates. `verify-release.py` requires all three manifest versions, the dated CHANGELOG section, and both current compare-links to agree. `test-runtime-compat.py` exercises the runtime contracts, while `test-fresh-install.py` performs real installs into isolated Claude/Codex homes and deliberately stops at the loader/package boundary — it does **not** invoke a model or claim command-level behavior. CI pins both loaders and makes skips fatal. The last two commands are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. Every command must pass before release.
+The glob is deliberate: a suite added with a feature is picked up without anyone remembering to list it. `.github/workflows/skill-lint.yml` runs the same loop and fails when it matches fewer than 10 suites, so a broken glob cannot report a green gate on zero tests. `session-scan.py` here is a graceful-fallback check — with no runtime env vars it must print `SESSION_ID: not available`; on a machine that has a Codex rollout for this same directory it instead prints statistics under a leading `SOURCE:` line, which is also correct behavior.
+
+Everything above `claude plugin validate` is a repository-owned gate. `verify-release.py` requires all three manifest versions, the dated CHANGELOG section, and both current compare-links to agree. `test-runtime-compat.py` exercises the runtime contracts, while `test-fresh-install.py` performs real installs into isolated Claude/Codex homes and deliberately stops at the loader/package boundary — it does **not** invoke a model or claim command-level behavior. CI pins both loaders and makes skips fatal. The last two commands are the official Claude Code and Codex plugin validators; replace `/path/to/plugin-creator` with the installed Codex `plugin-creator` skill directory. Every command must pass before release.
 
 The manual suite below has two layers: the **7 per-skill checks** (version-agnostic — do the workflows still behave?) and the **"What changed in vX" feature checks** (run the groups relevant to your change).
 
@@ -114,6 +116,14 @@ Three opt-in features were added (see [CHANGELOG](./CHANGELOG.md#0140---2026-06-
 
 - **V13 — Stop nudge tracks `/mn:session` too (v1.1.2).** Covered by V10 above: with `hooks.stopNudge:true` and worth-saving signals, the nudge now blocks on either missing `/mn:save` **or** `/mn:session` (both present → silent).
 - **V14 — `/mn:review` trigger phrasings (v1.1.3).** The `review` description now fires on `'что ещё осталось'` / `'что ещё тут осталось'` in addition to `'что осталось'`. Type one mid-session → the orchestrator should engage.
+
+## What changed in v1.2.14 / v1.2.15 — session-id fix + autocompact nudge
+
+- **V19 — the scan reads the session id Claude Code actually exports.** From the bash tool (not a hook), run `python3 plugins/mnemo/scripts/session-scan.py` inside a live Claude Code session: it must report *this* session's tools and files. Before v1.2.14 it reported `SESSION_ID: not available`, or — on a machine that also runs Codex in the same directory — another task's statistics presented as your own. Covered by `test_claude_code_session_id_is_read_from_the_bash_tool_env` and `test_claude_session_beats_any_codex_id`. Related guard: with **no** session id in the environment the output must open with a `SOURCE:` line, and `review`/`session` must then treat the scan as unavailable rather than audit the borrowed numbers.
+- **V20 — the prewarm cache is read back.** `test_prewarm_warms_the_key_the_claude_scan_reads_back` and `test_prewarm_runs_when_only_the_environment_carries_the_session` pin it: the hook seeds the canonical name and its run gate recognises a session carried only by the environment. Live check: after a fresh session start, the cache file for `(transcript, session_id)` exists in the private cache namespace and the first `/mn:review` does not re-read the transcript from byte 0.
+- **V21 — autocompact nudge, all branches (`hooks.autocompactNudge`, opt-in).** `python3 scripts/test-autocompact-nudge.py` → 14 OK and `python3 scripts/test-context-window.py` → 31 OK cover: silent unless opted in · no-op on Codex · silent when the window is unresolved, when `autoCompactEnabled` is false, when save *and* session already ran, and when usage exceeds the window · blocks once per severity level · **nudges again after a compaction dropped the usage** (the marker lowers). Live check needs a session near its window: with `autoCompactWindow` configured, `python3 plugins/mnemo/scripts/context-window.py "$TRANSCRIPT"` prints `LEVEL<TAB>USED<TAB>WINDOW`, and the level must change as the session fills.
+- **V22 — the window is never guessed.** On an account **with** 1M access and no configured window, `context-window.py` must print `unknown` and an empty window field — the transcript records the model id without its `[1m]` suffix, so claiming 200k there would block a turn at 15% full. On an account without that access it must resolve `200000` with no configuration at all. Covered by `test_large_context_access_stays_silent_rather_than_guessing` and `test_without_large_context_access_the_model_default_applies`.
+- **V23 — the CI gate runs every suite.** `.github/workflows/skill-lint.yml` loops over `scripts/test-*.py` instead of naming them: before v1.2.15 it named 7 of 18, so two suites shipped in v1.2.14 had never run in CI. The loop fails when it matches fewer than 10 files, so a broken glob cannot report green on zero tests.
 
 ## What changed in v1.2.2 — invocation visibility (marker + expansion echo)
 
