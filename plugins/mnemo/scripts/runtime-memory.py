@@ -1652,10 +1652,26 @@ def _load_config(home: Path) -> dict[str, Any]:
 
 
 def _detect_runtime(env: dict[str, str]) -> str:
-    if any(env.get(name) for name in ("CODEX_THREAD_ID", "CODEX_SESSION_ID", "CODEX_HOME")):
+    # Live-session markers first, in both runtimes, then the weak CODEX_HOME:
+    # that one only names a config directory, so a Claude Code user who exports
+    # it must not be misread as running under Codex.
+    if any(env.get(name) for name in ("CODEX_THREAD_ID", "CODEX_SESSION_ID")):
         return "codex"
-    if any(env.get(name) for name in ("CLAUDE_SESSION_ID", "CLAUDE_PLUGIN_ROOT")):
+    # CLAUDE_CODE_SESSION_ID and CLAUDECODE are what Claude Code actually exports
+    # to child processes; bare CLAUDE_SESSION_ID is only a ${...} placeholder it
+    # expands inside skill text, so it is absent in the bash-tool environment.
+    if any(
+        env.get(name)
+        for name in (
+            "CLAUDE_CODE_SESSION_ID",
+            "CLAUDECODE",
+            "CLAUDE_SESSION_ID",
+            "CLAUDE_PLUGIN_ROOT",
+        )
+    ):
         return "claude"
+    if env.get("CODEX_HOME"):
+        return "codex"
     return "unknown"
 
 

@@ -17,6 +17,7 @@ Stdlib-only (unittest + subprocess), run directly:
 
     python3 scripts/test-context-hook.py
 """
+import datetime as dt
 import json
 import os
 import subprocess
@@ -27,6 +28,11 @@ import unittest
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 HOOK = os.path.join(REPO, "plugins", "mnemo", "hooks", "mnemo-context.sh")
 PLUGIN_ROOT = os.path.join(REPO, "plugins", "mnemo")
+
+# Seed fixtures at today's date: the digest only reads sessions inside
+# hot-scan's window (DEFAULT_WINDOW_DAYS = 7), so a hardcoded date turns every
+# digest assertion green-on-empty the moment it ages out of that window.
+TODAY = dt.date.today().isoformat()
 
 SESSION_NOTE = (
     "---\ntype: session\ntags: [session]\ndate: {date}\nproject: {project}\n---\n\n"
@@ -49,9 +55,9 @@ class ContextHookTest(unittest.TestCase):
         self.vault = os.path.join(self.home, "vault")
         os.makedirs(self.vault)
         write(os.path.join(self.vault, "s.md"), SESSION_NOTE.format(
-            date="2026-07-25", project="mnemo", tail="уникальный незакрытый хвост"))
+            date=TODAY, project="mnemo", tail="уникальный незакрытый хвост"))
         write(os.path.join(self.vault, "other.md"), SESSION_NOTE.format(
-            date="2026-07-25", project="другой-проект", tail="чужой хвост"))
+            date=TODAY, project="другой-проект", tail="чужой хвост"))
 
         # Mock the Obsidian CLI: `obsidian vault vault=<name>` → tab-separated path.
         self.bin = os.path.join(self.home, "bin")
@@ -151,9 +157,13 @@ class ContextHookTest(unittest.TestCase):
         self.config(hot={"scope": "all", "maxKB": 1})
         for i in range(20):
             write(os.path.join(self.vault, f"n{i}.md"), SESSION_NOTE.format(
-                date="2026-07-25", project="mnemo", tail="я" * 150 + f" {i}"))
+                date=TODAY, project="mnemo", tail="я" * 150 + f" {i}"))
         context = self.run_hook()
-        digest = context.split("📌", 1)[1] if "📌" in context else ""
+        # Assert the digest rendered at all: an empty one trivially fits any cap,
+        # so without this the cap assertion passes while measuring nothing.
+        self.assertIn("📌", context)
+        digest = context.split("📌", 1)[1]
+        self.assertTrue(digest.strip())
         self.assertLessEqual(len("📌".encode() + digest.encode()), 1024)
 
 

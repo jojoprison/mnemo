@@ -162,6 +162,19 @@ class SessionScanTests(unittest.TestCase):
                     if path is not None:
                         path.unlink(missing_ok=True)
 
+    def test_claude_code_session_id_is_read_from_the_bash_tool_env(self) -> None:
+        # Claude Code exports CLAUDE_CODE_SESSION_ID to child processes. Bare
+        # CLAUDE_SESSION_ID is only a ${...} placeholder expanded inside skill
+        # text, so it is absent exactly where every SKILL.md runs this script.
+        env = {"CLAUDE_CODE_SESSION_ID": "claude-real"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertEqual(session_scan.runtime_session_id(), "claude-real")
+
+    def test_claude_session_beats_any_codex_id(self) -> None:
+        env = {"CLAUDE_CODE_SESSION_ID": "claude-real", "CODEX_THREAD_ID": "thread-new"}
+        with mock.patch.dict(os.environ, env, clear=True):
+            self.assertEqual(session_scan.runtime_session_id(), "claude-real")
+
     def test_thread_id_precedes_legacy_codex_session_id(self) -> None:
         env = {"CODEX_THREAD_ID": "thread-new", "CODEX_SESSION_ID": "session-old"}
         with mock.patch.dict(os.environ, env, clear=True):
@@ -629,6 +642,107 @@ class HookCompatibilityTests(unittest.TestCase):
                     (prewarm.stdout, prewarm.stderr, cache_paths, cached),
                 )
                 self.assertEqual(cached["signals"], 1)
+            finally:
+                for path in cache_paths:
+                    if path is not None:
+                        path.unlink(missing_ok=True)
+
+    def test_prewarm_warms_the_key_the_claude_scan_reads_back(self) -> None:
+        # The warmed cache is keyed on (jsonl, session_id). If prewarm exports a
+        # name the model-invoked scan does not read, the pair diverges and the
+        # warm cache is never read back — a silent, invisible miss.
+        script = REPO_ROOT / "plugins/mnemo/hooks/prewarm.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            session_id = f"claude-prewarm-{Path(tmp).name}"
+            transcript = Path(tmp) / f".claude/projects/proj/{session_id}.jsonl"
+            transcript.parent.mkdir(parents=True)
+            records = [
+                {
+                    "message": {
+                        "content": [
+                            {"type": "tool_use", "name": "Bash", "input": {}},
+                        ]
+                    }
+                },
+            ]
+            transcript.write_text("\n".join(json.dumps(item) for item in records) + "\n")
+            cache_paths = session_scan.session_cache_paths(session_id, str(transcript))
+            env = {
+                "HOME": tmp,
+                "PATH": os.environ.get("PATH", ""),
+                "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT / "plugins/mnemo"),
+                "TMPDIR": tempfile.gettempdir(),
+            }
+            try:
+                prewarm = subprocess.run(
+                    ["bash", str(script)],
+                    input=json.dumps({"session_id": session_id}),
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    cwd=REPO_ROOT,
+                )
+                cached = None
+                for _ in range(50):
+                    cached = cache_utils.read_json(cache_paths[0])
+                    if session_scan.valid_acc(cached):
+                        break
+                    time.sleep(0.02)
+                self.assertTrue(
+                    session_scan.valid_acc(cached),
+                    (prewarm.stdout, prewarm.stderr, cache_paths, cached),
+                )
+                self.assertEqual(cached["tools"], {"Bash": 1})
+            finally:
+                for path in cache_paths:
+                    if path is not None:
+                        path.unlink(missing_ok=True)
+
+    def test_prewarm_runs_when_only_the_environment_carries_the_session(self) -> None:
+        # Hook stdin may arrive without session_id while the environment still
+        # carries CLAUDE_CODE_SESSION_ID. The run gate must recognise it, else
+        # the warm is skipped silently.
+        script = REPO_ROOT / "plugins/mnemo/hooks/prewarm.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            session_id = f"claude-envonly-{Path(tmp).name}"
+            transcript = Path(tmp) / f".claude/projects/proj/{session_id}.jsonl"
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text(
+                json.dumps(
+                    {"message": {"content": [{"type": "tool_use", "name": "Read", "input": {}}]}}
+                )
+                + "\n"
+            )
+            cache_paths = session_scan.session_cache_paths(session_id, str(transcript))
+            env = {
+                "HOME": tmp,
+                "PATH": os.environ.get("PATH", ""),
+                "CLAUDE_PLUGIN_ROOT": str(REPO_ROOT / "plugins/mnemo"),
+                "CLAUDE_CODE_SESSION_ID": session_id,
+                "TMPDIR": tempfile.gettempdir(),
+            }
+            try:
+                prewarm = subprocess.run(
+                    ["bash", str(script)],
+                    input="{}",
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=env,
+                    cwd=REPO_ROOT,
+                )
+                cached = None
+                for _ in range(50):
+                    cached = cache_utils.read_json(cache_paths[0])
+                    if session_scan.valid_acc(cached):
+                        break
+                    time.sleep(0.02)
+                self.assertTrue(
+                    session_scan.valid_acc(cached),
+                    (prewarm.stdout, prewarm.stderr, cache_paths, cached),
+                )
+                self.assertEqual(cached["tools"], {"Read": 1})
             finally:
                 for path in cache_paths:
                     if path is not None:
