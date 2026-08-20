@@ -168,6 +168,7 @@ Write `~/.mnemo/config.json`:
   "hooks": {
     "sessionStartNudge": true,
     "stopNudge": false,
+    "autocompactNudge": false,
     "invocationEcho": true,
     "hotDigest": true
   }
