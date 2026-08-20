@@ -33,9 +33,11 @@ pass() {
   exit 0
 }
 
-is_codex_runtime && pass
-
+# Drain stdin before any early exit, as mnemo-stop-nudge.sh does: leaving the
+# payload unread can hand the writing side an EPIPE.
 INPUT=$(cat 2>/dev/null || true)
+
+is_codex_runtime && pass
 [ -f "$CONFIG" ] || pass
 
 # Gate: opt-in only (default false), same posture as hooks.stopNudge.
@@ -55,8 +57,10 @@ IFS=$'\t' read -r LEVEL USED WINDOW < <(
   python3 "$MNEMO_ROOT/scripts/context-window.py" "$TRANSCRIPT" 2>/dev/null
 )
 LEVEL="${LEVEL:-unknown}"
+# "unknown" carries no information about the session, so the marker is left
+# untouched; "none" still goes through the governor below, because a drop back
+# to it is the signal that a compaction happened.
 [ "$LEVEL" = "unknown" ] && pass
-[ "$LEVEL" = "none" ] && pass
 
 # Anti-loop marker lives in the same private, hashed cache namespace as
 # stop-nudge's, keyed on session_id (falls back to CODEX_THREAD_ID — moot
@@ -70,9 +74,31 @@ MARKER=$(python3 -c 'import sys;sys.path.insert(0,sys.argv[1]);from cache_utils 
 PRIOR=$(python3 -c 'import sys;sys.path.insert(0,sys.argv[1]);from cache_utils import read_text;t=read_text(__import__("pathlib").Path(sys.argv[2]));print(t or "none")' "$MNEMO_ROOT/scripts" "$MARKER" 2>/dev/null || echo none)
 
 rank() { case "$1" in critical) echo 2 ;; warn) echo 1 ;; *) echo 0 ;; esac; }
+write_marker() {
+  python3 -c 'import sys;sys.path.insert(0,sys.argv[1]);from cache_utils import atomic_write_text;from pathlib import Path;print(atomic_write_text(Path(sys.argv[2]),sys.argv[3]))' \
+    "$MNEMO_ROOT/scripts" "$MARKER" "$1" 2>/dev/null || echo False
+}
+
+# A compaction changes neither session_id nor transcript path, so the usage
+# simply collapses and the level drops. Without lowering the marker here, the
+# first nudge would also be the last one this session — every later compaction,
+# the very event this hook exists to warn about, would pass in silence.
+if [ "$(rank "$LEVEL")" -lt "$(rank "$PRIOR")" ]; then
+  write_marker "$LEVEL" >/dev/null
+  pass
+fi
+[ "$LEVEL" = "none" ] && pass
 [ "$(rank "$LEVEL")" -le "$(rank "$PRIOR")" ] && pass
 
-MARKER_WRITTEN=$(python3 -c 'import sys;sys.path.insert(0,sys.argv[1]);from cache_utils import atomic_write_text;from pathlib import Path;print(atomic_write_text(Path(sys.argv[2]),sys.argv[3]))' "$MNEMO_ROOT/scripts" "$MARKER" "$LEVEL" 2>/dev/null || echo False)
+# Nothing left to rescue → no reason to block the stop. Same gate stopNudge
+# applies, so the two Stop hooks cannot both nag for a close-out that already
+# happened.
+read -r SAVED SESSIONED _REST < <(
+  python3 "$MNEMO_ROOT/scripts/session-scan.py" --stop-summary "$TRANSCRIPT" 2>/dev/null
+)
+[ "${SAVED:-0}" = 1 ] && [ "${SESSIONED:-0}" = 1 ] && pass
+
+MARKER_WRITTEN=$(write_marker "$LEVEL")
 # Fail open if the anti-loop governor cannot be persisted. Blocking without a
 # marker could trap the user in a repeated Stop cycle.
 [ "$MARKER_WRITTEN" = "True" ] || pass
