@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **Session scans read the session id Claude Code actually exports.** `session-scan.py` looked for `CLAUDE_SESSION_ID`, which Claude Code never sets in a child process — it only expands that name as a `${...}` placeholder inside skill text. Every model-invoked scan therefore fell through to the newest Codex rollout sharing the cwd and rendered it **as the caller's own session**, or, with no Codex installed, reported `SESSION_ID: not available` and left `session` and `review` working blind. It now reads `CLAUDE_CODE_SESSION_ID` first (`CLAUDE_SESSION_ID` stays a fallback), and prints a `SOURCE:` line whenever a scan does borrow an unattributed Codex rollout, so borrowed numbers can never pass for your own.
+- **The prewarm cache is finally read back.** The warm is keyed on `(jsonl, session_id)`; because the hook seeded the legacy name and the model-invoked scan resolved a different one, the two keys diverged and the warmed entry was never hit — so `TESTING.md`'s "first review is near-instant thanks to prewarm" was untrue on Claude Code. The hook now seeds the canonical name, and its run gate recognises a session carried only by the environment (hook stdin without `session_id`) instead of skipping the warm silently.
+- **Cross-runtime recall detects Claude Code from the bash-tool environment.** `runtime-memory.py` recognised only `CLAUDE_SESSION_ID` / `CLAUDE_PLUGIN_ROOT`, neither of which exists there, so an omitted `runtime` placeholder degraded quietly to zero hits. It now also accepts `CLAUDE_CODE_SESSION_ID` and `CLAUDECODE`. Related: `CODEX_HOME` no longer outranks a live Claude session — it only names a config directory, so exporting it no longer makes a Claude Code user look like a Codex one; live thread markers still win.
+
 ## [1.2.13] - 2026-07-27
 
 ### Changed

@@ -42,7 +42,7 @@ Analyze the conversation: what was done, key decisions, commits/PRs created, fin
 **Ground the summary in facts — don't rely on conversation memory alone** (a note that claims "shipped X" when git shows no such commit is worse than no note). Before writing "what was done", cross-check against reality: `git log --oneline -15` + `git status --short` for real commits/changes, and — when the script is reachable — the session's actual tool/skill activity:
 
 ```bash
-python3 "<mnemo-root>/scripts/session-scan.py" 2>/dev/null | head -30
+python3 "<mnemo-root>/scripts/session-scan.py" 2>/dev/null | head -32
 ```
 
 Reconcile claimed outcomes with these before persisting — the same grounding the canonical `review` skill performs, applied to the note this `session` skill writes directly.
