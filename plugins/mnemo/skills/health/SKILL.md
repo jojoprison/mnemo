@@ -176,6 +176,21 @@ Emit a verdict per candidate:
 
 Verdicts are **triage, not truth** — on `haiku` especially, expect false positives; even on `opus`, surface them as questions. The **only** write health ever performs is the `reviewed:` auto-stamp above, and only ever on a **still-valid** verdict — never content, never on update-needed/contradicts. It fires only inside this lint pass (which is itself off unless `review.lint.enabled` is true), and can be turned back to suggest-only with `autoStampReviewed: false`. The user stays in control.
 
+### Step 7.55: Autocompact Window (report-only, Claude Code, only when the nudge is on)
+
+Run this **only** when `hooks.autocompactNudge` is `true` in `~/.mnemo/config.json` — otherwise the hook is off and there is nothing to diagnose. It exists because that hook's failure mode is *silence*: when the window cannot be established it stays quiet, and quiet is indistinguishable from "nothing to warn about". This is the one place that tells the difference out loud.
+
+```bash
+python3 "<mnemo-root>/scripts/context-window.py" --explain
+```
+
+Read-only and offline: it reports what to set, and never edits anyone's Claude Code settings — `autoCompactWindow` belongs to Claude Code, not to mnemo, and mnemo does not ship a default for it (a value that suits one account silences the nudge on another and halves the usable context on a third).
+
+Report the returned `hint` verbatim, and flag these two cases explicitly:
+
+- `resolved: false` — **the nudge is enabled but can never fire.** Quote the formula from the hint: `autoCompactWindow` = desired threshold **+ the reserve** (33000 on a model whose max output is ≥ 20k). Asking for compaction at 460000 means setting **493000**; setting 460000 gets it at 427000.
+- `clamped: true` — **the configured value is above the model's context window, so it does nothing.** This is the trap worth naming: on a 200k model any value above 200000 has no effect at all, which looks identical to a working setting.
+
 ### Step 7.6: Handoff Triage (report-only, skipped when there is no handoff)
 
 Steps 7/7.5 judge whether *notes* have rotted. This judges whether the **handoff** has — a different failure with a different cause. The archiver may never move a block that still holds an open `- [ ]` (an unkept promise must not slip silently into cold storage), so a handoff does not shrink by archiving harder; it shrinks by someone *deciding* what those open items still mean. Run it whenever `handoff_note` is configured and the file exceeds `handoff.maxKB`:

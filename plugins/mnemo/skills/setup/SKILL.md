@@ -177,6 +177,13 @@ Write `~/.mnemo/config.json`:
 
 `hooks.stopNudge` ships **false** — flip it to `true` if you want the end-of-session save/session reminder (see `<mnemo-root>/references/config-schema.md`). `hooks.invocationEcho` (Claude Code only, default true) prints a `🧠 mnemo: /mn:<skill> → skill body loaded` confirmation when a `/mn:*` command expands. `hooks.hotDigest` (default true) injects the open-tails digest at session start. Everything works on these defaults even if the whole `hooks` block is omitted.
 
+**If the user turns on `hooks.autocompactNudge`, tell them it may need one Claude Code setting.** The nudge needs to know the autocompact window, and on an account with 1M-context access mnemo deliberately refuses to guess it (the transcript records the model id without its `[1m]` suffix, so a 1M session and a 200k one are indistinguishable — guessing low would block a turn at 15% full). Run `python3 "<mnemo-root>/scripts/context-window.py" --explain` and pass on its `hint`. Two things to say plainly, because both are easy to get wrong:
+
+- **Compaction happens before the window is full**, so the value is the desired threshold **plus the reserve** (33000 on a model whose max output is ≥ 20k). Wanting compaction at 460000 means setting `493000`.
+- **A value above the model's context window does nothing** — on a 200k model, `460000` silently resolves to `200000`.
+
+mnemo ships **no default** for `autoCompactWindow` and never writes it: it is Claude Code's setting, not mnemo's, and one account's sensible value halves another's usable context.
+
 The `handoff` block bounds the handoff index: `keepDays` is the rotation rule (the note holds the last month of pointers), `maxKB` a backstop beneath it, `maxLineBytes` the per-line ceiling in **bytes**. The shipped numbers come from a measured vault (7.5 sessions/day); on a much busier one, raise `maxKB` before shortening `keepDays`.
 
 Use the Step 4.5 answer for `recall.runtimeMemory.enabled`; the JSON above shows the safe default. If an existing config is being edited, preserve every unrelated field and change only the requested setting.

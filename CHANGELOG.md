@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.16] - 2026-08-21
+
+### Added
+
+- **`context-window.py --explain` — why the autocompact nudge is quiet, and what to set.** `hooks.autocompactNudge` fails *silently* by design: when the window cannot be established it stays quiet, which is indistinguishable from "nothing to warn about". The new read-only diagnostic says which case you are in, names the source the window came from (`env` / `settings` / `cache` / `model-default`), and reports the threshold that follows from it. `health` runs it (new Step 7.55, only when the nudge is enabled) and `setup` passes on its hint when the user turns the nudge on.
+- **It answers the two questions people get wrong.** *The threshold is not the window*: Claude Code compacts at `window − min(max_output, 20000) − 13000`, so asking for compaction at 460000 means setting **493000** — setting 460000 compacts at 427000. And *a value above the model's context window does nothing*: on a 200k model `460000` resolves to `200000`, which looks identical to a working setting. Both are reported explicitly, the second as a `clamped: true` flag.
+
+### Changed
+
+- **mnemo still ships no default for `autoCompactWindow`, and this is now written down as a decision rather than an omission.** It is Claude Code's setting, not mnemo's; measured against the model table in the runtime, 8 of 14 models have a 200k window where any larger value has no effect at all, while on the 6 native-1M models a "sensible" value would halve someone's usable context without being asked. mnemo reports what to set and never writes it.
+
 ## [1.2.15] - 2026-08-20
 
 ### Fixed
@@ -1021,7 +1032,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.15...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.16...HEAD
+[1.2.16]: https://github.com/jojoprison/mnemo/compare/v1.2.15...v1.2.16
 [1.2.15]: https://github.com/jojoprison/mnemo/compare/v1.2.14...v1.2.15
 [1.2.14]: https://github.com/jojoprison/mnemo/compare/v1.2.13...v1.2.14
 [1.2.13]: https://github.com/jojoprison/mnemo/compare/v1.2.12...v1.2.13
