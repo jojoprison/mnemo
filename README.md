@@ -31,7 +31,7 @@ You work → mnemo remembers → Your vault grows → You find things later
 |-------|---------|-------------|
 | **save** | `/mn:save` | Routing cascade — sends recall to Obsidian (+ optional claude-mem and enabled Claude auto-memory); Codex generated memory stays read-only. Actionable project-rule routing is separate |
 | **session** | `/mn:session` | Session summary note + cross-session handoff for the next session |
-| **review** | `/mn:review` | End-of-session orchestrator — audits the session, recommends save + session + the rest, asks before running anything |
+| **review** | `/mn:review` | End-of-session orchestrator — audits the session, recommends save + session + the rest, asks before running anything; the explicit `review --full` flag is itself the consent and chains save → session → connect with no per-skill prompts |
 | **ask** | `/mn:ask` | Search the vault + active runtime memory (+ optional verified counterpart memory), synthesize a cited answer, date sources, and ground current-state answers in git history |
 | **connect** | `/mn:connect` | Discover hidden connections between notes — suggests; standalone never auto-applies (`review --full` can, opt-in `review.full.autoConnect`) |
 | **health** | `/mn:health` | Vault audit: orphans, broken links, type-aware review candidates (+ optional LLM lint), growth stats |
@@ -56,6 +56,7 @@ Obsidian plugins run inside Obsidian. mnemo runs inside your coding agent — **
 
 ### Highlights
 
+- **One-command session close + typed save slots** (v1.2.7–v1.2.16) — `/mn:save` splits deep material into typed atoms with a searchable `kind:` (`decision`/`gotcha` on facts, `principle`/`pain`/`stance` on insights) instead of one blob; `/mn:review --full` closes a session in one command — the flag itself is the consent, chaining save → session → connect plus a grounded, read-only verify pass, and opt-in `review.full.autoConnect` lets that connect step apply its links without a per-suggestion prompt. The handoff became a 31-day pointer index read back as a SessionStart digest, and opt-in `hooks.autocompactNudge` warns before autocompact drops raw context (`context-window.py --explain` reports why it might stay silent).
 - **Cross-runtime recall without synchronization** (v1.2.3) — opt-in `recall.runtimeMemory` lets Codex see verified Claude project memory and Claude see project-scoped Codex memory. It is a bounded read-only overlay: exact git-repository proof, no transcript scan, symlink, shared writer, mirror, daemon, or duplicate store. Obsidian remains authoritative; native memory is cited as untrusted secondary evidence.
 - **One canonical surface across Claude Code and Codex** (v1.2.0; Codex hook parsing hardened in v1.2.1; Claude default-hook discovery hardened in v1.2.4) — the same seven implementations now register directly as `/mn:*` in Claude Code and as `$mnemo:*` with matching `mn:*` picker labels in Codex. Legacy command routers and alias skill copies are gone; runtime-composed hooks, portable runtime discovery, private caches, and argv-safe Obsidian access keep both runtimes aligned without duplicated behavior.
 - **Knowledge compounds + self-snoozing lint + research gaps** (v0.14.0) — three opt-in, on-philosophy distillations from a full audit of Karpathy's "LLM Wiki" pattern. `/mn:ask` can fold a real synthesis **back into the type mapped by `taxonomy_roles.insight`** (a Molecule in the default taxonomy; sources pre-linked) so explorations accumulate; `review.lint.autoStampReviewed` lets the lint stamp `reviewed:` on still-valid notes to close the snooze loop; `/mn:health` surfaces **research-gap candidates** (populous topic with no MOC, recurring external with no Source note). All opt-in: a default install writes nothing (the content lint is off), the compounding save is user-confirmed, and the lone auto-write — the `reviewed:` stamp — only fires once you turn the lint on.
@@ -144,7 +145,7 @@ Physical note types are resolved only through the exact five semantic roles `fac
 /mn:review
 ```
 
-Analyzes your session, then offers one prioritized list — unsaved decisions (`/mn:save`), session notes (`/mn:session`), and the rest (commit, connect, health). Nothing runs without your pick.
+Analyzes your session, then offers one prioritized list — unsaved decisions (`/mn:save`), session notes (`/mn:session`), and the rest (commit, connect, health). Nothing runs without your pick — the one exception is `/mn:review --full`, where the flag itself is the consent: it audits from the session's origin, then chains save → session → connect and runs a grounded verify pass with no per-skill prompts (with opt-in `review.full.autoConnect`, that connect step also applies its links without asking).
 
 ### Session notes + handoff
 
@@ -196,6 +197,8 @@ mkdir -p ~/.mnemo
 cp config.example.json ~/.mnemo/config.json
 ```
 
+The core of that file, abridged — it also carries `hooks.hotDigest`, `review.full.autoConnect`, `cascade.claude_mem.url`, and the `handoff` / `hot` sections:
+
 ```json
 {
   "vault": "main",
@@ -245,7 +248,7 @@ cp config.example.json ~/.mnemo/config.json
 }
 ```
 
-The minimal core is `vault`, `taxonomy`, the exact five-key `taxonomy_roles` map, `links_section`, and `handoff_note`; optional sections keep their documented defaults. Every role target must exist, while `session → session` and `moc → moc` are required functional self-maps. Skills offer setup when the core is missing or invalid. `review.*` tunes `/mn:health`; `recall.runtimeMemory` is the off-by-default, read-only Claude↔Codex project-memory overlay; `hooks.*` gates the harness nudges — the two **blocking** Stop hooks (`stopNudge`, `autocompactNudge`) are opt-in and off by default, so a plain install never blocks a turn. See [config-schema.md](plugins/mnemo/references/config-schema.md).
+The minimal core is `vault`, `taxonomy`, the exact five-key `taxonomy_roles` map, `links_section`, and `handoff_note`; optional sections keep their documented defaults. Every role target must exist, while `session → session` and `moc → moc` are required functional self-maps. Skills offer setup when the core is missing or invalid. `review.staleDays` and `review.lint` tune `/mn:health` (`/mn:ask` reuses the same staleness budget to flag an answer resting on stale notes), while `review.full.autoConnect` gates the connect step of the `review --full` chain; `recall.runtimeMemory` is the off-by-default, read-only Claude↔Codex project-memory overlay; `hooks.*` gates the harness nudges — the two **blocking** Stop hooks (`stopNudge`, `autocompactNudge`) are opt-in and off by default, so a plain install never blocks a turn. See [config-schema.md](plugins/mnemo/references/config-schema.md).
 
 ### Custom Taxonomy
 
@@ -350,13 +353,17 @@ mnemo/
 │       └── mnemo-autocompact-nudge.sh # Stop nudge — warn before autocompact drops context (opt-in)
 ├── .claude-plugin/marketplace.json  # Claude Code marketplace entry
 ├── .agents/plugins/marketplace.json # Codex marketplace entry
-├── .github/workflows/skill-lint.yml # CI: validates SKILL.md frontmatter + refs
+├── .github/workflows/skill-lint.yml # CI gate: SKILL.md lint + release metadata + every scripts/test-*.py + fresh installs in both runtimes
 ├── .github/workflows/release.yml    # CI: mirror CHANGELOG section → GitHub Release on tag
-├── scripts/lint-skills.py           # Dual-runtime structural linter
+├── scripts/lint-skills.py           # Dual-runtime structural linter + private-leak guard
+├── scripts/verify-release.py        # Release-metadata gate: three manifests + CHANGELOG in one version
+├── scripts/wikilink-allowlist.txt   # Note names cleared for this public repo
 ├── scripts/test-runtime-compat.py   # Claude/Codex regression tests
 ├── scripts/test-runtime-memory.py   # cross-runtime scope/security/bounds tests
 ├── scripts/test-handoff-archive.py  # Handoff archive regression tests
+├── scripts/test-*.py                # …and the other regression suites — CI runs every one
 ├── docs/codex.md                    # Codex install, invocation, runtime differences
+├── docs/*.md                        # per-skill guides + design-decisions.md · BACKLOG.md
 ├── AGENTS.md · CONTRIBUTING.md · CHANGELOG.md · TESTING.md · LICENSE
 ```
 
@@ -393,9 +400,9 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 |-------|---------|-----------|
 | **save** | `/mn:save` | Каскад роутинга — сохраняет в Obsidian (+ опциональный claude-mem и включённую auto-memory Claude); generated memory Codex остаётся read-only |
 | **session** | `/mn:session` | Сессионная заметка + cross-session handoff для следующей сессии |
-| **review** | `/mn:review` | Оркестратор конца сессии — аудит, единый список рекомендаций и подтверждение перед любым запуском |
+| **review** | `/mn:review` | Оркестратор конца сессии — аудит, единый список рекомендаций и подтверждение перед любым запуском; явный флаг `review --full` сам является согласием и прогоняет save → session → connect без пошаговых подтверждений |
 | **ask** | `/mn:ask` | Поиск по vault + памяти активного runtime (+ опционально проверенная память второго runtime), синтез с цитатами и сверка актуальности по git |
-| **connect** | `/mn:connect` | Находит скрытые связи между заметками — предлагает, не применяет сам |
+| **connect** | `/mn:connect` | Находит скрытые связи между заметками — предлагает; отдельный вызов никогда не применяет сам (`review --full` может, opt-in `review.full.autoConnect`) |
 | **health** | `/mn:health` | Аудит vault: orphans, битые ссылки, type-aware кандидаты на ревью (+ опц. LLM-линт), статистика роста |
 | **setup** | `/mn:setup` | Интерактивный онбординг — vault, таксономия, язык, опциональный cross-runtime recall |
 
@@ -418,6 +425,7 @@ PRs welcome. If you have a better prompt pattern, a new skill idea, or a taxonom
 
 ### Ключевые возможности
 
+- **Закрытие сессии одной командой + типизированные слоты save** (v1.2.7–v1.2.16) — `/mn:save` разбивает материал на типизированные атомы с поисковым полем `kind:` (`decision`/`gotcha` для фактов, `principle`/`pain`/`stance` для инсайтов), а не в один блоб; `/mn:review --full` закрывает сессию одной командой — сам флаг и есть согласие, он прогоняет save → session → connect плюс read-only verify, а opt-in `review.full.autoConnect` разрешает шагу connect применять ссылки без пошагового подтверждения. Handoff стал индексом-указателем за 31 день, который читается обратно дайджестом на SessionStart, а opt-in `hooks.autocompactNudge` предупреждает до того, как автокомпакт срежет сырой контекст (`context-window.py --explain` объясняет, почему нудж может молчать).
 - **Cross-runtime recall без синхронизации** (v1.2.3) — opt-in `recall.runtimeMemory` даёт Codex видеть проверенную проектную память Claude, а Claude — project-scoped память Codex. Это ограниченный read-only слой с точным доказательством git-репозитория: без transcript scan, symlink, общего writer, зеркала, демона и второй копии. Obsidian остаётся главным источником, runtime-memory цитируется как недоверенное вторичное свидетельство.
 - **Одна каноническая поверхность в Claude Code и Codex** (v1.2.0; парсинг Codex hooks усилен в v1.2.1; автодискавери стандартного Claude hook-файла исправлен в v1.2.4) — те же семь реализаций напрямую регистрируются как `/mn:*` в Claude Code и как `$mnemo:*` с совпадающими UI-именами `mn:*` в Codex. Старые command-router’ы и alias-копии удалены; hooks компонуются по runtime, а portable discovery, приватные кеши и argv-safe доступ к Obsidian держат обе среды синхронными без дублирования логики.
 - **Знание накапливается + самоснузящийся линт + research-гэпы** (v0.14.0) — три opt-in, на-философии вывода из полного аудита паттерна Карпати «LLM Wiki». `/mn:ask` может свернуть настоящий синтез **обратно в vault в тип, заданный `taxonomy_roles.insight`** (в дефолте Molecule; источники уже слинкованы), чтобы исследования накапливались; `review.lint.autoStampReviewed` позволяет линту штамповать `reviewed:` на still-valid заметках, замыкая петлю снуза; `/mn:health` показывает **research-gap кандидатов** (популярный топик без MOC, частый внешний источник без Source-заметки). Всё opt-in: дефолтная установка ничего не пишет (контент-линт выключен), сохранение синтеза — по подтверждению, а единственная авто-запись (штамп `reviewed:`) срабатывает только когда ты включишь линт.
@@ -480,7 +488,7 @@ Codex:       $mnemo:health
 /mn:review
 ```
 
-Анализирует сессию и показывает один приоритетный список: несохранённые решения, session notes и остальные действия. Ничего не запускает без твоего выбора.
+Анализирует сессию и показывает один приоритетный список: несохранённые решения, session notes и остальные действия. Ничего не запускает без твоего выбора — единственное исключение `/mn:review --full`: сам флаг и есть согласие, он аудирует сессию от её начала, затем прогоняет save → session → connect и verify без пошаговых подтверждений (при opt-in `review.full.autoConnect` шаг connect ещё и применяет ссылки без вопроса).
 
 ### Сессионные заметки + handoff
 
@@ -532,7 +540,7 @@ mkdir -p ~/.mnemo
 cp config.example.json ~/.mnemo/config.json
 ```
 
-Все поля опциональны. Скиллы спросят при первом запуске. Cross-runtime recall выключен по умолчанию; включение: `recall.runtimeMemory.enabled: true`. Полная схема и security-границы — в `plugins/mnemo/references/config-schema.md`.
+Обязательное ядро — `vault`, `taxonomy`, карта `taxonomy_roles` ровно из пяти ролей, `links_section` и `handoff_note`; остальные секции опциональны и берут задокументированные умолчания. Когда ядра нет или оно невалидно, скиллы предлагают setup, а не догадываются. Cross-runtime recall выключен по умолчанию; включение: `recall.runtimeMemory.enabled: true`. Полная схема и security-границы — в `plugins/mnemo/references/config-schema.md`.
 
 ## Непрерывность между сессиями
 
@@ -543,6 +551,7 @@ cp config.example.json ~/.mnemo/config.json
 - [Claude Code](https://claude.ai/code) (Pro/Max/Team или API ключ) **или** [Codex](https://developers.openai.com/codex/skills)
 - [Obsidian](https://obsidian.md) (бесплатно) — **должен быть запущен**
 - [Obsidian CLI](https://github.com/kepano/obsidian-cli) — `obsidian` в PATH
+- Python 3.9+ (вшитые хелперы используют только stdlib — ставить нечего)
 
 ---
 
@@ -566,9 +575,9 @@ cp config.example.json ~/.mnemo/config.json
 |------|------|------|
 | **save** | `/mn:save` | 路由级联 —— 保存到 Obsidian（+ 可选 claude-mem 与已启用的 Claude auto-memory）；Codex 生成的记忆保持只读 |
 | **session** | `/mn:session` | 会话摘要笔记 + 跨会话上下文传递 |
-| **review** | `/mn:review` | 会话结束编排器 —— 审计会话、统一推荐，并在运行任何技能前请求确认 |
+| **review** | `/mn:review` | 会话结束编排器 —— 审计会话、统一推荐，并在运行任何技能前请求确认；显式的 `review --full` 标志本身即为同意，会依次执行 save → session → connect，不再逐个询问 |
 | **ask** | `/mn:ask` | 搜索 vault + 当前运行时记忆（+ 可选且已验证的另一运行时记忆），综合引用并用 git 核验当前状态 |
-| **connect** | `/mn:connect` | 发现笔记之间隐藏的联系 —— 仅建议，不自动应用 |
+| **connect** | `/mn:connect` | 发现笔记之间隐藏的联系 —— 仅建议；单独调用永不自动应用（`review --full` 可以，需开启 `review.full.autoConnect`） |
 | **health** | `/mn:health` | Vault 审计：孤立笔记、断链、按类型的复查候选（+ 可选 LLM lint）、增长统计 |
 | **setup** | `/mn:setup` | 交互式引导配置 —— vault、分类法、语言、可选跨运行时回忆 |
 
@@ -591,6 +600,7 @@ Obsidian 插件在 Obsidian 内部运行。mnemo 在你的编码代理 —— **
 
 ### 功能亮点
 
+- **一条命令结束会话 + 类型化的 save 槽位**（v1.2.7–v1.2.16）—— `/mn:save` 不再写成一整块，而是拆成带可检索 `kind:` 字段的类型化原子笔记（事实类 `decision`/`gotcha`，洞见类 `principle`/`pain`/`stance`）；`/mn:review --full` 用一条命令结束会话 —— 标志本身即为同意，依次执行 save → session → connect 并做一次只读校验，可选的 `review.full.autoConnect` 让其中的 connect 步骤无需逐条确认即可写入链接。交接笔记变成最近 31 天的指针索引，并在 SessionStart 以摘要形式读回；可选的 `hooks.autocompactNudge` 会在自动压缩丢掉原始上下文之前提醒你（`context-window.py --explain` 说明它为何可能保持沉默）。
 - **跨运行时回忆，无需同步**（v1.2.3）—— 可选的 `recall.runtimeMemory` 让 Codex 读取已验证的 Claude 项目记忆，也让 Claude 读取项目范围内的 Codex 记忆。这是有界只读层：严格匹配同一 git 仓库，不扫描 transcript，不用 symlink、共享写入器、镜像、daemon 或重复存储。Obsidian 仍是权威来源；运行时记忆仅作为带出处的不可信次级证据。
 - **Claude Code 与 Codex 共用唯一规范入口**（v1.2.0；v1.2.1 加强 Codex hook 解析兼容性；v1.2.4 修正 Claude 默认 hook 自动发现）—— 同一套七个实现现在在 Claude Code 中直接注册为 `/mn:*`，在 Codex 中注册为 `$mnemo:*`，并显示对应的 `mn:*` 选择器标签。旧 command router 与 alias 技能副本已移除；按运行时组合的 hooks、可移植运行时发现、私有缓存和 argv-safe Obsidian 访问让两个运行时保持一致且不重复逻辑。
 - **知识复利 + 自我延后的 lint + 研究缺口**（v0.14.0）—— 对 Karpathy "LLM Wiki" 模式做完整审计后提炼出的三个可选、契合理念的增强。`/mn:ask` 可将真正的综合**写回 `taxonomy_roles.insight` 指定的类型**（默认为 Molecule；来源已预先链接），让探索得以累积；`review.lint.autoStampReviewed` 让 lint 给仍然有效的笔记盖上 `reviewed:`，闭合延后回路；`/mn:health` 会提示**研究缺口候选**（笔记众多却无 MOC 的主题、被频繁引用却无 Source 笔记的外部实体）。全部可选：默认安装不写入任何内容（内容 lint 默认关闭），综合写回需用户确认，唯一的自动写入（`reviewed:` 标记）仅在你开启 lint 后才发生。
@@ -653,7 +663,7 @@ Codex:       $mnemo:health
 /mn:review
 ```
 
-分析会话并显示一个按优先级排序的列表：未保存的决策、会话笔记以及其余操作。未经你的选择，不会运行任何项目。
+分析会话并显示一个按优先级排序的列表：未保存的决策、会话笔记以及其余操作。未经你的选择，不会运行任何项目 —— 唯一的例外是 `/mn:review --full`：这个标志本身即为同意，它从会话起点开始审计，然后依次执行 save → session → connect 并做一次有据可查的校验，全程不再逐个询问（若开启 `review.full.autoConnect`，其中的 connect 步骤还会直接写入链接）。
 
 ### 会话笔记 + 交接
 
@@ -705,17 +715,18 @@ mkdir -p ~/.mnemo
 cp config.example.json ~/.mnemo/config.json
 ```
 
-所有字段可选。技能会在首次使用时询问。跨运行时回忆默认关闭；通过 `recall.runtimeMemory.enabled: true` 启用。完整 schema 与安全边界见 `plugins/mnemo/references/config-schema.md`。
+必需的核心字段是 `vault`、`taxonomy`、恰好五个角色的 `taxonomy_roles` 映射、`links_section` 与 `handoff_note`；其余部分可选，缺省时采用文档中的默认值。核心缺失或无效时，技能会建议运行 setup，而不是自行猜测。跨运行时回忆默认关闭；通过 `recall.runtimeMemory.enabled: true` 启用。完整 schema 与安全边界见 `plugins/mnemo/references/config-schema.md`。
 
 ## 跨会话连续性
 
-杀手级功能。`/mn:session` 写入交接笔记，下次会话自动接续。再也不用问「我昨天在做什么？」
+杀手级功能。`/mn:session` 把未完成的事项写进**该会话自己的笔记**，并在 `Meta — Session Handoff` 中添加**一行指针**（最近 31 天的索引，而不是存储）。下次会话以**摘要**开场：SessionStart hook 从近期会话笔记中收集仍未关闭的事项，注入一份按项目范围限定、有字节上限的汇总 —— 交接笔记本身在启动时从不被读取。再也不用问「我昨天在做什么？」
 
 ## 环境要求
 
 - [Claude Code](https://claude.ai/code)（Pro/Max/Team 或 API 密钥）**或** [Codex](https://developers.openai.com/codex/skills)
 - [Obsidian](https://obsidian.md)（免费）——**必须运行中**
 - [Obsidian CLI](https://github.com/kepano/obsidian-cli)——`obsidian` 命令在 PATH 中
+- Python 3.9+（内置辅助脚本仅依赖标准库，无需安装额外包）
 
 ---
 

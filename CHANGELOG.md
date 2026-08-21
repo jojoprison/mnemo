@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.17] - 2026-08-21
+
+### Added
+
+- **A private-leak guard in the linter — a link into someone's vault can no longer ship.** Two `[[wikilink]]`s pointing at the maintainer's own Obsidian notes reached a public PR during the v1.2.14 review and were caught by hand; nothing in the repo guarded that class. `scripts/lint-skills.py` now sweeps every shipped text file and fails on links that name a concrete note. A blanket ban was impossible — mnemo is a plugin *about* Obsidian and its docs carry 60+ legitimate examples — so the rule passes only shapes that cannot name a real note (placeholders like `[[{hub_name}]]` and `[[Session — …]]`, single ASCII words like `[[wikilinks]]`, regex fragments) plus the invented names listed in the new `scripts/wikilink-allowlist.txt`. Adding a name there is a review decision, not a formality: the file says so, and `scripts/test-lint-wikilinks.py` (22 tests) fails on entries that no longer appear anywhere, so the list stays a review surface instead of debris. The same pass flags absolute home paths while leaving `~/` and `${VAR}` forms alone.
+- **Two properties of that guard are worth naming, because both are how this class hides.** The sweep reads **whole files**: the second link caught by hand was wrapped across two source lines, and a line-by-line scan would have called that file clean. And a sweep matching **nothing at all** fails instead of reporting clean, since a wrong root, extension list, or regex is indistinguishable from a spotless repo. The guard caught its own documentation while it was being written, and it caught five machine-local paths that an earlier hand-run `grep` had missed — that grep had searched for one specific username and returned an honest, meaningless zero.
+
+### Fixed
+
+- **49 documentation claims that no longer matched the code**, found by an adversarial audit of every doc against the implementation and confirmed one by one (of 50 findings, verification rejected exactly one). The dominant failure was not the code moving ahead of the docs — it was **a fact corrected in one file and left standing in its neighbour**: the RU and ZH README sections still said "all fields are optional" long after the EN section was fixed in v1.2.5, `CONTRIBUTING.md` carried a stale copy of a gate whose canonical list lives in `TESTING.md`, and `docs/health.md` showed a report format the skill stopped printing.
+- **Six places across all three README languages claimed nothing runs without your pick.** `review --full` has been the documented exception since v1.2.8 — the flag itself is the consent — and `review.full.autoConnect` lets its connect step apply links unprompted. Both are now stated wherever the absolute was. The RU and ZH `connect` rows carried the same absolute and now carry the exception too.
+- **`CONTRIBUTING.md` described a skill that fails the mandatory gate.** Its "Adding a New Skill" steps named neither the required `## Portable paths` section nor the literal invocation marker, both enforced by the gate, and implied an eighth skill is a drop-in addition when the canonical set is pinned in three separate places. All of it is now named, with the registries listed.
+- **`skills/session/SKILL.md` contradicted itself about `handoff.maxKB`** — 40 KB in one line, 56 KB fifty lines earlier. The code says 56; 40 turns out to be the legacy `archive-handoff` fallback used only when no value is passed, and `config-schema.md` now records both.
+- **Seven CHANGELOG compare-links pointed at four tags that exist neither locally nor on origin** (`v0.1.0`, `v0.4.0`, `v0.5.8`, `v0.8.0`), each rendering a GitHub 404. The neighbouring links now span the gaps, with a dated note explaining why those four releases have no link.
+- **`TESTING.md` — the manual-gate document — described nothing that shipped in v1.2.16** and still stamped itself v1.2.15, the exact staleness v1.2.15 had fixed. It now covers `context-window.py --explain`, health's Step 7.55, and the new guard, and its skill-routing claim matches the frontmatter (`context: fork` is on one skill, not three). Smaller corrections landed in `config-schema.md` (the reserve formula omitted the second clamp; a repo-relative command does not resolve for an installed plugin; a model alias was pinned to a version), `docs/setup.md` (three config blocks `setup` writes were absent), `docs/health.md` (four steps missing from the contract table), and one-line omissions in the `ask`, `connect`, `review`, `save`, and `session` guides.
+
 ## [1.2.16] - 2026-08-21
 
 ### Added
@@ -1032,7 +1048,9 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - `config.example.json`
 - MIT License
 
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.16...HEAD
+<!-- 2026-08-21: v0.1.0, v0.4.0, v0.5.8 and v0.8.0 shipped without a git tag (as did 1.2.11), so they have no link here and the neighbouring compare-links span the gap. Restore a link only together with a retro-tag. -->
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.17...HEAD
+[1.2.17]: https://github.com/jojoprison/mnemo/compare/v1.2.16...v1.2.17
 [1.2.16]: https://github.com/jojoprison/mnemo/compare/v1.2.15...v1.2.16
 [1.2.15]: https://github.com/jojoprison/mnemo/compare/v1.2.14...v1.2.15
 [1.2.14]: https://github.com/jojoprison/mnemo/compare/v1.2.13...v1.2.14
@@ -1079,8 +1097,7 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 [0.10.0]: https://github.com/jojoprison/mnemo/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/jojoprison/mnemo/compare/v0.8.2...v0.9.0
 [0.8.2]: https://github.com/jojoprison/mnemo/compare/v0.8.1...v0.8.2
-[0.8.1]: https://github.com/jojoprison/mnemo/compare/v0.8.0...v0.8.1
-[0.8.0]: https://github.com/jojoprison/mnemo/compare/v0.7.4...v0.8.0
+[0.8.1]: https://github.com/jojoprison/mnemo/compare/v0.7.4...v0.8.1
 [0.7.4]: https://github.com/jojoprison/mnemo/compare/v0.7.3...v0.7.4
 [0.7.3]: https://github.com/jojoprison/mnemo/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/jojoprison/mnemo/compare/v0.7.1...v0.7.2
@@ -1090,9 +1107,6 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 [0.6.1]: https://github.com/jojoprison/mnemo/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/jojoprison/mnemo/compare/v0.5.10...v0.6.0
 [0.5.10]: https://github.com/jojoprison/mnemo/compare/v0.5.9...v0.5.10
-[0.5.9]: https://github.com/jojoprison/mnemo/compare/v0.5.8...v0.5.9
-[0.5.8]: https://github.com/jojoprison/mnemo/compare/v0.4.0...v0.5.8
-[0.4.0]: https://github.com/jojoprison/mnemo/compare/v0.3.0...v0.4.0
+[0.5.9]: https://github.com/jojoprison/mnemo/compare/v0.3.0...v0.5.9
 [0.3.0]: https://github.com/jojoprison/mnemo/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/jojoprison/mnemo/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/jojoprison/mnemo/releases/tag/v0.1.0
+[0.2.0]: https://github.com/jojoprison/mnemo/releases/tag/v0.2.0

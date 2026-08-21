@@ -148,6 +148,6 @@ So the honest state is: the premise is **stale for delegation** and **unmeasured
 
 **Why this is a card and not a fix.** Adding it means a new always-on write path on an event that fires for *every* user with autocompact on, including those who never enabled the nudge. That is a bigger posture change than the opt-in blocking hook, and it deserves its own decision rather than arriving as a side effect. Filed so the option is visible instead of being re-proposed as a novelty by the next session that reads `design-decisions.md`.
 
-**Adjacent, cheap, unowned.** `scripts/lint-skills.py` does not flag `[[wikilink]]` anywhere in the plugin or docs. Two links to the maintainer's private Obsidian notes reached a public PR in the v1.2.14 review and were caught by hand — a one-line lint rule would have caught them mechanically, and the repo has no other guard against that class.
+**Adjacent, cheap, unowned — done in v1.2.17.** This card used to note that `scripts/lint-skills.py` flagged no `[[wikilink]]` anywhere. It does now: see the private-leak guard and `scripts/test-lint-wikilinks.py`. It turned out not to be the one-line rule this card predicted — a repo *about* Obsidian is full of legitimate examples, so the guard passes shapes that cannot name a real note and keeps an explicit allowlist for the rest.
 
 **Origin.** Adversarial review of PR #39 (autocompact nudge), 2026-08-20 — the reviewer proposed `PreCompact` as a possible replacement; it was deliberately not implemented in that pass and the reasoning above is the record of why.

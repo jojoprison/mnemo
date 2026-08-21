@@ -125,7 +125,7 @@ The first three surfaced during the Karpathy "LLM Wiki" audit (v0.14.0 — see [
 
 **Why not (as a *file*):** a cache note in the vault is another artifact to keep true, and a stale one is worse than none.
 
-**What shipped instead (v1.2.11):** the same need — "what was I in the middle of" — is served by an **ephemeral, computed** digest: `hot-scan.py` reads the pending sections of recent session notes at SessionStart and injects a byte-capped summary (`hot.scope` / `hot.windowDays` / `hot.maxKB`). Nothing is written to the vault, so it cannot rot; it is recomputed every session from the notes themselves. Note the naming: the `hot.*` config namespace belongs to that digest, not to a `hot.md` file.
+**What shipped instead (v1.2.12 — the work was staged as "1.2.11", which never became a release of its own, so CHANGELOG entries citing that number mean this one):** the same need — "what was I in the middle of" — is served by an **ephemeral, computed** digest: `hot-scan.py` reads the pending sections of recent session notes at SessionStart and injects a byte-capped summary (`hot.scope` / `hot.windowDays` / `hot.maxKB`). Nothing is written to the vault, so it cannot rot; it is recomputed every session from the notes themselves. Note the naming: the `hot.*` config namespace belongs to that digest, not to a `hot.md` file.
 
 **If you want it:** only worthwhile if you build an external service that queries the vault headlessly; then a bounded `hot.md` maintained by `/mn:save` could accelerate it.
 

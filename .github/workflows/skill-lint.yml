@@ -6,6 +6,8 @@ on:
     paths:
       - "plugins/**"
       - ".claude-plugin/marketplace.json"
+      - ".agents/plugins/marketplace.json"
+      - "config.example.json"
       - "CHANGELOG.md"
       - "scripts/lint-skills.py"
       - "scripts/test-*.py"
@@ -16,6 +18,8 @@ on:
     paths:
       - "plugins/**"
       - ".claude-plugin/marketplace.json"
+      - ".agents/plugins/marketplace.json"
+      - "config.example.json"
       - "CHANGELOG.md"
       - "scripts/lint-skills.py"
       - "scripts/test-*.py"

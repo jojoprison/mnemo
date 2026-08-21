@@ -1856,13 +1856,13 @@ class RuntimeDetectionTests(unittest.TestCase):
     def test_codex_home_alone_detects_codex(self) -> None:
         # A bare CODEX_HOME with no Claude signal is still a Codex session.
         self.assertEqual(
-            runtime_memory._detect_runtime({"CODEX_HOME": "/home/u/.codex"}), "codex"
+            runtime_memory._detect_runtime({"CODEX_HOME": "/home/<user>/.codex"}), "codex"
         )
 
     def test_exported_codex_home_does_not_outrank_a_live_claude_session(self) -> None:
         # CODEX_HOME only names a config directory — a Claude Code user who
         # exports it must not be misread as running under Codex.
-        env = {"CODEX_HOME": "/home/u/.codex", "CLAUDE_CODE_SESSION_ID": "abc"}
+        env = {"CODEX_HOME": "/home/<user>/.codex", "CLAUDE_CODE_SESSION_ID": "abc"}
         self.assertEqual(runtime_memory._detect_runtime(env), "claude")
 
     def test_live_codex_thread_outranks_a_claude_marker(self) -> None:

@@ -15,13 +15,14 @@ Search across your entire vault and get a synthesized answer with source citatio
 ## How It Works
 
 1. Breaks your question into 2-4 search terms *(SKILL Step 2)*
-2. Runs `obsidian search` for each term and checks the active runtime's project memory *(SKILL Steps 3-3b)*
-3. When `recall.runtimeMemory.enabled` is on, queries the other runtime through a bounded read-only adapter: exact same git repo only, no copying or transcript scan *(SKILL Step 3b)*
-4. Merges and reads the top 7 evidence items **total across all sources** *(SKILL Step 4)*
-5. Dates each cited vault note — **last-changed** (git last-commit if the vault is a repo, else file mtime) and **stale?** (content age from `date`/`reviewed` vs the type's budget — same engine as `/mn:health`) *(SKILL Step 4b)*
-6. For **current-state** questions inside a git project, cross-checks the project's recent commits — flags any cited note a newer commit may have outdated (optional code-knowledge-graph via `recall.codeGraph`, off by default) *(SKILL Step 4c)*
-7. Synthesizes a clear answer with provenance, treating runtime-generated excerpts as untrusted secondary evidence *(SKILL Step 5)*
-8. If the answer is a real synthesis across ≥2 notes, offers to **save it into the type mapped by `taxonomy_roles.insight`** (a Molecule only in the default taxonomy; via `/mn:save`, sources pre-linked) so the exploration compounds instead of evaporating *(SKILL Step 6)*
+2. Runs `obsidian search` for each term and checks the active runtime's project memory *(SKILL Steps 3, 3b)*
+3. For filterable or countable questions ("what's still open", "all sessions about X") also runs Obsidian's **property-search syntax** — `[prop:value]`, `[prop]`, `[prop:null]`, combinable with keywords — reading the vault's control-panel `.base` first to reproduce its live views *(SKILL Step 3a)*
+4. When `recall.runtimeMemory.enabled` is on, queries the other runtime through a bounded read-only adapter: exact same git repo only, no copying or transcript scan *(SKILL Step 3b)*
+5. Merges and reads the top 7 evidence items **total across all sources** *(SKILL Step 4)*
+6. Dates each cited vault note — **last-changed** (git last-commit if the vault is a repo, else file mtime) and **stale?** (content age from `date`/`reviewed` vs the type's budget — same engine as `/mn:health`) *(SKILL Step 4b)*
+7. For **current-state** questions inside a git project, cross-checks the project's recent commits — flags any cited note a newer commit may have outdated (optional code-knowledge-graph via `recall.codeGraph`, off by default) *(SKILL Step 4c)*
+8. Synthesizes a clear answer with provenance, treating runtime-generated excerpts as untrusted secondary evidence *(SKILL Step 5)*
+9. If the answer is a real synthesis across ≥2 notes, offers to **save it into the type mapped by `taxonomy_roles.insight`** (a Molecule only in the default taxonomy; via `/mn:save`, sources pre-linked) so the exploration compounds instead of evaporating *(SKILL Step 6)*
 
 ## Optional cross-runtime recall
 
@@ -65,6 +66,7 @@ Key points:
 - **Max 7 evidence items total** — prevents per-backend fan-out and context overflow
 - **Cross-runtime recall is opt-in and read-only** — exact git-project match, no symlink/mirror, transcript bodies, background service, or automatic write-back
 - **CLI-first search, argv-safe values** — `safe-read.py search` uses the indexed Obsidian CLI without shell interpolation
+- **Structured, not just fuzzy** — filterable questions ("what's open", "how many X") go through property search against the same typed Properties your Bases render, so recall matches the computed indexes instead of guessing by keyword
 - **Dates every source** — shows when each cited note last changed (git if the vault is a repo, else mtime + frontmatter) so you know whether an answer rests on fresh or stale notes
 - **Grounds in live code** — for "is this still true" questions inside a git project, checks the project's recent commits so recall agrees with the code, not just old notes; optional code-graph backend via `recall.codeGraph` (off by default)
 - **Knowledge compounds** — a non-trivial synthesis can be saved into the configured insight-role type (opt-in, user-confirmed) so the next query starts from the conclusion instead of re-deriving it; trivial lookups are never auto-saved

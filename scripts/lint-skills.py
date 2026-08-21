@@ -74,6 +74,137 @@ DIRECT_OBSIDIAN_CLI_RE = re.compile(
 )
 
 
+# --- private-leak guard: links and paths that only resolve on one machine ---
+#
+# `[^\[\]]` matches newlines on purpose: the second private link caught by hand
+# in the v1.2.14 review was wrapped across two source lines, and a line-by-line
+# sweep would have reported the file clean.
+WIKILINK_RE = re.compile(r"\[\[([^\[\]]{1,200}?)\]\]")
+WIKILINK_ALLOWLIST_PATH = os.path.join(REPO_ROOT, "scripts", "wikilink-allowlist.txt")
+LOCAL_PATH_RE = re.compile(
+    r"(?:/Users/|/home/|[A-Za-z]:\\Users\\)(?P<user>[A-Za-z0-9_.-]+)[/\\]"
+)
+SCAN_EXTENSIONS = {".md", ".py", ".sh", ".json", ".yaml", ".yml", ".txt"}
+SCAN_SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "__pycache__", ".pytest_cache"}
+# docs/plans/ is gitignored working state — full of real note names, never shipped.
+# test-lint-wikilinks.py is this guard's own fixture file: it has to contain
+# samples of exactly what the guard forbids, so scanning it would always fail.
+SCAN_SKIP_RELPATHS = {
+    os.path.join("docs", "plans"),
+    os.path.join("scripts", "test-lint-wikilinks.py"),
+}
+
+
+def iter_text_files(root: str):
+    """Yield every shipped text file under root, skipping build and local dirs."""
+    for dirpath, dirnames, filenames in os.walk(root):
+        rel_dir = os.path.relpath(dirpath, root)
+        dirnames[:] = [
+            d
+            for d in dirnames
+            if d not in SCAN_SKIP_DIRS
+            and os.path.normpath(os.path.join(rel_dir, d)) not in SCAN_SKIP_RELPATHS
+        ]
+        for name in sorted(filenames):
+            if os.path.splitext(name)[1] not in SCAN_EXTENSIONS:
+                continue
+            if os.path.normpath(os.path.join(rel_dir, name)) in SCAN_SKIP_RELPATHS:
+                continue
+            yield os.path.join(dirpath, name)
+
+
+def load_wikilink_allowlist() -> set[str]:
+    """Concrete note names explicitly cleared for a public repo."""
+    try:
+        with open(WIKILINK_ALLOWLIST_PATH, encoding="utf-8") as f:
+            lines = f.read().splitlines()
+    except OSError:
+        return set()
+    return {
+        line.strip()
+        for line in lines
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+
+def is_safe_wikilink(target: str) -> bool:
+    """True when the target cannot possibly name a note in someone's vault."""
+    t = " ".join(target.split())
+    if not t:
+        return True
+    if "{" in t or "}" in t:  # template / f-string placeholder
+        return True
+    if "…" in t or "..." in t:  # elided example
+        return True
+    if "\\" in t or t.startswith("^"):  # regex fragment in code
+        return True
+    if " " not in t and t.isascii():  # a term, not a title: [[wikilinks]]
+        return True
+    return False
+
+
+def check_wikilinks(root: str) -> list[str]:
+    """Flag links to concrete notes — they are dead for readers and expose a vault."""
+    allow = load_wikilink_allowlist()
+    issues: list[str] = []
+    total = 0
+    for path in iter_text_files(root):
+        rel = os.path.relpath(path, root)
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for match in WIKILINK_RE.finditer(text):
+            target = match.group(1)
+            # Counted before any filtering: this number answers "did the sweep
+            # reach the files at all", so a filter must not be able to zero it.
+            total += 1
+            # A nested list literal in Python/JSON looks like a link to this
+            # regex. Note names do not carry quotes; code literals almost
+            # always do.
+            if '"' in target or "'" in target:
+                continue
+            normalized = " ".join(target.split())
+            if is_safe_wikilink(target) or normalized in allow:
+                continue
+            line = text.count("\n", 0, match.start()) + 1
+            issues.append(
+                f"{rel}:{line} — [[{normalized}]] names a concrete note. "
+                "If it points into a private vault, drop it and state the fact "
+                "in prose instead (the link is dead for every other reader). "
+                "If it is an example, add the name to scripts/wikilink-allowlist.txt."
+            )
+    if not total:
+        # A zero here is a statement about the sweep, not the repo: a wrong root,
+        # extension list or regex all look exactly like "clean".
+        issues.append(
+            "wikilink sweep found no wikilinks at all in this tree — the sweep is "
+            "broken (wrong root, extension list or regex), not the repo clean."
+        )
+    return issues
+
+
+def check_local_paths(root: str) -> list[str]:
+    """Flag absolute home paths — they point readers at a machine that is not theirs."""
+    issues: list[str] = []
+    for path in iter_text_files(root):
+        rel = os.path.relpath(path, root)
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for match in LOCAL_PATH_RE.finditer(text):
+            line = text.count("\n", 0, match.start()) + 1
+            issues.append(
+                f"{rel}:{line} — machine-local path `{match.group(0)}` "
+                f"(user `{match.group('user')}`). Use `~/`, an env var, or a "
+                "placeholder like /Users/<you>/ instead."
+            )
+    return issues
+
+
 def has_inline_obsidian_write(text: str) -> bool:
     """Detect shell-unsafe Obsidian writes that interpolate generated content."""
     return INLINE_OBSIDIAN_WRITE_RE.search(text) is not None
@@ -484,6 +615,15 @@ def main() -> int:
                 print(f"   • {issue}")
         else:
             print(f"✅ {rel}")
+
+    leak_issues = check_wikilinks(REPO_ROOT) + check_local_paths(REPO_ROOT)
+    if leak_issues:
+        had_issues = True
+        print("\n❌ private-leak guard (wikilinks / machine-local paths)")
+        for issue in leak_issues:
+            print(f"   • {issue}")
+    else:
+        print("✅ private-leak guard (wikilinks / machine-local paths)")
 
     contract_issues = check_mnemo_contract()
     if contract_issues:

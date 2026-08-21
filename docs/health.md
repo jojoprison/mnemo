@@ -19,11 +19,15 @@ No arguments needed. Reads vault name from `~/.mnemo/config.json`.
 | Orphans | Notes with zero backlinks (invisible in Graph View) | 🔴 High |
 | Missing links section | Notes without `## Links` / `## Связи` (disconnected from graph) | 🟡 Medium |
 | Unresolved wikilinks | `[[Ghost Notes]]` pointing to non-existent files | ℹ️ Normal |
+| Bad filenames | `#` or `.` in a note's name — `[[Note #1]]` parses as `[[Note]]` + anchor `#1`, so nothing ever resolves to it | 🔴 High |
 | Tag typos | Tags used only once (potential misspelling) | 🟡 Medium |
 | Review candidates | Notes past their **type-aware** staleness threshold — due for a re-read/refresh | 💤 Low |
 | Content lint *(opt-in)* | LLM re-reads candidates → still-valid / update-needed / contradicts verdicts | 🔬 Deep |
 | Research-gap candidates | Where the vault wants to grow — populous topic with no MOC, recurring external with no Source note | 🌱 Growth |
 | Cross-runtime recall status *(opt-in)* | Whether the counterpart runtime can be mapped to this exact git repository; metadata only, no memory-content audit | 🔄 Info |
+| Handoff triage *(only over `handoff.maxKB`, block-format handoff)* | Which open items pin the handoff and what a full resolution would actually free — report-only, never ticks a box | 📮 Info |
+| Autocompact window *(only when `hooks.autocompactNudge` is on)* | Whether that nudge can fire at all — an unresolved `autoCompactWindow`, or one clamped above the model's context window | ⚠️ Info |
+| Claude auto-memory index *(Claude Code only)* | `MEMORY.md` loaded-content size against the loader's 200-line / 25,000-byte cliffs, warned early at `memory.indexWarnKB` (default 22) | 🧠 Info |
 
 ## Example Output
 
@@ -33,8 +37,14 @@ No arguments needed. Reads vault name from `~/.mnemo/config.json`.
 🔄 Cross-runtime recall: Claude memory available
 
 Total: 375 notes
-  Atoms: 221 | Sessions: 96 | Sources: 21
-  Molecules: 19 | MOCs: 17
+Configured taxonomy (all entries, including types with no semantic role):
+  - atom: 221 | prefix `Atom — ` | tag `#atom` | roles: fact
+  - molecule: 19 | prefix `Molecule — ` | tag `#molecule` | roles: insight
+  - source: 21 | prefix `Source — ` | tag `#source` | roles: source
+  - session: 96 | prefix `Session — ` | tag `#session` | roles: session
+  - moc: 17 | prefix `MOC — ` | tag `#moc` | roles: moc
+Semantic routing (`taxonomy_roles`): fact→atom, insight→molecule, source→source, session→session, moc→moc
+Other (no configured taxonomy tag): 1
 
 🔴 Orphans: 14
   - Atom — old note without links
@@ -42,6 +52,16 @@ Total: 375 notes
 
 🟡 Missing ## Связи: 2
   - Atom — quick note without links section
+
+🚫 Bad filenames (`#`/`.`): 1 — permanent broken links, rename
+  - Atom — PR #12 review  → rename to "PR 12 review"
+
+🔍 Top unresolved targets (missing hub notes?):
+  1. [[Diadoc]] ×34 → create hub note?
+  2. [[Python]] ×28
+
+🔗 Unresolved wikilinks: 312 total
+📏 Tags: 148 total, 21 used once
 
 🏆 Top-5 Hubs (most backlinks):
   1. MOC — Arcadia (102)

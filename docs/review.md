@@ -99,7 +99,7 @@ Review prepares two core candidates but **never runs them without asking** (auto
 
 | Skill | When offered | What happens if accepted |
 |-------|-------------|--------------------------|
-| `/mn:save` | Unsaved decisions/findings detected | Extracts and routes to Obsidian, optional claude-mem, and enabled Claude auto-memory; Codex generated memory remains read-only |
+| `/mn:save` | Unsaved decisions/findings detected | Extracts and routes to Obsidian, optional claude-mem, and enabled Claude auto-memory; Codex generated memory remains read-only. An **actionable rule** takes the other branch instead — `save` Step 3.5 writes it to `.claude/rules/<domain>.md`, a committed project file |
 | `/mn:session` | Significant work done | Creates session note + handoff |
 
 **Skips** if the skill was already invoked this session (checked via runtime JSONL evidence).
@@ -110,10 +110,13 @@ Recommended:
   1. [CRITICAL] /commit — 5 uncommitted files
   2. [HIGH] /mn:save — 3 unsaved decisions (X, Y, Z)
   3. [HIGH] /mn:session — significant work, no session note yet
-  4. [MEDIUM] /mn:connect — 2 new notes, find links?
+  4. [HIGH] .claude/rules — 1 actionable rule learned ("gate Kontur on the flag") → route to .claude/rules/te5-frontend.md (auto-inject)?
+  5. [MEDIUM] /mn:connect — 2 new notes, find links?
 
-Run any? (1,2,3,4 / A=all / N=skip)
+Run any? (1,2,3,4,5 / A=all / N=skip)
 ```
+
+A `.claude/rules` routing always gets its **own** line item and is never bundled silently into a recall save — accepting it creates or edits a committed project file, not just a note.
 
 ## `--full` — one-command close-out (v1.2.8)
 

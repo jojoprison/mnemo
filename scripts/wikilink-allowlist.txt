@@ -1,0 +1,58 @@
+# Wikilink allowlist — illustrative note names that may live in this public repo.
+#
+# WHY THIS FILE EXISTS
+# mnemo is a plugin about Obsidian, so its docs and skills are full of
+# `[[wikilink]]` examples. A blanket ban is impossible; a blanket pass is how two
+# links into the maintainer's private vault reached a public PR during the
+# v1.2.14 review. So `scripts/lint-skills.py` passes only shapes that cannot name
+# a real note — placeholders (`[[{hub_name}]]`, `[[Session — …]]`) and single
+# ASCII words (`[[wikilinks]]`) — plus the concrete names listed below.
+#
+# ADDING AN ENTRY IS A REVIEW DECISION, NOT A FORMALITY
+# Before adding a line, answer: would this link resolve in someone else's vault?
+#   - No, it is an example invented for the docs        -> add it here.
+#   - No, it is a fixture name invented for a test      -> add it here.
+#   - Yes, it points at a note I actually keep          -> DO NOT add it.
+#     A link into a private vault is dead for every reader and exposes what is
+#     in that vault. Describe the fact in the doc instead of linking to it.
+#
+# One name per line, exactly as it appears between the brackets. Blank lines and
+# `#` comments are ignored. Entries are checked for staleness by
+# scripts/test-lint-wikilinks.py: a name that no longer appears anywhere in the
+# repo must be removed, so this list stays a review surface instead of debris.
+
+# --- docs & skills: invented examples that illustrate the format ---
+1С
+Atom — Full attention wins on this benchmark
+Atom — SCOPE beats TextGrad
+Atom — X
+Atom — Y
+Atom — pricing research
+BTS Holding
+Ghost Notes
+Ghost wikilinks for entities mentioned
+MOC — Agent Self-Correction
+MOC — BTS Diadoc
+MOC — BTS Diadoc|Diadoc
+MOC — Claude Code Tools
+MOC — mnemo
+Molecule — pricing decision
+Note #1
+Other Note
+Related Note 1
+Session — 2026-03-14 pipeline vision
+Session — 2026-03-23 WeChat agent ecosystem
+Session — 2026-03-24 Tech Research + mnemo plugin
+Session — ANT-14 TextGrad research
+
+# --- test fixtures: synthetic note names used by scripts/test-*.py ---
+Meta — Session Handoff Archive
+Meta — Session Handoff Archive 2026-04
+Meta — Session Handoff Archive 2026-07 ч1
+Session — 2026-05-01 деплой
+Session — 2026-07-19 живая
+Session — 2026-07-20 разбор
+Session — 2026-07-24 другое
+Session — 2026-07-25 реформа
+Session — 2026-07-25 разбор
+Session — старая
