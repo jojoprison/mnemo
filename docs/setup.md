@@ -46,6 +46,9 @@ Try: /mn:health
 
 ## Generated Config
 
+The core `setup` writes (abridged — the four remaining blocks are listed below,
+and every field with its default lives in [config-schema.md](../plugins/mnemo/references/config-schema.md)):
+
 ```json
 {
   "vault": "main",
@@ -81,9 +84,15 @@ Cross-runtime recall is off by default. Turning it on does not synchronize files
 
 `taxonomy_roles` is mandatory for new configs. It is the stable semantic routing layer: exactly five keys, every target names a configured taxonomy type, and the functional roles self-map as `session → session` and `moc → moc`. Legacy Atom/Molecule configs are migrated deterministically; custom/PARA mappings are confirmed instead of guessed.
 
-## Optional: Memory Cascade
+Step 5 writes three more blocks on the same defaults, all optional in the schema:
 
-Add `cascade` to config for multi-backend saves via `/mn:save`:
+- `handoff` — bounds the handoff index: `keepDays: 31` (rotation window), `maxKB: 56` (backstop beneath it), `maxLineBytes: 200` (per-line ceiling, in bytes)
+- `hot` — the open-tails digest injected at session start: `scope: "project"`, `windowDays: 7`, `maxKB: 8`
+- `hooks` — harness nudges: `sessionStartNudge` / `invocationEcho` / `hotDigest` on, and the two **blocking** Stop nudges (`stopNudge`, `autocompactNudge`) opt-in and off, so a plain install never blocks a turn
+
+## Memory Cascade
+
+The fourth block Step 5 writes — it gates the multi-backend saves of `/mn:save`:
 
 ```json
 {
@@ -91,12 +100,13 @@ Add `cascade` to config for multi-backend saves via `/mn:save`:
     "obsidian": { "enabled": true },
     "claude_mem": { "enabled": false, "url": "http://127.0.0.1:37777" },
     "memory_dir": { "enabled": true },
-    "project_rules": { "enabled": true }
+    "project_rules": { "enabled": true },
+    "claude_md": { "enabled": false }
   }
 }
 ```
 
-Don't have claude-mem? Leave it out — save works with Obsidian alone. `memory_dir` controls Claude auto-memory only; it never enables manual writes to Codex generated memories.
+Don't have claude-mem? Leave it disabled — save works with Obsidian alone. `memory_dir` controls Claude auto-memory only; it never enables manual writes to Codex generated memories. `claude_md` (off by default) is the fallback for `project_rules`: a critical error-preventing rule lands in CLAUDE.md only when the `.claude/rules/` branch declined. Deleting the whole block changes nothing: the same defaults apply when it is absent.
 
 ## Important Notes
 

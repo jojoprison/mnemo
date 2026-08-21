@@ -15,7 +15,7 @@ No arguments. Summarizes the current conversation automatically.
 ## How It Works
 
 1. Analyzes current conversation (what was done, decisions, PRs)
-2. Checks for duplicate session notes (same day)
+2. Checks for duplicate session notes (same day) — and if a note for *this same session* already exists (matched by the `session_id` it would write, or by the filename derived earlier this session), updates that note in place instead of creating a second one
 3. Creates a note with the prefix/tag reached through `taxonomy_roles.session`
 4. Verifies the note is linked in the hub reached through `taxonomy_roles.moc`
 5. Writes the session's open tails into that note's own `## Next steps / pending`, and upserts **one pointer line** into `Meta — Session Handoff`
@@ -58,6 +58,7 @@ The next session starts with the **open-tails digest**: `hooks/mnemo-context.sh`
 - ✅ After completing a feature / PR / fix
 - ✅ After significant research session
 - ✅ End of work day
+- ✅ Mid-task checkpoint, before a long run risks context compaction — the same session's note is updated in place, never duplicated
 - ❌ Don't use for trivial tasks (typo fix, one-liner)
 
 ## Important Notes

@@ -25,7 +25,7 @@ If a skill is supposed to only write (not search/read), check whether it can pro
 After upgrading any plugin (claude-mem especially), already-open Claude Code windows continue to reference the OLD cache path:
 
 ```
-Plugin directory does not exist: /Users/.../plugins/cache/thedotmack/claude-mem/10.5.2
+Plugin directory does not exist: /Users/<you>/plugins/cache/thedotmack/claude-mem/10.5.2
 ```
 
 **Why:** hook paths are captured at window-start time. Newer windows pick up the fresh version; older windows keep the stale path and fail on Stop.

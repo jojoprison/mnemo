@@ -9,7 +9,14 @@ Analyzes a note and discovers connections to other notes you'd never think of. S
 ```
 /mn:connect "Atom — LongCat-Flash-Prover"
 /mn:connect "Session — 2026-03-23 Tech Research"
+/mn:connect "Atom — LongCat-Flash-Prover" --deep
+/mn:connect --canvas "agent memory"
 ```
+
+Optional modes:
+
+- `--deep` — radius-2 (Scrapbox/Cosense-style): two notes sharing ≥2 of the target's links are likely related even without shared text. The same pass also runs **on its own** when text search yields fewer than 3 results — no flag needed.
+- `--canvas {topic}` — KJ affinity (川喜田): an agent-guided manual pass, not an automated one. Notes of the `fact` role are dropped onto an Obsidian Canvas without categories, you group them spatially, and named clusters become `insight` notes / a hub revision.
 
 ## How It Works
 
@@ -47,5 +54,6 @@ Apply these? (y/N, or pick numbers: 1,2)
 
 ## Related Skills
 
+- `/mn:save` — a new note it creates triggers connect (offered after an explicit save, delegated straight away after a proactive mid-task one)
 - `/mn:health` — find orphans that need connecting
 - `/mn:ask` — search first, then connect what you find

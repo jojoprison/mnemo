@@ -90,6 +90,7 @@ Material with ≥2 separable claims becomes ≥2 notes (plus an optional synthes
 
 ## Related Skills
 
+- `/mn:connect` — after a **new** note is created (not a plain append, not an actionable-rule write), save offers to run it; on a proactive mid-task save it delegates straight away, so a fresh note doesn't land as an orphan
 - `/mn:session` — writes the full session narrative and handoff; complements discrete saves
 - `/mn:review` — recommends running save if unsaved decisions detected
 - `/mn:health` — verify saved notes aren't orphans
