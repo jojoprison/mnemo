@@ -185,6 +185,13 @@ If `recall.runtimeMemory` is absent, cross-runtime recall is disabled. Active-ru
 
 If `taxonomy_roles` is absent, a legacy Zettelkasten config is migrated deterministically in memory as `fact → atom`, `insight → molecule`, `source → source`, `session → session`, `moc → moc`; the next `setup` run persists that map. For any other legacy/custom taxonomy, `setup` must show the existing taxonomy keys and ask once where `fact`, `insight`, and `source` belong instead of guessing from prefixes or tags. A configured map is valid only when its key set is exactly those five roles, every target names an existing `taxonomy` key, and the functional roles self-map as `session → session` and `moc → moc`. Only `fact`, `insight`, and `source` may intentionally coalesce onto one type.
 
+**Turning on `hooks.autocompactNudge` may need one Claude Code setting, and mnemo will not set it for you.** The nudge needs the autocompact window; when it cannot be established it stays silent, and that silence looks exactly like "nothing to warn about". `python3 plugins/mnemo/scripts/context-window.py --explain` reports which case you are in and what to set. Two rules decide the value:
+
+- **The threshold is not the window.** Claude Code compacts at `window − min(max_output, 20000) − 13000` — 33000 below the window on a model whose max output is ≥ 20k. So `autoCompactWindow` = *desired threshold + reserve*: to compact at 460000, set **493000**; setting 460000 compacts at 427000.
+- **A value above the model's context window does nothing.** On a 200k model, `460000` resolves to `200000` — indistinguishable from a working setting, and the reason a measured attempt to "raise the threshold" once had no effect at all.
+
+mnemo ships no default here and never writes `autoCompactWindow`: it is Claude Code's setting, and one account's sensible value silences the nudge on another (a 200k model) or halves the usable context on a third (native 1M).
+
 The `hooks` section is optional; defaults are: sessionStartNudge=true, stopNudge=false, autocompactNudge=false, invocationEcho=true, hotDigest=true. If absent, the SessionStart nudge still fires (when a vault is configured), both Stop nudges stay off, and the invocation echo stays on (it does not require a vault).
 
 If `vault` or `taxonomy` is missing, the skill that needs them asks the user and offers to run `/mn:setup` in Claude Code or `$mnemo:setup` in Codex.

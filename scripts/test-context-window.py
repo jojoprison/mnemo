@@ -20,6 +20,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import os
+import sys
 import tempfile
 import unittest
 import uuid
@@ -214,6 +215,79 @@ class ResolveWindowTest(unittest.TestCase):
         write(Path(self.home) / ".claude.json", {"s1mAccessCache": {"acct": {"hasAccess": False}}})
         write(Path(self.home) / ".claude" / "settings.json", {"autoCompactWindow": 150000})
         self.assertEqual(cw.resolve_window(self.cwd), 150000)
+
+
+class ExplainTest(unittest.TestCase):
+    """`--explain` is the diagnostic: why the nudge is quiet, and what to set.
+
+    Without it the hook's silence is indistinguishable from "nothing to warn
+    about", and the user has no way to learn that a window must be configured
+    — nor that asking for a threshold means setting threshold + the reserve.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.cwd = os.path.join(self.tmp.name, "project")
+        os.makedirs(self.cwd)
+        self.home = os.path.join(self.tmp.name, "home")
+        os.makedirs(self.home)
+        self.env_patch = mock.patch.dict(os.environ, {"HOME": self.home}, clear=False)
+        self.env_patch.start()
+        for key in ("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CONFIG_DIR"):
+            os.environ.pop(key, None)
+
+    def tearDown(self):
+        self.env_patch.stop()
+        self.tmp.cleanup()
+
+    def test_reports_unresolved_with_the_formula_and_an_example(self):
+        report = cw.explain(self.cwd)
+        self.assertFalse(report["resolved"])
+        self.assertEqual(report["reserve"], 33000)
+        # The actionable half: the exact key, and threshold + reserve.
+        self.assertIn("autoCompactWindow", report["hint"])
+        self.assertIn("33000", report["hint"])
+
+    def test_reports_the_resolved_window_and_where_it_came_from(self):
+        write(Path(self.home) / ".claude" / "settings.json", {"autoCompactWindow": 493000})
+        report = cw.explain(self.cwd)
+        self.assertTrue(report["resolved"])
+        self.assertEqual(report["window"], 493000)
+        self.assertEqual(report["compacts_at"], 460000)
+        self.assertEqual(report["source"], "settings")
+
+    def test_names_env_as_the_source_when_it_wins(self):
+        with mock.patch.dict(os.environ, {"CLAUDE_CODE_AUTO_COMPACT_WINDOW": "500000"}):
+            report = cw.explain(self.cwd)
+        self.assertEqual(report["source"], "env")
+        self.assertEqual(report["compacts_at"], 467000)
+
+    def test_says_so_when_a_configured_window_is_clamped_away(self):
+        # The measured trap: a value above the model's ceiling never takes effect.
+        write(Path(self.home) / ".claude.json", {"s1mAccessCache": {"a": {"hasAccess": False}}})
+        write(Path(self.home) / ".claude" / "settings.json", {"autoCompactWindow": 460000})
+        report = cw.explain(self.cwd)
+        self.assertEqual(report["window"], 200000)
+        self.assertTrue(report["clamped"])
+        self.assertIn("200000", report["hint"])
+
+    def test_reports_autocompact_disabled_rather_than_unresolved(self):
+        write(Path(self.home) / ".claude" / "settings.json", {"autoCompactEnabled": False})
+        report = cw.explain(self.cwd)
+        self.assertFalse(report["resolved"])
+        self.assertEqual(report["source"], "disabled")
+
+    def test_cli_explain_prints_json(self):
+        import subprocess
+        r = subprocess.run(
+            [sys.executable, str(MODULE_PATH), "--explain"],
+            cwd=self.cwd, capture_output=True, text=True,
+            env={**os.environ, "HOME": self.home},
+        )
+        self.assertEqual(r.returncode, 0, r.stderr)
+        payload = json.loads(r.stdout)
+        self.assertIn("hint", payload)
+        self.assertIn("resolved", payload)
 
 
 class LastModelTest(unittest.TestCase):

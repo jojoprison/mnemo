@@ -134,8 +134,12 @@ def autocompact_enabled(cwd: str) -> bool:
     return True
 
 
-def _configured_window(cwd: str, model: str | None) -> int | None:
-    """env -> project/user settings.json -> Claude Code's per-model cache."""
+def _configured_window_with_source(cwd: str, model: str | None):
+    """env -> project/user settings.json -> Claude Code's per-model cache.
+
+    Returns (window, source) so the diagnostic can name where a value came
+    from — "it is set somewhere" is not actionable, "it comes from env" is.
+    """
     env_value = os.environ.get("CLAUDE_CODE_AUTO_COMPACT_WINDOW")
     if env_value:
         try:
@@ -143,14 +147,19 @@ def _configured_window(cwd: str, model: str | None) -> int | None:
         except ValueError:
             window = None
         if window is not None:
-            return window
+            return window, "env"
 
     for data in _settings_chain(cwd):
         window = _valid_window(data.get("autoCompactWindow"))
         if window is not None:
-            return window
+            return window, "settings"
 
-    return _cached_window(model)
+    cached = _cached_window(model)
+    return (cached, "cache") if cached is not None else (None, None)
+
+
+def _configured_window(cwd: str, model: str | None) -> int | None:
+    return _configured_window_with_source(cwd, model)[0]
 
 
 def resolve_window(
@@ -262,9 +271,81 @@ def level_for(used: int | None, window: int | None) -> str:
     return "none"
 
 
+def explain(cwd: str, model: str | None = None) -> dict:
+    """Why the nudge is quiet, and what to set — the diagnostic behind `--explain`.
+
+    The hook itself must stay silent when the window is unresolved, which makes
+    its silence indistinguishable from "nothing to warn about". This is the one
+    place that says the difference out loud, and it is read-only: it reports
+    what to set, it never writes anyone's Claude Code settings.
+    """
+    ceiling = context_window_ceiling()
+    if not autocompact_enabled(cwd):
+        return {
+            "resolved": False,
+            "source": "disabled",
+            "window": None,
+            "compacts_at": None,
+            "reserve": None,
+            "clamped": False,
+            "hint": "autoCompactEnabled is false — Claude Code will not compact, so the nudge stays off.",
+        }
+
+    configured, source = _configured_window_with_source(cwd, model)
+    window = configured
+    clamped = False
+    if configured is not None and ceiling is not None:
+        window = min(configured, ceiling)
+        clamped = window != configured
+    elif configured is None:
+        window = ceiling
+        source = "model-default" if ceiling is not None else None
+
+    if window is None:
+        return {
+            "resolved": False,
+            "source": source,
+            "window": None,
+            "compacts_at": None,
+            "reserve": MAX_OUTPUT_RESERVE + SAFETY_RESERVE,
+            "clamped": False,
+            "hint": (
+                "The autocompact window could not be established, so the nudge stays silent. "
+                "Set `autoCompactWindow` in your Claude Code settings.json to switch it on. "
+                "Compaction happens before the window is full, so ask for it by adding the "
+                "reserve: window = desired threshold + 33000 (e.g. 493000 to compact at 460000). "
+                "A value above your model's context window has no effect at all."
+            ),
+        }
+
+    reserve = compaction_reserve(window)
+    hint = (
+        f"Window {window} in force (from {source}); compaction happens at {window - reserve}. "
+        f"To move that threshold, set autoCompactWindow = desired threshold + {reserve}."
+    )
+    if clamped:
+        hint = (
+            f"autoCompactWindow is set to {configured}, but your model's context window is "
+            f"{ceiling}, so only {window} is in force — compaction happens at {window - reserve}. "
+            f"A value above {ceiling} changes nothing."
+        )
+    return {
+        "resolved": True,
+        "source": source,
+        "window": window,
+        "compacts_at": window - reserve,
+        "reserve": reserve,
+        "clamped": clamped,
+        "hint": hint,
+    }
+
+
 def main() -> int:
+    if len(sys.argv) == 2 and sys.argv[1] == "--explain":
+        print(json.dumps(explain(os.getcwd()), ensure_ascii=False))
+        return 0
     if len(sys.argv) != 2:
-        print("usage: context-window.py TRANSCRIPT_PATH", file=sys.stderr)
+        print("usage: context-window.py TRANSCRIPT_PATH | --explain", file=sys.stderr)
         return 2
     used, model = scan_transcript(sys.argv[1])
     window = resolve_window(os.getcwd(), model=model)
