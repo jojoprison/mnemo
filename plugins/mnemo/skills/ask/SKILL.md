@@ -39,12 +39,10 @@ Break query into 2-4 key search terms. Example:
 
 ### Step 3: Search Vault (parallel)
 
-**Run all searches in parallel — single assistant message with multiple shell tool uses.** Pass every dynamic value through the bundled shell-free helper using a **quoted** heredoc. For 4 terms this takes ~180ms total instead of ~720ms sequential.
+**Run all searches in parallel — single assistant message with multiple shell tool uses.** Pass every dynamic value through the bundled shell-free helper using a **single-quoted herestring** (`<<< '…'`). For 4 terms this takes ~180ms total instead of ~720ms sequential.
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" search <<'JSON'
-{"query":"{term1}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" search <<< '{"query":"{term1}","vault":"{vault}"}'
 ```
 
 Repeat that independent call for `{term2}` through `{term4}` in the same parallel tool batch. JSON-escape values normally; if a value is malformed, the helper fails closed instead of executing it.
@@ -56,9 +54,7 @@ Collect all unique matching notes. Deduplicate.
 Fulltext (Step 3) finds notes by keyword; **typed Properties let you ENUMERATE precisely**. When the query is filterable/countable — "what's open / still live", "all sessions about X", "sources I disagreed with", "notes citing [[Y]]", "everything of type Z" — also run Obsidian's **property-search syntax** (precise, not fuzzy):
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" search <<'JSON'
-{"query":"[status:open]","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" search <<< '{"query":"[status:open]","vault":"{vault}"}'
 ```
 
 Use the same helper for queries such as `[type:session] june` (property + keyword) and `[disagreements]` (property present).
@@ -79,9 +75,7 @@ First consult only the active runtime's project-scoped memory already available 
 Then, when `config.json` → `recall.runtimeMemory.enabled` is `true`, run the bundled read-only counterpart lookup **in parallel with Step 3**:
 
 ```bash
-python3 "<mnemo-root>/scripts/runtime-memory.py" search <<'JSON'
-{"runtime":"{claude|codex}","terms":["{term1}","{term2}"],"include_global":false}
-JSON
+python3 "<mnemo-root>/scripts/runtime-memory.py" search <<< '{"runtime":"{claude|codex}","terms":["{term1}","{term2}"],"include_global":false}'
 ```
 
 Pass the **active** runtime: `codex` reads only the verified Claude project memory; `claude` reads only Codex task groups explicitly scoped to the same git common directory. The helper fails closed when the project mapping cannot be proven. It never writes, caches, follows symlinks, reads transcript bodies, fetches links, or broad-scans other projects. Backend absence or a typed warning is a silent skip unless the user is diagnosing setup.
@@ -95,9 +89,7 @@ Render counterpart citations as `[claude-memory/{file}]`, `[claude-global/{file}
 Merge Obsidian and runtime candidates, deduplicate, then select the most relevant **max 7 evidence items total across every source**. Obsidian wins ties and explicit contradictions must be surfaced. Read only the selected Obsidian notes **in parallel — single message with multiple Bash tool uses**; counterpart excerpts are already bounded by the helper. ~185ms vs ~1.3s sequential for 7 notes.
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" read <<'JSON'
-{"file":"{note_name_1}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" read <<< '{"file":"{note_name_1}","vault":"{vault}"}'
 ```
 
 Repeat for the other selected notes in the same parallel tool batch.
@@ -112,17 +104,13 @@ An answer is only as fresh as the notes behind it. Two **different** signals mat
 For each cited note, get its last-changed date through the helper (parallel, one batched pass). It resolves the vault, constrains the note to that vault, and uses git last-commit or mtime without interpolating the note name into a shell command:
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" note-date <<'JSON'
-{"note":"{note}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" note-date <<< '{"note":"{note}","vault":"{vault}"}'
 ```
 
 For the **stale** flag, reuse the one staleness engine instead of re-deriving the rule — run it once and intersect with your cited notes (a cited note in the output is stale; col 5 = its type budget):
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" review-candidates <<'JSON'
-{"vault":"{vault}","limit":9999}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" review-candidates <<< '{"vault":"{vault}","limit":9999}'
 ```
 
 This keeps `/mn:ask` and `/mn:health` in lock-step on what "stale" means. Read `date`/`reviewed` from frontmatter only for display context.
@@ -137,12 +125,8 @@ mnemo runs *inside* your coding agent, so for **current-state** questions the co
 Then pull the project's recent history relevant to the query (in the CWD repo, **not** the vault) and cross-check your cited notes:
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" git-log-grep <<'JSON'
-{"term":"{term}"}
-JSON
-python3 "<mnemo-root>/scripts/safe-read.py" git-log-path <<'JSON'
-{"pathspec":"{relevant_path_or_glob}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" git-log-grep <<< '{"term":"{term}"}'
+python3 "<mnemo-root>/scripts/safe-read.py" git-log-path <<< '{"pathspec":"{relevant_path_or_glob}"}'
 ```
 
 If a cited note predates a relevant code change, say so: "⚠️ [[note]] (2026-03-14) predates commit a1b2 (2026-06-20) touching `auth/` — verify against current code." This makes recall agree with reality, not just with old notes.

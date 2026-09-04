@@ -53,14 +53,12 @@ Derive a **planned filename**: `{session_prefix}{YYYY-MM-DD} {short descriptive 
 
 ### Step 2: Duplicate Check (two-level, parallel)
 
-**Run Level 1 and Level 2 in parallel — single assistant message with two shell tool uses.** Use the bundled shell-free helper with quoted JSON heredocs. ~185ms total instead of ~370ms sequential.
+**Run Level 1 and Level 2 in parallel — single assistant message with two shell tool uses.** Use the bundled shell-free helper with single-quoted JSON herestrings (`<<< '…'`). ~185ms total instead of ~370ms sequential.
 
 **Level 1 — exact filename:**
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" read <<'JSON'
-{"file":"{planned-filename}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" read <<< '{"file":"{planned-filename}","vault":"{vault}"}'
 ```
 
 If the read returns content → a note with this EXACT filename already exists. Do NOT silently skip and do NOT auto-overwrite. Offer **append / overwrite / rename**, leading with append/continuation. For continuation use `vault-write.py insert` with a unique copied anchor, or guarded `append` with the exact current tail/hash. Never call `create` for an existing note. Overwrite only if the user is clearly regenerating the same session, and implement it as an exact optimistic replacement rather than a blind file write.
@@ -68,9 +66,7 @@ If the read returns content → a note with this EXACT filename already exists. 
 **Level 2 — related same-day sessions (informational only):**
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" search <<'JSON'
-{"query":"{session_prefix}{YYYY-MM-DD}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" search <<< '{"query":"{session_prefix}{YYYY-MM-DD}","vault":"{vault}"}'
 ```
 
 These are NOT duplicates — same day, different topics. **Doing many sessions in one day is normal: each distinct topic gets its OWN note. A Level-2 same-day match is context, NOT a reason to skip creation or to assume the note already exists** — that mistake silently loses sessions. Show the list to the user so they can:
@@ -92,9 +88,7 @@ cat "<mnemo-root>/assets/session-template.md"
 Then create the note, filling every template placeholder with grounded current-session context. In particular, `{session_type}` and `{session_tag}` come from the taxonomy entry mapped by `taxonomy_roles.session`; `{mapped_moc_note}` uses the prefix from the entry mapped by `taxonomy_roles.moc`; `{session_id}` is runtime-neutral; and `{topic_tags}` contains only validated YAML-safe tag values:
 
 ```bash
-python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"create","vault":"{vault}","note":"{planned filename}","content":"{one JSON-escaped Markdown string with the filled template}"}
-JSON
+python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"create","vault":"{vault}","note":"{planned filename}","content":"{one JSON-escaped Markdown string with the filled template}"}'
 ```
 
 Where `{session_prefix}` comes from the taxonomy entry mapped by `taxonomy_roles.session`, `{links_section}` from `config.links_section`, and the session id comes from `CLAUDE_CODE_SESSION_ID` in Claude Code or `CODEX_THREAD_ID` in Codex (`CLAUDE_SESSION_ID` and `CODEX_SESSION_ID` remain legacy fallbacks; use an empty string if none is available).
@@ -108,9 +102,7 @@ The helper receives Markdown through JSON stdin, never shell syntax or Obsidian 
 **Read MOC through the shell-free CLI adapter:**
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" read <<'JSON'
-{"file":"{MOC name}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" read <<< '{"file":"{MOC name}","vault":"{vault}"}'
 ```
 
 Check if the new session note is listed.
@@ -118,9 +110,7 @@ Check if the new session note is listed.
 **If missing — insert through the same optimistic writer:**
 
 ```bash
-python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"insert","vault":"{vault}","note":"{mapped moc note}","anchor":"{unique stable anchor copied from read}","position":"after","content":"\n- [[{session note name}]] — session context"}
-JSON
+python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"insert","vault":"{vault}","note":"{mapped moc note}","anchor":"{unique stable anchor copied from read}","position":"after","content":"\n- [[{session note name}]] — session context"}'
 ```
 
 If the anchor is missing/non-unique or the file changes during publication, re-read and retry. Never use inline CLI content.
@@ -134,9 +124,7 @@ Why this is the contract and not a preference: when tails were written into the 
 **Upsert this session's pointer line — the handoff index:**
 
 ```bash
-python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"handoff-index-upsert","vault":"{vault}","note":"{handoff_note}","session_note":"{this session's note name}","date":"{YYYY-MM-DD}","project":"{project}","open_count":{count of open items in the session note},"max_kb":{handoff.maxKB},"keep_days":{handoff.keepDays}}
-JSON
+python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"handoff-index-upsert","vault":"{vault}","note":"{handoff_note}","session_note":"{this session note name}","date":"{YYYY-MM-DD}","project":"{project}","open_count":{count of open items in the session note},"max_kb":{handoff.maxKB},"keep_days":{handoff.keepDays}}'
 ```
 
 It writes one line — `- 2026-07-25 · mnemo · open 3 · [[Session — …]]` — and is **idempotent on the session link**: a mid-task checkpoint refreshes its own line instead of appending a twin. Count `open_count` from the session note you just wrote; do not estimate it. Omit `max_kb`/`keep_days` when the config has no `handoff` section; the defaults (56 KiB, 31 days) apply.
@@ -152,9 +140,7 @@ If the handoff note does not exist, create it via `vault-write.py create` with t
 The handoff is a LIVE index, not an archive. After updating it, run the archival helper so closed history doesn't accumulate into a note nothing can read (it no-ops when the note is at/under `handoff.maxKB`):
 
 ```bash
-python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"archive-handoff","vault":"{vault}","note":"{handoff_note}","max_kb":{handoff.maxKB},"keep_days":{handoff.keepDays}}
-JSON
+python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"archive-handoff","vault":"{vault}","note":"{handoff_note}","max_kb":{handoff.maxKB},"keep_days":{handoff.keepDays}}'
 ```
 
 Replace the placeholders with the configured integer values, or omit both keys when the config has no `handoff` section.
@@ -164,9 +150,7 @@ Keeps HOT: entries with an open `- [ ]` + the last `keepDays`. Moves CLOSED olde
 ### Step 6: Orphan Check
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" orphans <<'JSON'
-{"vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" orphans <<< '{"vault":"{vault}"}'
 ```
 
 If the newly created note appears in orphans, it means no `## Связи` links or the MOC didn't get updated.

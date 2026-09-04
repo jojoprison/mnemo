@@ -74,9 +74,7 @@ Depth comes from **structure, not volume.** The unit you retrieve must equal the
 Validate the role map before naming the note: its key set must be exactly `fact`, `insight`, `source`, `session`, and `moc`; every target must name an entry in `config.taxonomy`; and the functional roles must self-map as `session → session` and `moc → moc`. Then resolve `fact`/`decision`/`gotcha` through `taxonomy_roles.fact`, `insight`/`principle`/`pain`/`stance` through `taxonomy_roles.insight`, and `source` through `taxonomy_roles.source`, using the mapped entry's `prefix` and `tag` for the filename/frontmatter (record the narrower semantic type in `kind:` — Step 0b). The W4 types piggyback on the `insight` role exactly as `decision`/`gotcha` piggyback on `fact` — **no `taxonomy_roles` schema change**, so it works on every existing vault without re-`setup`. If the role map is absent and all five legacy Zettelkasten taxonomy keys exist, use the documented deterministic fallback. Otherwise stop this backend and offer `setup` — never infer routing from a human-facing prefix.
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" search <<'JSON'
-{"query":"{key words}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" search <<< '{"query":"{key words}","vault":"{vault}"}'
 ```
 
 If duplicate found → ask: update existing or create new?
@@ -84,9 +82,7 @@ If duplicate found → ask: update existing or create new?
 **Create through the bundled JSON-stdin writer (both runtimes):**
 
 ```bash
-python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"create","vault":"{vault}","note":"{mapped_prefix}{descriptive title}","content":"{one JSON-escaped Markdown string containing frontmatter, body, and links}"}
-JSON
+python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"create","vault":"{vault}","note":"{mapped_prefix}{descriptive title}","content":"{one JSON-escaped Markdown string containing frontmatter, body, and links}"}'
 ```
 
 The Markdown string contains `type: {mapped taxonomy key}`, the mapped configured tag, date/source, an optional `kind:` semantic sub-type and optional `aliases:` (Step 0b + note-quality rules), the body shaped by its typed slot, `{links_section}`, a mapped `moc` link, and useful ghost links. Serialize it as JSON data; do not interpolate it into `obsidian create/append`. The helper discovers the vault via argv-only CLI, then performs a contained atomic create. Backticks, quotes, and `$(...)` remain inert data. A conflict means another writer created the note — re-read instead of overwriting.
@@ -106,9 +102,7 @@ The Markdown string contains `type: {mapped taxonomy key}`, the mapped configure
 **Add to the mapped hub with an optimistic targeted insert:**
 
 ```bash
-python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"insert","vault":"{vault}","note":"{mapped hub note}","anchor":"{unique stable anchor copied from safe-read}","position":"after","content":"\n- [[{note name}]] — {why it belongs here}"}
-JSON
+python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"insert","vault":"{vault}","note":"{mapped hub note}","anchor":"{unique stable anchor copied from safe-read}","position":"after","content":"\n- [[{note name}]] — {why it belongs here}"}'
 ```
 
 If the anchor is missing/non-unique or the note changes during publication, the helper fails closed; re-read and retry. Never fall back to inline CLI content.
@@ -119,12 +113,10 @@ If the anchor is missing/non-unique or the note changes during publication, the 
 
 **Skip if:** `cascade.claude_mem.enabled` is false. This is the default in new installs because many users intentionally disable claude-mem for CPU/RAM reasons.
 
-Use the bundled helper — it auto-detects the claude-mem version for provenance, reads dynamic values as JSON from a quoted heredoc, and sends the HTTP request without a shell. A summary containing quotes, backticks, or `$(...)` remains data. It also bakes in the v12.3.9 gotchas documented below:
+Use the bundled helper — it auto-detects the claude-mem version for provenance, reads dynamic values as JSON from a single-quoted herestring, and sends the HTTP request without a shell. A summary containing quotes, backticks, or `$(...)` remains data. It also bakes in the v12.3.9 gotchas documented below:
 
 ```bash
-python3 "<mnemo-root>/scripts/claude-mem-save.py" <<'JSON'
-{"url":"{claude_mem_url}","type":"{type}","project":"{current project or general}","summary":"{one-line summary of what was saved}","note":"{note name if created}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/claude-mem-save.py" <<< '{"url":"{claude_mem_url}","type":"{type}","project":"{current project or general}","summary":"{one-line summary of what was saved}","note":"{note name if created}","vault":"{vault}"}'
 ```
 
 **API field name (v12.3.9):** the request body key is `text`, not `content`. Earlier versions accepted `content`; as of v12.3.9 the API returns `{"error": "text is required and must be non-empty"}` if you send `content`. Confirmed during v0.7.3 smoke test — verified in claude-mem source.

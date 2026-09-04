@@ -31,9 +31,7 @@ If no argument, ask: "Which note should I analyze for connections?"
 ### Step 2: Read the Note
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" read <<'JSON'
-{"file":"{note_name}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" read <<< '{"file":"{note_name}","vault":"{vault}"}'
 ```
 
 Extract:
@@ -48,14 +46,10 @@ Extract:
 ```bash
 # Run these TWO commands in parallel (single message, two Bash tool uses):
 # 1. One literal scan — much faster than N separate Obsidian searches
-python3 "<mnemo-root>/scripts/safe-read.py" grep-concepts <<'JSON'
-{"vault":"{vault}","concepts":["{concept_1}","{concept_2}","{concept_N}"]}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" grep-concepts <<< '{"vault":"{vault}","concepts":["{concept_1}","{concept_2}","{concept_N}"]}'
 
 # 2. Backlinks check
-python3 "<mnemo-root>/scripts/safe-read.py" backlinks <<'JSON'
-{"file":"{note_name}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" backlinks <<< '{"file":"{note_name}","vault":"{vault}"}'
 ```
 
 Collect matching note paths from the scan output. Exclude the target note itself. Backlinks output → notes already connected (exclude from suggestions).
@@ -109,9 +103,7 @@ If the user confirms (Step 5) — or auto-apply mode is active (Step 5.5):
 2. Apply the confirmed block through the bundled writer:
 
 ```bash
-python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"insert","vault":"{vault}","note":"{target note}","anchor":"{unique anchor copied from safe-read}","position":"after","content":"{one JSON-escaped Markdown block containing only confirmed contextual links}"}
-JSON
+python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"insert","vault":"{vault}","note":"{target note}","anchor":"{unique anchor copied from safe-read}","position":"after","content":"{one JSON-escaped Markdown block containing only confirmed contextual links}"}'
 ```
 
 3. If a mapped hub suggestion was confirmed, repeat the same exact-anchor insert for the note reached through `taxonomy_roles.moc`.
@@ -124,9 +116,7 @@ If an anchor is missing/non-unique or a concurrent edit wins, re-read and retry 
 - **Radius-2 (Scrapbox/Cosense-style):** two notes sharing ≥2 of the target's links are likely related even without shared text. If text search yields <3 results or user asks `--deep`, run:
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" shared-targets <<'JSON'
-{"note_path":"{note_path}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" shared-targets <<< '{"note_path":"{note_path}","vault":"{vault}"}'
 ```
 
 - **KJ-Canvas (bottom-up hub, 川喜田 affinity):** for `--canvas {topic}` — gather notes mapped to the `fact` role, drop them onto an Obsidian Canvas without categories, and let the user group spatially so structure emerges. Then name clusters → new `insight` notes / mapped-hub revision. In the default taxonomy those are Atoms, Molecules, and a MOC.

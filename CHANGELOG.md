@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **mnemo did not work at all inside a git worktree, and the error looked like a broken tool.** Every skill passed its JSON payload through a quoted heredoc; Claude Code's worktree guard cannot prove a heredoc stays inside the worktree and refuses the whole command, so `ask`, `save`, `session`, `connect`, `health` and `setup` all died on their first script call with `too complex to verify`. Measured 2026-09-04: the guard rejects **the heredoc specifically** — two `echo` lines in one call run fine, so multi-line commands were never the problem. All 45 payload blocks across six skills and two reference files now use a **single-quoted herestring** (`<<< '{…}'`), which is one line and keeps the shell out of the payload exactly as the quoted heredoc did. `echo '…' |` was rejected as the replacement: some shells interpret escape sequences there, and `insert` payloads legitimately begin with `\n`. The scripts themselves are unchanged — they already read JSON from stdin. The one form that still needs care is a payload containing a single quote (it closes the shell literal); `references/gotchas.md` now documents the file-redirect workaround, and the one placeholder that carried an apostrophe was reworded.
+
 ## [1.2.17] - 2026-08-21
 
 ### Added
