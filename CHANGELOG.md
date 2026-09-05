@@ -1055,7 +1055,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - MIT License
 
 <!-- 2026-08-21: v0.1.0, v0.4.0, v0.5.8 and v0.8.0 shipped without a git tag (as did 1.2.11), so they have no link here and the neighbouring compare-links span the gap. Restore a link only together with a retro-tag. -->
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.17...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.18...HEAD
+[1.2.18]: https://github.com/jojoprison/mnemo/compare/v1.2.17...v1.2.18
 [1.2.17]: https://github.com/jojoprison/mnemo/compare/v1.2.16...v1.2.17
 [1.2.16]: https://github.com/jojoprison/mnemo/compare/v1.2.15...v1.2.16
 [1.2.15]: https://github.com/jojoprison/mnemo/compare/v1.2.14...v1.2.15
