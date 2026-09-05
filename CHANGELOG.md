@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [1.2.18] - 2026-09-05
+
 ### Fixed
 
 - **mnemo did not work at all inside a git worktree, and the error looked like a broken tool.** Every skill passed its JSON payload through a quoted heredoc; Claude Code's worktree guard cannot prove a heredoc stays inside the worktree and refuses the whole command, so `ask`, `save`, `session`, `connect`, `health` and `setup` all died on their first script call with `too complex to verify`. Measured 2026-09-04: the guard rejects **the heredoc specifically** — two `echo` lines in one call run fine, so multi-line commands were never the problem. All 45 payload blocks across six skills and two reference files now use a **single-quoted herestring** (`<<< '{…}'`), which is one line and keeps the shell out of the payload exactly as the quoted heredoc did. `echo '…' |` was rejected as the replacement: some shells interpret escape sequences there, and `insert` payloads legitimately begin with `\n`. The scripts themselves are unchanged — they already read JSON from stdin. The one form that still needs care is a payload containing a single quote (it closes the shell literal); `references/gotchas.md` now documents the file-redirect workaround, and the one placeholder that carried an apostrophe was reworded.
@@ -1053,7 +1055,8 @@ Frontmatter now includes `session_id: {CLAUDE_SESSION_ID}` — disambiguates sam
 - MIT License
 
 <!-- 2026-08-21: v0.1.0, v0.4.0, v0.5.8 and v0.8.0 shipped without a git tag (as did 1.2.11), so they have no link here and the neighbouring compare-links span the gap. Restore a link only together with a retro-tag. -->
-[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.17...HEAD
+[Unreleased]: https://github.com/jojoprison/mnemo/compare/v1.2.18...HEAD
+[1.2.18]: https://github.com/jojoprison/mnemo/compare/v1.2.17...v1.2.18
 [1.2.17]: https://github.com/jojoprison/mnemo/compare/v1.2.16...v1.2.17
 [1.2.16]: https://github.com/jojoprison/mnemo/compare/v1.2.15...v1.2.16
 [1.2.15]: https://github.com/jojoprison/mnemo/compare/v1.2.14...v1.2.15
