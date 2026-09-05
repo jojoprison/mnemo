@@ -36,9 +36,7 @@ What's your Obsidian vault name?
 
 Verify vault exists:
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" search <<'JSON'
-{"query":"test","vault":"{input}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" search <<< '{"query":"test","vault":"{input}"}'
 ```
 
 If error → "Vault not found. Is Obsidian open? Check the vault name."
@@ -193,17 +191,13 @@ Use the Step 4.5 answer for `recall.runtimeMemory.enabled`; the JSON above shows
 First check — skip this step entirely if the handoff note already exists:
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" read <<'JSON'
-{"file":"{handoff_note}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" read <<< '{"file":"{handoff_note}","vault":"{vault}"}'
 ```
 
 If empty output, create through the bundled shell-free writer in either runtime:
 
 ```bash
-python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"create","vault":"{vault}","note":"Meta — Session Handoff","content":"{one JSON-escaped Markdown string: meta frontmatter, an H1, and one line stating that this note is an index of pointers to session notes — the last handoff.keepDays days — not a store of open work}"}
-JSON
+python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"create","vault":"{vault}","note":"Meta — Session Handoff","content":"{one JSON-escaped Markdown string: meta frontmatter, an H1, and one line stating that this note is an index of pointers to session notes — the last handoff.keepDays days — not a store of open work}"}'
 ```
 
 `create` is exclusive and atomic. If it reports `conflict`, re-read the note rather than overwriting it.
@@ -217,9 +211,7 @@ Offer: "Create a hub note for short-name navigation? E.g. `[[ProjectName]]` → 
 If user confirms, resolve `taxonomy_roles.moc` to its configured prefix and create through the same writer:
 
 ```bash
-python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-{"action":"create","vault":"{vault}","note":"{short-name}","content":"{one JSON-escaped Markdown hub body linking to the mapped moc note}"}
-JSON
+python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"create","vault":"{vault}","note":"{short-name}","content":"{one JSON-escaped Markdown hub body linking to the mapped moc note}"}'
 ```
 
 Skip if a file with that name already exists (`obsidian read` returns content). Note name must not contain `#` / `.` / `/` (see `<mnemo-root>/references/tool-routing.md` naming rules).

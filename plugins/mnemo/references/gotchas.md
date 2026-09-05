@@ -43,10 +43,26 @@ ls ~/.claude/plugins/cache/thedotmack/claude-mem/
 **Don't** pass generated markdown through `obsidian create content="..."` or `obsidian append content="..."` from Bash. Also don't paste a vault-derived note name, query, concept, prefix, or path into a read/index command. zsh expands backticks, `$()`, and variables inside generated double-quoted literals; a generated `"` can close the argument and expose shell separators. A real 2026-04-21 incident accidentally ran `make deploy-back` on production because a session note contained a bash code block.
 
 **Use instead:**
-- `<mnemo-root>/scripts/vault-write.py <<'JSON' ... JSON` for create/replace/insert/guarded append — content passes as JSON stdin, shell uninvolved, writes are optimistic and atomic
-- `<mnemo-root>/scripts/safe-read.py ACTION <<'JSON' ... JSON` for dynamic reads/index queries — strict action allowlist + argv (`shell=False`) + safe JS literals
+- `<mnemo-root>/scripts/vault-write.py <<< '{…}'` for create/replace/insert/guarded append — content passes as JSON stdin, shell uninvolved, writes are optimistic and atomic
+- `<mnemo-root>/scripts/safe-read.py ACTION <<< '{…}'` for dynamic reads/index queries — strict action allowlist + argv (`shell=False`) + safe JS literals
 
 **Direct CLI is safe only when the entire command is a static, human-authored literal.** Canonical skills use `safe-read.py` even for `search`, `read`, `orphans`, `backlinks`, `tags`, and `vault`, because their vault/query/note arguments are dynamic. Generated wikilink appends go through `vault-write.py insert` or its guarded append action.
+
+## A worktree-isolated session refuses heredocs — the input form is a herestring
+
+**Symptom:** every bundled-script call dies with `This session is isolated in the worktree …, but this command is too complex to verify that it stays inside the worktree. Refusing to run it`. Nothing in mnemo works — not `ask`, not `save`, not `session` — and the message reads like a broken tool rather than a refused input form, so the fix is easy to look for in the wrong place.
+
+**Cause:** Claude Code's worktree guard cannot statically prove a heredoc (`<<'JSON'`) stays inside the worktree, so it rejects the whole command. Measured 2026-09-04: it is the **heredoc specifically**, not multi-line commands — two `echo` lines in one call run fine, and the same payload piped in works. The guard rejects `python3 -c "…"` with a path built from a shell variable for the same reason.
+
+**Canonical form — a single-quoted herestring:**
+
+```bash
+python3 "<mnemo-root>/scripts/safe-read.py" ACTION <<< '{"vault":"main"}'
+```
+
+One line, so the guard accepts it. Single quotes keep the shell out of the payload exactly as the quoted heredoc did — backticks, `$()` and quotes stay inert data. Prefer it over `echo '…' | python3 …`: `echo` in some shells interprets escape sequences, and `insert` payloads legitimately start with `\n`, which `echo` would turn into a real newline and corrupt the JSON.
+
+**One limitation, and its workaround:** a single quote inside the payload closes the shell literal. JSON does not require escaping `'`, so a note named `Kate's plan` breaks the form. When a value contains `'`, write the JSON with the Write tool (no shell involved) and redirect the file in: `python3 script.py ACTION < /path/payload.json`.
 
 ## claude-mem worker not responding on 127.0.0.1:37777
 
@@ -78,14 +94,10 @@ The writer resolves the named vault through the Obsidian CLI before opening it s
 
 ```bash
 # Top broken targets:
-python3 "<mnemo-root>/scripts/safe-read.py" top-unresolved <<'JSON'
-{"vault":"main"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" top-unresolved <<< '{"vault":"main"}'
 
 # Real backlink count for one note:
-python3 "<mnemo-root>/scripts/safe-read.py" resolved-backlink-count <<'JSON'
-{"target":"TARGET.md","vault":"main"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" resolved-backlink-count <<< '{"target":"TARGET.md","vault":"main"}'
 ```
 
 Treat CLI graph counts as **advisory** if notes were created/edited in the same session. `health` and `review` should prefer `eval` for critical resolution checks.

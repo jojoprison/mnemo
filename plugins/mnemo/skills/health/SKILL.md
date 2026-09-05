@@ -23,7 +23,7 @@ Obsidian must be open; `obsidian` CLI on PATH. Config at `~/.mnemo/config.json` 
 
 ## Workflow
 
-**Steps 1-4 run in parallel** — single assistant message batching the independent indexed reads (orphans, unresolved, tag counts; Step 4 reuses Step 3's tag output, no extra call). Use the bundled shell-free helper with quoted JSON heredocs for every dynamic value. These queries take ~180ms total vs ~720ms sequential.
+**Steps 1-4 run in parallel** — single assistant message batching the independent indexed reads (orphans, unresolved, tag counts; Step 4 reuses Step 3's tag output, no extra call). Use the bundled shell-free helper with single-quoted JSON herestrings (`<<< '…'`) for every dynamic value. These queries take ~180ms total vs ~720ms sequential.
 
 ### Step 0: claude-mem Sanity Check (optional, ~20ms)
 
@@ -45,9 +45,7 @@ Script emits three lines: `version: X`, `stale: N`, `path: ...`. Interpret:
 When `recall.runtimeMemory.enabled` is `true`, report whether the other runtime's project memory can be mapped safely. Run only the helper's metadata-projection status probe: it decodes and retains project/scope metadata only (bounded raw bytes may be streamed past to locate later headers), and it never returns or summarizes counterpart body content during a health audit:
 
 ```bash
-python3 "<mnemo-root>/scripts/runtime-memory.py" status <<'JSON'
-{"runtime":"{claude|codex}"}
-JSON
+python3 "<mnemo-root>/scripts/runtime-memory.py" status <<< '{"runtime":"{claude|codex}"}'
 ```
 
 Pass the active runtime. `available` means the helper proved an exact same-repository mapping; `unavailable` is not corruption and must not trigger repair, copying, broad scans, or claude-mem startup. Omit the report line when the feature is disabled.
@@ -57,9 +55,7 @@ The report names **only the counterpart runtime** represented by this probe: act
 ### Step 1: Orphan Detection
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" orphans <<'JSON'
-{"vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" orphans <<< '{"vault":"{vault}"}'
 ```
 
 List notes with zero backlinks. These are invisible in Graph View.
@@ -67,9 +63,7 @@ List notes with zero backlinks. These are invisible in Graph View.
 ### Step 2: Unresolved Links (Ghost Notes)
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" unresolved <<'JSON'
-{"vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" unresolved <<< '{"vault":"{vault}"}'
 ```
 
 Show `[[wikilinks]]` pointing to non-existent files. Ghost notes are NORMAL (entity discovery) — don't flag on raw count alone.
@@ -77,9 +71,7 @@ Show `[[wikilinks]]` pointing to non-existent files. Ghost notes are NORMAL (ent
 **Actionable — top unresolved targets = missing hub notes** (via `obsidian eval`, authoritative; CLI `unresolved` can lag/lie — see `<mnemo-root>/references/gotchas.md`):
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" top-unresolved <<'JSON'
-{"vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" top-unresolved <<< '{"vault":"{vault}"}'
 ```
 
 A short name with many refs (e.g. `[[Diadoc]]` ×30) = create a hub note `Diadoc.md` → `[[{configured moc prefix}…]]` so all those links resolve (alias doesn't work for bare links — by design).
@@ -87,9 +79,7 @@ A short name with many refs (e.g. `[[Diadoc]]` ×30) = create a hub note `Diadoc
 ### Step 3: Tag Distribution
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" tags <<'JSON'
-{"vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" tags <<< '{"vault":"{vault}"}'
 ```
 
 Show top 15 tags. Flag tags used only once (potential typos).
@@ -105,9 +95,7 @@ For the per-type `roles` column, invert the validated map mechanically: `mapped_
 Total notes count:
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" files-total <<'JSON'
-{"vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" files-total <<< '{"vault":"{vault}"}'
 ```
 
 ### Step 5: Missing Links Section (batched grep — 3600x faster)
@@ -115,9 +103,7 @@ JSON
 **Do NOT loop `obsidian read` per file** — on a 1000-note vault that's ~180s. Use the helper's single filesystem pass.
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" missing-links <<'JSON'
-{"vault":"{vault}","links_section":"{links_section}","prefixes":["{prefix_1}","{prefix_2}","{prefix_N}"]}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" missing-links <<< '{"vault":"{vault}","links_section":"{links_section}","prefixes":["{prefix_1}","{prefix_2}","{prefix_N}"]}'
 ```
 
 Replace the placeholders in `prefixes` with **every configured taxonomy prefix** from `config.taxonomy`; do not silently omit a custom note type.
@@ -129,9 +115,7 @@ Report notes missing the section.
 ### Step 6: Bad Filenames (`#` or `.` in the filename stem)
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" bad-filenames <<'JSON'
-{"vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" bad-filenames <<< '{"vault":"{vault}"}'
 ```
 
 Files with `#` in the name are **permanent orphans** — `[[Note #1]]` parses as `[[Note]]` + heading anchor `#1`, so nothing resolves to them (even existing links). Flag for rename (`#` → `—` or drop the `#`). Same for `.` mid-name (breaks CLI create). See `<mnemo-root>/references/tool-routing.md` (naming rules).
@@ -141,9 +125,7 @@ Files with `#` in the name are **permanent orphans** — `[[Note #1]]` parses as
 A *temporal* signal, distinct from orphans (Step 1, which is *structural*): notes untouched longer than the threshold **for their type** are candidates for a re-read. Threshold precedence: per-note `ttl: <days>` → `review.staleDays.<type>` → `review.staleDays.default` → `30` (legacy). Age is measured from the newest of `date` or `reviewed` — so stamping `reviewed: {today}` on a still-valid note **resets its clock**. That snooze is what stops a stale list from rotting into guilt-debt (the canonical failure mode of review dates — see Gotchas).
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" review-candidates <<'JSON'
-{"vault":"{vault}","limit":30}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" review-candidates <<< '{"vault":"{vault}","limit":30}'
 ```
 
 Output: `CANDIDATES\t{n}`, then `THRESHOLDS\t{json}`, then one tab-separated row per note (`{overdue_days}  {type}  {anchor_date}  {anchor_src}  {threshold_days}  {relpath}`), most-overdue first. `{threshold_days}` is the budget actually applied to that note (per-note `ttl:` if set, else its type's `staleDays`, else default) — show it as `(type, Nd budget)`, never invent a `ttl`. Pure filesystem — independent of the obsidian CLI graph cache (no lag/lie risk). A missing `review` config section reproduces the legacy uniform 30-day behavior, so this is safe before any config migration.
@@ -165,9 +147,7 @@ Emit a verdict per candidate:
 - **still-valid** → close the loop: stamp `reviewed: {today}` into the note's **leading frontmatter** with the bundled optimistic writer. Read the note first, then replace the exact leading frontmatter block (never a `date:`/`reviewed:` mention in the body) with the same block containing the updated field:
 
   ```bash
-  python3 "<mnemo-root>/scripts/vault-write.py" <<'JSON'
-  {"action":"replace","vault":"{vault}","note":"{candidate note}","old_str":"{exact leading frontmatter block copied from safe-read}","new_str":"{same JSON-escaped frontmatter block with reviewed: today}"}
-  JSON
+  python3 "<mnemo-root>/scripts/vault-write.py" <<< '{"action":"replace","vault":"{vault}","note":"{candidate note}","old_str":"{exact leading frontmatter block copied from safe-read}","new_str":"{same JSON-escaped frontmatter block with reviewed: today}"}'
   ```
 
   This exact-one replacement fails closed if the note changed after the read. A confirmed-valid note then stops resurfacing without a manual edit. This auto-stamp is **on by default** (`config.json` → `review.lint.autoStampReviewed`, default **true**); **only if the user set it to `false`** do you just *recommend* the stamp and write nothing. When the lint runs in a spawned subagent (model ≠ haiku), that subagent does the stamping — it already holds the verdict and the note path. If a stamp write fails (Obsidian offline, concurrent edit, or validation failure), don't drop it silently — collect those note paths and surface them under the Content lint report block so the user can stamp them manually.
@@ -228,17 +208,13 @@ Report-only, permanently. Closing someone's open item is a decision about their 
 Resolve the `moc` semantic role through `taxonomy_roles`, enumerate notes by that mapped type's configured prefix, then count backlinks for each:
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" moc-names <<'JSON'
-{"vault":"{vault}","prefix":"{moc_prefix}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" moc-names <<< '{"vault":"{vault}","prefix":"{moc_prefix}"}'
 ```
 
 For each enumerated hub name, count backlinks:
 
 ```bash
-python3 "<mnemo-root>/scripts/safe-read.py" backlinks <<'JSON'
-{"file":"{moc_name}","vault":"{vault}"}
-JSON
+python3 "<mnemo-root>/scripts/safe-read.py" backlinks <<< '{"file":"{moc_name}","vault":"{vault}"}'
 ```
 
 Sort by count, show top 5. **Keep the enumerated hub-name list** — Step 8.5 reuses it to find topics that have no mapped `moc` note.
@@ -320,9 +296,7 @@ Both Claude-specific lines are conditional: skip the `⚠️ claude-mem` line if
 In Claude Code, separate from the Obsidian vault, an **always-loaded** index lives at the discoverable auto-memory directory's `MEMORY.md`. Claude's current loader includes only the first **200 loaded-content lines or 25,000 loaded-content bytes**; leading YAML frontmatter and block-level HTML comments are stripped before those limits are counted. Warn *early* (before either cliff), not at some lax raw-file size. The early byte threshold is configurable via `config.json` → `memory.indexWarnKB` (default **22**). Use the bounded metadata-only helper so `CLAUDE_CONFIG_DIR`, discoverable settings, and auto-memory disable controls share the same fail-closed path resolution as cross-runtime recall:
 
 ```bash
-python3 "<mnemo-root>/scripts/runtime-memory.py" claude-index-status <<'JSON'
-{}
-JSON
+python3 "<mnemo-root>/scripts/runtime-memory.py" claude-index-status <<< '{}'
 ```
 
 The JSON returns only availability, reason, verified directory, raw and loaded-content byte/line counts, both hard limits, configured early threshold, and typed warning reasons — never index text. Treat `hard_byte_limit` and `hard_line_limit` as loader-limit failures and `early_byte_threshold` as the configurable early warning. If unavailable, report the reason without guessing another project or scanning `~/.claude/projects/` broadly. The helper cannot observe managed-policy or ad-hoc `--settings` inputs, so report its path as **discoverable**, not guaranteed effective, when those scopes may apply.
