@@ -82,6 +82,24 @@ Nothing is rewritten; the output is a worklist. Natural home is **`mn:health`** 
 
 ---
 
+## 🟡 P3 — `review --full` reports temporary files that hold unsaved knowledge
+
+**What.** `review --full` audits the conversation and git, but not the session's temporary files: the agent's scratchpad, background-task output, and gitignored files in a worktree. Those are where research digests, review findings and one-off scripts live — and they disappear on their own (the system cleans the scratchpad; removing a worktree silently deletes its gitignored files).
+
+**Why now.** A review of end-of-session tools (2026-10-25) found none that promotes temporary files into durable memory; every tool covers the plan, docs and git, and stops there. Unread subagent output is also where a refutation of an already-recorded decision tends to hide.
+
+**Minimal shape.** One report-only step in `review --full`: list the scratchpad and task-output files of this session, mark each as *already saved* (a note or file covers it) or *not found anywhere*, and put the second group into the residual-gap list as *"`digest.txt` holds findings not found in the vault — save?"*. No reading of secrets, no deletion, no copying.
+
+**On-philosophy.** Report-only, the same pattern as the research-gap candidates in `health`: point at the gap, never fill it. Nothing is written or removed; the user decides what to save.
+
+**Open questions.**
+- **Where the scratchpad is:** Claude Code names it in the system prompt; Codex has no equivalent — the step may be Claude-only, or take the path as an argument.
+- **"Already saved" test:** filename match is too weak, full-text match too slow on a large vault; a few distinctive lines per file is the likely middle.
+
+**Origin.** End-of-session cleanup built as a separate personal skill outside mnemo (2026-10-25). Moving temporary files into durable memory was the one step no surveyed tool did, and the report-only half of it fits mnemo's principle.
+
+---
+
 ## 🟠 P2 — re-verify the premise under `hooks.sessionStartNudge` (it was measured on a model that behaves differently now)
 
 **What.** `sessionStartNudge` ships **default-on**, and `design-decisions.md` § "Proactive nudges via hooks (v1.1.1)" justifies it verbatim with: *"Descriptions get an agent to consider mnemo, but Opus 4.8 / Fable 5 under-trigger skills."* That premise was measured in July 2026 against the then-current flagship. It has not been re-measured since, and the flagship has changed — so a default-on behaviour now rests on an unverified condition.
