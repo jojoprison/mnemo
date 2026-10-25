@@ -14,18 +14,10 @@ on:
       - "scripts/verify-release.py"
       - ".github/workflows/skill-lint.yml"
       - ".github/workflows/release.yml"
+  # No paths filter on PRs: `lint` is a required check on main, and a filtered
+  # workflow never reports on a PR outside its paths — a docs-only PR would wait
+  # for it forever and could never merge.
   pull_request:
-    paths:
-      - "plugins/**"
-      - ".claude-plugin/marketplace.json"
-      - ".agents/plugins/marketplace.json"
-      - "config.example.json"
-      - "CHANGELOG.md"
-      - "scripts/lint-skills.py"
-      - "scripts/test-*.py"
-      - "scripts/verify-release.py"
-      - ".github/workflows/skill-lint.yml"
-      - ".github/workflows/release.yml"
 
 jobs:
   lint:

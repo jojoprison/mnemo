@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **A docs-only PR could never merge.** `lint` is a required check on `main`, but `skill-lint.yml` ran on PRs only when they touched the plugin, manifests or tests. On any other PR the check never started, so the branch protection waited for it forever. The workflow now runs on every PR; the `push` trigger keeps its path filter.
+
 ## [1.2.18] - 2026-09-05
 
 ### Fixed
